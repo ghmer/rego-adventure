@@ -1,0 +1,7 @@
+bin/
+.git/
+.gitignore
+Dockerfile
+build.sh
+*.md
+docu/
