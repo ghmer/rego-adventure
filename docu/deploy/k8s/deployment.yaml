@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rego-adventure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rego-adventure
+  template:
+    metadata:
+      labels:
+        app: rego-adventure
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: rego-adventure
+          image: YOUR_REGISTRY/rego-adventure:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: rego-config
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+            # Uncomment to override the impressum page with a custom version
+            # Option 1: Using a ConfigMap (recommended)
+            # - name: impressum-volume
+            #   mountPath: /app/frontend/adventure/impressum.html
+            #   subPath: impressum.html
+            #   readOnly: true
+            # Option 2: Using a PersistentVolume
+            # - name: impressum-pv
+            #   mountPath: /app/frontend/adventure/impressum.html
+            #   subPath: impressum.html
+            #   readOnly: true
+          securityContext:
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+        # Uncomment to use a ConfigMap for custom impressum content
+        # First create the ConfigMap:
+        # kubectl create configmap impressum-html --from-file=impressum.html=./custom-impressum.html
+        # - name: impressum-volume
+        #   configMap:
+        #     name: impressum-html
+        # Uncomment to use a PersistentVolume for custom impressum content
+        # - name: impressum-pv
+        #   persistentVolumeClaim:
+        #     claimName: impressum-pvc

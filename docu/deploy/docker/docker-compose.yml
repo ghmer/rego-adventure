@@ -1,0 +1,56 @@
+services:
+  rego-adventure:
+    image: YOUR_REGISTRY/rego-adventure:latest
+    container_name: rego-adventure
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - PORT=8080
+      - GIN_MODE=release
+      - DOMAIN=https://rego.mydomain.local
+      # Impressum/Legal Notice Configuration
+      # Set to "true" to enable the impressum page link in the footer
+      # Remember to customize the impressum.html file with your legal information
+      - SHOW_IMPRESSUM=false
+      # Authentication Configuration (Disabled by default)
+      - AUTH_ENABLED=false
+      - AUTH_ISSUER=https://your-idp.local
+      - AUTH_DISCOVERY_URL=https://your-idp.local/.well-known/openid-configuration
+      - AUTH_CLIENT_ID=your-client-id
+      - AUTH_AUDIENCE=your-audience
+      # Trusted Proxies Configuration
+      # Uncomment and configure if running behind a reverse proxy or load balancer
+      # Comma-separated list of CIDR ranges for trusted proxies
+      # Common examples:
+      # - Docker bridge network: 172.16.0.0/12
+      # - Private networks: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      # - Specific proxy IP: 192.168.1.100/32
+      # IMPORTANT: Only trust proxies from known networks for security
+      - TRUSTED_PROXIES=172.16.7.1/32
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    tmpfs:
+      - /tmp
+    # Volumes Configuration
+    # Uncomment to override the impressum page with your custom version
+    # Create a custom-impressum.html file with your actual legal information
+    # volumes:
+    #   - ./custom-impressum.html:/app/frontend/adventure/impressum.html:ro
+    restart: unless-stopped
+
+networks:
+  backend:
+      external: false
+      ipam:
+        driver: default
+        config:
+          - subnet: 172.16.7.0/24

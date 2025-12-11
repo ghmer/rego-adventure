@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rego-config
+data:
+  PORT: "8080"
+  GIN_MODE: "release"
+  DOMAIN: "https://rego.mydomain.local"
+  # Impressum/Legal Notice Configuration
+  # Set to "true" to enable the impressum page link in the footer
+  # Remember to customize the impressum.html file with your legal information
+  # See deployment.yaml for volume mount options to override the default template
+  SHOW_IMPRESSUM: "false"
+  AUTH_ENABLED: "false"
+  AUTH_ISSUER: "https://your-idp.local"
+  AUTH_DISCOVERY_URL: "https://your-idp.local/.well-known/openid-configuration"
+  AUTH_CLIENT_ID: "your-client-id"
+  AUTH_AUDIENCE: "your-audience"
+  # Trusted Proxies Configuration
+  # Comma-separated list of CIDR ranges for trusted proxies
+  # Common Kubernetes pod network ranges (adjust based on your cluster configuration):
+  # - 10.0.0.0/8: Common for many Kubernetes clusters
+  # - 172.16.0.0/12: Docker default bridge network range
+  # - 192.168.0.0/16: Private network range
+  # Example: "10.0.0.0/8,172.16.0.0/12"
+  # Leave empty or comment out to disable trusted proxies (default behavior)
+  TRUSTED_PROXIES: "10.0.0.0/8"
