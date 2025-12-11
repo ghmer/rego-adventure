@@ -1,0 +1,329 @@
+<!--
+  Copyright 2025 Mario Enrico Ragucci
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quest Editor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <h1><i class="fas fa-sword"></i> Quest Editor</h1>
+            <span class="file-indicator" id="fileIndicator">No file loaded</span>
+        </div>
+        <div class="top-bar-right">
+            <span class="quest-count" id="questCount">0 quests</span>
+            <label for="fileInput" class="visually-hidden">Load quest file</label>
+            <input type="file" id="fileInput" accept=".json" class="hidden" aria-label="Load quest JSON file">
+            <button id="loadBtn" class="btn btn-primary" title="Load a quest file"><i class="fas fa-folder-open"></i> Load</button>
+            <button id="saveBtn" class="btn btn-success" disabled title="Save changes to quest file"><i class="fas fa-save"></i> Save</button>
+        </div>
+    </header>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state">
+        <div class="empty-state-content">
+            <div class="empty-state-icon"><i class="fas fa-folder"></i></div>
+            <h2>No Quest File Loaded</h2>
+            <p>Load a quests.json file to begin editing your adventure</p>
+            <button id="loadBtnEmpty" class="btn btn-primary btn-large" title="Load a quest file to begin editing"><i class="fas fa-folder-open"></i> Load Quest File</button>
+        </div>
+    </div>
+
+    <!-- Main Editor Layout -->
+    <div id="editorLayout" class="editor-layout hidden">
+        <!-- Sidebar Navigation -->
+        <aside id="quest-navigation" class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-header">
+                    <h3><i class="fas fa-clipboard-list"></i> Global Settings</h3>
+                </div>
+                <nav class="sidebar-nav">
+                    <a href="#" class="nav-item active" data-view="meta">
+                        <span class="nav-icon"><i class="fas fa-info-circle"></i></span>
+                        <span class="nav-label">Meta Info</span>
+                    </a>
+                    <a href="#" class="nav-item" data-view="ui-labels">
+                        <span class="nav-icon"><i class="fas fa-tags"></i></span>
+                        <span class="nav-label">UI Labels</span>
+                    </a>
+                    <a href="#" class="nav-item" data-view="prologue">
+                        <span class="nav-icon"><i class="fas fa-book-open"></i></span>
+                        <span class="nav-label">Prologue</span>
+                    </a>
+                    <a href="#" class="nav-item" data-view="epilogue">
+                        <span class="nav-icon"><i class="fas fa-flag-checkered"></i></span>
+                        <span class="nav-label">Epilogue</span>
+                    </a>
+                </nav>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-header">
+                    <h3><i class="fas fa-bullseye"></i> Quests</h3>
+                    <button class="btn-icon" id="addQuestBtn" title="Add Quest"><i class="fas fa-plus"></i></button>
+                </div>
+                <nav class="sidebar-nav" id="questNav">
+                    <!-- Quest items will be dynamically added here -->
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main id="main-editor" class="main-content">
+            <!-- Meta View -->
+            <div class="content-view active" id="view-meta">
+                <div class="content-header">
+                    <h2><i class="fas fa-info-circle"></i> Meta Information</h2>
+                    <p class="content-description">Configure the basic information about your quest adventure</p>
+                </div>
+                <div class="content-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="meta-title">Title</label>
+                            <input type="text" id="meta-title" class="form-control" placeholder="Adventure title">
+                        </div>
+                        <div class="form-group">
+                            <label for="meta-genre">Genre</label>
+                            <input type="text" id="meta-genre" class="form-control" placeholder="e.g., Fantasy, Sci-Fi">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="meta-description">Description</label>
+                            <input type="text" id="meta-description" class="form-control" placeholder="Brief description">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="meta-initial_objective">Initial Objective</label>
+                            <input type="text" id="meta-initial_objective" class="form-control" placeholder="Starting objective">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="meta-final_objective">Final Objective</label>
+                            <input type="text" id="meta-final_objective" class="form-control" placeholder="Ending objective">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- UI Labels View -->
+            <div class="content-view" id="view-ui-labels">
+                <div class="content-header">
+                    <h2><i class="fas fa-tags"></i> UI Labels</h2>
+                    <p class="content-description">Configure dynamic UI labels and messages for your theme</p>
+                </div>
+                <div class="content-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ui_labels-grimoire_title">Grimoire Title</label>
+                            <input type="text" id="ui_labels-grimoire_title" class="form-control" placeholder="Policy Grimoire">
+                            <small class="form-hint">Title shown above the code editor</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_labels-hint_button">Hint Button Text</label>
+                            <input type="text" id="ui_labels-hint_button" class="form-control" placeholder="Ask Advisor">
+                            <small class="form-hint">Text for the hint/advisor button</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_labels-verify_button">Verify Button Text</label>
+                            <input type="text" id="ui_labels-verify_button" class="form-control" placeholder="Apply Policy">
+                            <small class="form-hint">Text for the verify/submit button</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_labels-message_success">Success Message</label>
+                            <input type="text" id="ui_labels-message_success" class="form-control" placeholder="Quest completed!">
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_labels-message_failure">Failure Message</label>
+                            <input type="text" id="ui_labels-message_failure" class="form-control" placeholder="Quest failed">
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_labels-perfect_score_button_text">Perfect Score Button Text</label>
+                            <input type="text" id="ui_labels-perfect_score_button_text" class="form-control" placeholder="A Secret Awaits...">
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_labels-begin_adventure_button">Begin Adventure Button Text</label>
+                            <input type="text" id="ui_labels-begin_adventure_button" class="form-control" placeholder="Begin Adventure">
+                            <small class="form-hint">Text for the button that starts the adventure from prologue</small>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="ui_labels-perfect_score_message">Perfect Score Message</label>
+                            <textarea id="ui_labels-perfect_score_message" class="form-control" rows="3" placeholder="Congratulations on a perfect score!"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prologue View -->
+            <div class="content-view" id="view-prologue">
+                <div class="content-header">
+                    <h2><i class="fas fa-book-open"></i> Prologue</h2>
+                    <p class="content-description">Story elements shown at the beginning of the adventure</p>
+                    <button class="btn btn-secondary" id="addPrologueBtn" title="Add a new prologue item"><i class="fas fa-plus"></i> Add Prologue Item</button>
+                </div>
+                <div class="content-body">
+                    <div id="prologueList" class="item-list"></div>
+                </div>
+            </div>
+
+            <!-- Epilogue View -->
+            <div class="content-view" id="view-epilogue">
+                <div class="content-header">
+                    <h2><i class="fas fa-flag-checkered"></i> Epilogue</h2>
+                    <p class="content-description">Story elements shown at the end of the adventure</p>
+                    <button class="btn btn-secondary" id="addEpilogueBtn" title="Add a new epilogue item"><i class="fas fa-plus"></i> Add Epilogue Item</button>
+                </div>
+                <div class="content-body">
+                    <div id="epilogueList" class="item-list"></div>
+                </div>
+            </div>
+
+            <!-- Quest Detail View (Template) -->
+            <div class="content-view quest-view" id="view-quest-template">
+                <div class="content-header">
+                    <h2 id="questViewTitle">Quest Details</h2>
+                    <button class="btn btn-danger" id="deleteQuestBtn" title="Delete this quest"><i class="fas fa-trash"></i> Delete Quest</button>
+                </div>
+                
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="details" title="Edit quest details"><i class="fas fa-edit"></i> Details</button>
+                    <button class="tab-btn" data-tab="lore" title="Edit quest lore and story"><i class="fas fa-book"></i> Lore</button>
+                    <button class="tab-btn" data-tab="hints" title="Edit quest hints"><i class="fas fa-lightbulb"></i> Hints</button>
+                    <button class="tab-btn" data-tab="manual" title="Edit quest manual and documentation"><i class="fas fa-book-open"></i> Manual</button>
+                    <button class="tab-btn" data-tab="tests" title="Edit quest test cases"><i class="fas fa-flask"></i> Tests</button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content active" id="tab-details">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="quest-id">Quest ID</label>
+                            <input type="number" id="quest-id" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="quest-title">Title</label>
+                            <input type="text" id="quest-title" class="form-control">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="quest-query">Query</label>
+                            <input type="text" id="quest-query" class="form-control" placeholder="data.play.allow">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="quest-description_task">Description Task</label>
+                            <textarea id="quest-description_task" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="quest-solution">Solution</label>
+                            <textarea id="quest-solution" class="form-control" rows="4"></textarea>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="quest-apply_template">
+                            <label for="quest-apply_template">Apply Template</label>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="quest-template">Template</label>
+                            <textarea id="quest-template" class="form-control" rows="5"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-lore">
+                    <div class="tab-header">
+                        <p>Story and background information for this quest</p>
+                        <button class="btn btn-secondary" id="addLoreBtn" title="Add a new lore item"><i class="fas fa-plus"></i> Add Lore Item</button>
+                    </div>
+                    <div id="loreList" class="item-list"></div>
+                </div>
+
+                <div class="tab-content" id="tab-hints">
+                    <div class="tab-header">
+                        <p>Helpful hints to guide players through this quest</p>
+                        <button class="btn btn-secondary" id="addHintBtn" title="Add a new hint"><i class="fas fa-plus"></i> Add Hint</button>
+                    </div>
+                    <div id="hintsList" class="item-list"></div>
+                </div>
+
+                <div class="tab-content" id="tab-manual">
+                    <div class="tab-header">
+                        <p>Manual configuration for policy verification</p>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="quest-manual-data_model">Data Model</label>
+                            <textarea id="quest-manual-data_model" class="form-control code-editor" rows="4"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="quest-manual-rego_snippet">Rego Snippet</label>
+                            <textarea id="quest-manual-rego_snippet" class="form-control code-editor" rows="6"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="quest-manual-external_link">External Link</label>
+                            <input type="url" id="quest-manual-external_link" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-tests">
+                    <div class="tab-header">
+                        <p>Test cases to verify quest solutions</p>
+                        <button class="btn btn-secondary" id="addTestBtn" title="Add a new test case"><i class="fas fa-plus"></i> Add Test</button>
+                    </div>
+                    <div id="testsList" class="item-list"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Test Editing -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Edit Test</h3>
+                <button class="modal-close" id="modalClose" title="Close modal">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="form-group">
+                    <label for="modal-test-id">Test ID</label>
+                    <input type="number" id="modal-test-id" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="modal-test-payload">Payload (JSON)</label>
+                    <textarea id="modal-test-payload" class="form-control code-editor" rows="6"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="modal-test-data">Data (JSON)</label>
+                    <textarea id="modal-test-data" class="form-control code-editor" rows="6"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="modal-test-expected">Expected Outcome</label>
+                    <select id="modal-test-expected" class="form-control">
+                        <option value="true">true</option>
+                        <option value="false">false</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modalCancel" title="Cancel changes">Cancel</button>
+                <button class="btn btn-primary" id="modalSave" title="Save test case">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
