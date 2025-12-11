@@ -50,7 +50,7 @@ func (h *Handler) RegisterRoutes(r gin.IRouter) {
 func (h *Handler) GetPacks(c *gin.Context) {
 	packs := h.questRepo.GetAllPacks()
 	// Return simplified list for selection
-	var simplified []gin.H
+	simplified := make([]gin.H, 0, len(packs))
 	for _, p := range packs {
 		simplified = append(simplified, gin.H{
 			"id":          p.ID,
