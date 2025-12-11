@@ -1,0 +1,349 @@
+<!--
+  Copyright 2025 Mario Enrico Ragucci
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Rego Adventure</title>
+    
+    <!-- Import Map for Dependency Version Pinning -->
+    <script type="importmap">
+    {
+        "imports": {
+            "marked": "https://cdnjs.cloudflare.com/ajax/libs/marked/16.3.0/lib/marked.esm.js",
+            "dompurify": "https://esm.sh/dompurify@3.2.7",
+            "canvas-confetti": "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/+esm",
+            "oidc-client-ts": "https://esm.sh/oidc-client-ts@3.3.0"
+        }
+    }
+    </script>
+    <link rel="icon" type="image/x-icon" href="public/favicon.ico">
+    <link rel="apple-touch-icon" href="public/apple-touch-icon.png">
+    <style>
+        /* hide content until styles are loaded */
+        html {
+            visibility: hidden;
+            opacity: 0;
+        }
+        html.loaded {
+            visibility: visible;
+            opacity: 1;
+            transition: opacity 0.3s ease-in;
+        }
+    </style>
+    <link rel="stylesheet" href="../shared/css/base.css">
+    <link rel="stylesheet" href="../shared/css/layout.css">
+    <link rel="stylesheet" href="../shared/css/components.css">
+    <link rel="stylesheet" href="../shared/css/animations.css">
+    <link rel="stylesheet" href="../shared/css/toast.css">
+    <link rel="stylesheet" href="styles/theme.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+</head>
+<body>
+    <!-- Skip Links for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#quest-navigation" class="skip-link">Skip to quest navigation</a>
+    
+    <canvas id="bg-canvas" aria-hidden="true"></canvas>
+    <section id="start-screen" class="start-screen" aria-label="Start Screen">
+        <div class="start-content parchment-bg">
+            <img src="public/rego-adventure-logo.svg" alt="Rego Adventure Logo" class="landing-logo">
+            <h1 class="main-title" id="main-title">Rego Adventure</h1>
+            <p class="subtitle">Choose your path to master Policy-Based Access Control</p>
+            <div id="login-container" class="hidden">
+                <button id="login-btn" class="action-btn login-btn" aria-label="Login to Start Adventure" title="Login to Start Adventure">Login to Start Adventure</button>
+            </div>
+            <div id="quest-pack-list" class="quest-pack-list">
+                <!-- Quest packs will be loaded here -->
+                <p>Loading adventures...</p>
+            </div>
+            <footer class="start-footer">
+                <a href="impressum.html" class="footer-link">Impressum</a>
+            </footer>
+        </div>
+    </section>
+
+    <div id="game-interface" class="app-container hidden">
+        <header class="game-header">
+            <h1 id="game-title">Rego Adventure</h1>
+            <div class="player-status">
+                <button id="music-btn" class="action-btn secondary" aria-label="Unmute background music" aria-pressed="false" title="Toggle background music on/off">
+                    <svg class="progress-ring" width="44" height="44">
+                        <circle class="progress-ring__circle-bg" stroke="currentColor" stroke-width="2" fill="transparent" r="20" cx="22" cy="22"/>
+                        <circle class="progress-ring__circle" stroke="currentColor" stroke-width="2" fill="transparent" r="20" cx="22" cy="22"/>
+                    </svg>
+                    <i class="fa-solid fa-volume-xmark"></i>
+                </button>
+                <button id="effects-btn" class="action-btn secondary" aria-label="Disable visual effects" aria-pressed="true" title="Toggle visual effects on/off">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </button>
+                <button id="restart-btn" class="action-btn secondary" aria-label="Restart Adventure" title="Restart the adventure from the beginning">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+                <button id="home-btn" class="action-btn secondary" aria-label="Return to Home" title="Return to home screen">
+                    <i class="fa-solid fa-home"></i>
+                </button>
+                <button id="logout-btn" class="action-btn secondary" aria-label="Logout" title="Logout from the adventure">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+                <div class="avatar-container">
+                    <img src="public/assets/hero-avatar.png" alt="Your character avatar" class="avatar">
+                    <span id="experience-points" class="experience-badge" title="Experience Points">0 XP</span>
+                </div>
+                <span id="quest-counter">Quest 1/X</span>
+            </div>
+        </header>
+
+        <main id="main-content" class="game-board">
+            <!-- Left Pane: Quest Log -->
+            <section id="quest-navigation" class="quest-pane parchment-bg" aria-labelledby="quest-title">
+                <div class="pane-header">
+                    <img src="public/assets/npc-questgiver.png" alt="Quest giver character providing guidance" class="npc-avatar">
+                    <h2 id="quest-title">Loading Quest...</h2>
+                </div>
+                
+                <div class="scroll-content">
+                    <div class="lore-container">
+                        <div class="lore-text" id="quest-lore">
+                            <!-- Lore goes here -->
+                        </div>
+                        <div class="lore-controls hidden" id="lore-controls">
+                            <button id="lore-prev-btn" class="action-btn small secondary" aria-label="Previous Page" title="Go to previous lore page"><i class="fa-solid fa-chevron-left"></i></button>
+                            <span id="lore-page-indicator">1/1</span>
+                            <button id="lore-next-btn" class="action-btn small secondary" aria-label="Next Page" title="Go to next lore page"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    
+                    <section class="task-box" aria-labelledby="task-heading">
+                        <h3 id="task-heading">Your Task</h3>
+                        <p id="quest-task"><!-- Task description --></p>
+                    </section>
+
+                    <section class="hints-section" aria-label="Hints">
+                        <div class="quest-actions">
+                            <button id="hint-btn" class="action-btn secondary" aria-label="Reveal a hint for the current quest" title="Get a hint for the current quest">Ask Advisor</button>
+                        </div>
+                        <ul id="hints-list" class="hidden" aria-live="polite"></ul>
+                    </section>
+
+                    <section id="outcome-area" class="outcome-area hidden" aria-live="polite" aria-labelledby="outcome-heading">
+                        <h3 id="outcome-heading">Outcome</h3>
+                        <div id="outcome-message"></div>
+                        <ul id="test-results"></ul>
+                    </section>
+                </div>
+                
+                <div class="quest-footer">
+                    <button id="perfect-score-btn" class="action-btn perfect-score-btn" aria-label="Reveal perfect score message" title="View perfect score achievement message">
+                        A Secret Awaits...
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Pane: Grimoire (Editor) -->
+            <section id="editor-pane" class="editor-pane parchment-bg" aria-labelledby="grimoire-title">
+                <div class="pane-header">
+                    <h2 id="grimoire-title">Policy Grimoire</h2>
+                    <div class="grimoire-controls">
+                        <button id="check-manual-btn" class="action-btn secondary" aria-label="Show manual" title="View quest manual and documentation"><i class="fa-solid fa-book"></i></button>
+                        <button id="check-test-payload-btn" class="action-btn secondary" aria-label="Show test payload" title="View test cases for this quest"><i class="fa-solid fa-vial"></i></button>
+                    </div>
+                </div>
+                <div class="editor-container">
+                    <textarea id="rego-editor" spellcheck="false" placeholder="Write your Rego policy here..."></textarea>
+                </div>
+                <div class="editor-footer">
+                    <button id="quest-back-btn" class="action-btn secondary" aria-label="Previous Quest" title="Go to previous quest">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button id="verify-btn" class="action-btn primary" aria-label="Verify your solution" title="Test your policy against the quest requirements">Apply Policy</button>
+                    <button id="quest-forward-btn" class="action-btn secondary" aria-label="Next Quest" title="Go to next quest">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button id="start-adventure" class="action-btn primary hidden" aria-label="Proceed to the next quest" title="Continue to the next quest">Next Quest</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Restart Confirmation Modal -->
+    <div id="restart-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="restart-title">
+        <div class="modal-content parchment-bg">
+            <h2 id="restart-title">Restart Adventure?</h2>
+            <p>Are you sure you want to restart? All progress will be lost!</p>
+            <div class="modal-actions">
+                <button id="cancel-restart-btn" class="action-btn secondary" aria-label="Cancel restart" title="Cancel the restart">Cancel</button>
+                <button id="confirm-restart-btn" class="action-btn danger" aria-label="Confirm restart" title="Confirm and restart the adventure">Yes, Restart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Modal -->
+    <div id="manual-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="manual-title">
+        <div class="modal-content parchment-bg">
+            <div class="modal-header">
+                <h2 id="manual-title">Manual</h2>
+                <button id="close-manual-btn" class="close-btn" aria-label="Close Manual Modal" title="Close the manual">&times;</button>
+            </div>
+            <div id="manual-content" class="manual-content">
+                <!-- Manual content populated via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Payload Modal -->
+    <div id="test-payload-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="test-payload-title">
+        <div class="modal-content parchment-bg">
+            <div class="modal-header">
+                <h2 id="test-payload-title">Test Cases</h2>
+                <button id="close-test-payload-btn" class="close-btn" aria-label="Close Test Payload Modal" title="Close the test cases">&times;</button>
+            </div>
+            <div id="test-payload-content" class="test-payload-content">
+                <p>Your policy will be tested against the following test cases. Each test provides <code>input</code> data and optionally <code>data</code> for the OPA store.</p>
+                <div id="test-payload-data"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="result-title">
+        <div class="modal-content parchment-bg result-modal-content">
+            <div class="result-icon-container">
+                <img id="result-icon" src="" alt="" class="result-icon">
+            </div>
+            <h2 id="result-title"></h2>
+            <div id="result-message"></div>
+            <div id="score-summary" class="score-summary hidden">
+                <div class="score-earned">
+                    <span class="score-label">Points Earned:</span>
+                    <span id="points-earned" class="score-value">0</span>
+                </div>
+                <div class="score-possible">
+                    <span class="score-label">Possible:</span>
+                    <span id="points-possible" class="score-value">10</span>
+                </div>
+            </div>
+            <ul id="result-test-list" class="result-test-list"></ul>
+            <div class="modal-actions">
+                <button id="close-result-btn" class="action-btn secondary" aria-label="Close result modal" title="Close the result modal">Close</button>
+                <button id="next-quest-btn" class="action-btn success hidden" aria-label="Proceed to next quest" title="Continue to the next quest">Next Quest</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Perfect Score Modal -->
+    <div id="perfect-score-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="perfect-score-title">
+        <div class="modal-content parchment-bg perfect-score-modal-content">
+            <div class="modal-header">
+                <h2 id="perfect-score-title">Perfect Mastery Achieved!</h2>
+                <button id="close-perfect-score-btn" class="close-btn" aria-label="Close Perfect Score Modal" title="Close the perfect score message">&times;</button>
+            </div>
+            <div class="perfect-score-content">
+                <div class="perfect-score-image-container">
+                    <img id="perfect-score-image" src="" alt="Perfect score achievement celebration" class="perfect-score-image">
+                </div>
+                <div id="perfect-score-message" class="perfect-score-message">
+                    <!-- Message populated via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates for dynamic content -->
+    <template id="quest-pack-card-template">
+        <div class="quest-pack-card">
+            <h3 class="pack-title"></h3>
+            <p class="pack-description"></p>
+            <span class="genre-badge hidden"></span>
+        </div>
+    </template>
+
+    <template id="hint-item-template">
+        <li>
+            <code></code>
+        </li>
+    </template>
+
+    <template id="hint-solution-template">
+        <li class="hint-solution-item">
+            <div>Solution:</div>
+            <code></code>
+        </li>
+    </template>
+
+    <template id="test-result-template">
+        <li>
+            <div class="test-result">
+                <span class="test-icon"></span>
+                <span class="test-text"></span>
+            </div>
+            <div class="test-payload">
+                <div>Test Payload:</div>
+                <pre></pre>
+            </div>
+        </li>
+    </template>
+
+    <template id="manual-template">
+        <div class="manual-section" data-section="data-model">
+            <h3>Data Model</h3>
+            <div class="manual-section-content"></div>
+        </div>
+        <div class="manual-section" data-section="rego-snippet">
+            <h3>Rego Snippet</h3>
+            <div class="manual-section-content"></div>
+        </div>
+        <div class="manual-section" data-section="external-link">
+            <h3>External Resources</h3>
+            <div class="manual-section-content">
+                <p><a href="" target="_blank" rel="noopener noreferrer">View Official Documentation</a></p>
+            </div>
+        </div>
+        <div class="manual-section" data-section="no-manual">
+            <p>No manual available for this quest.</p>
+        </div>
+    </template>
+
+    <template id="test-case-template">
+        <div class="test-case-card">
+            <div class="test-case-header">
+                <h4 class="test-case-title"></h4>
+                <span class="test-case-expected"></span>
+            </div>
+            
+            <div class="test-case-input">
+                <div class="test-case-label">
+                    <i class="fa-solid fa-arrow-right"></i>
+                    Input Data (accessible via <code>input</code>)
+                </div>
+                <pre class="test-case-input-data"></pre>
+            </div>
+            
+            <div class="test-case-data hidden">
+                <div class="test-case-label">
+                    <i class="fa-solid fa-database"></i>
+                    OPA Data Store (accessible via <code>data</code>)
+                </div>
+                <pre class="test-case-data-content"></pre>
+            </div>
+        </div>
+    </template>
+
+    <script type="module" src="src/app.js"></script>
+    <audio id="bg-music" aria-label="Background music"></audio>
+</body>
+</html>

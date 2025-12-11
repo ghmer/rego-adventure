@@ -1,0 +1,282 @@
+/*
+   Copyright 2025 Mario Enrico Ragucci
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+/* ============================================
+   BASE.CSS - Shared Foundation Styles
+   Universal resets, accessibility, utilities, and CSS variables
+   ============================================ */
+
+/* Universal Box Model Reset */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* Accessibility: Global Focus Styles */
+:focus-visible {
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* Body Base Styles */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-body);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* Shared CSS Variables - Spacing, Z-Index, Transitions */
+:root {
+    /* Spacing */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    
+    /* Z-Index Layers */
+    --z-background: -1;
+    --z-base: 1;
+    --z-overlay: 100;
+    --z-modal: 1000;
+    --z-tutorial-overlay: 1500;
+    --z-tutorial-spotlight: 1600;
+    --z-tutorial-tooltip: 1700;
+    --z-tutorial-prompt: 2000;
+    
+    /* Transitions */
+    --transition-fast: 0.1s;
+    --transition-normal: 0.2s;
+    --transition-slow: 0.3s;
+    --transition-very-slow: 0.5s;
+    
+    /* Border Radius */
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-round: 50%;
+    
+    /* Common Sizes */
+    --avatar-sm: 40px;
+    --avatar-md: 48px;
+    --avatar-lg: 64px;
+    --icon-size: 40px;
+    --button-height: 44px;
+}
+
+/* Skip Links for Accessibility */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--accent-color);
+    color: #000;
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    font-weight: bold;
+    z-index: 10000;
+    border-radius: 0 0 var(--radius-md) 0;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+/* Login Container */
+#login-container {
+    text-align: center;
+    margin-top: 2em;
+}
+
+/* Logout Button */
+#logout-btn {
+    display: none;
+}
+
+/* Perfect Score Button */
+#perfect-score-btn {
+    display: none;
+    animation: pulse 2s infinite;
+}
+
+/* Test Payload Modal - Max Width */
+#test-payload-modal .modal-content {
+    max-width: 800px;
+}
+
+/* Test Payload Content Paragraph */
+.test-payload-content > p {
+    margin-bottom: 1em;
+}
+
+/* Genre Badge Hidden State */
+.genre-badge.hidden {
+    display: none;
+}
+
+/* Hint Solution Item */
+.hint-solution-item {
+    font-weight: bold;
+}
+
+.hint-solution-item > div:first-child {
+    margin-bottom: 0.5em;
+}
+
+.hint-solution-item code {
+    display: block;
+    white-space: pre-wrap;
+}
+
+/* Test Result Payload Display */
+.test-result .test-payload {
+    display: none !important;
+    margin-top: 0.5em;
+    margin-left: 1.5em;
+    font-size: 0.9em;
+    color: #888;
+}
+
+/* Allow JavaScript to explicitly show payload for failed tests */
+.test-result .test-payload[style*="display: block"] {
+    display: block !important;
+}
+
+.test-result .test-payload > div:first-child {
+    font-weight: bold;
+    margin-bottom: 0.25em;
+}
+
+.test-result .test-payload pre {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.5em;
+    border-radius: var(--radius-md);
+    overflow: auto;
+    max-height: 200px;
+}
+
+/* Test Case Data Hidden State */
+.test-case-data.hidden {
+    display: none;
+}
+
+/* Avatar Container */
+.avatar-container {
+    position: relative;
+    display: inline-block;
+}
+
+.avatar {
+    width: var(--avatar-md);
+    height: var(--avatar-md);
+    border-radius: var(--radius-round);
+    border: 2px solid var(--accent-color);
+}
+
+.experience-badge {
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    background: linear-gradient(135deg, var(--success-color), #00b248);
+    color: #000;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 0.15rem 0.4rem;
+    border-radius: 10px;
+    border: 2px solid var(--bg-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+    font-family: var(--font-heading);
+    letter-spacing: 0.5px;
+}
+
+/* Dark Overlay Effect for Failure */
+.dark-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0);
+    pointer-events: none;
+    z-index: 999;
+    transition: background-color var(--transition-very-slow) ease;
+}
+
+.dark-overlay.active {
+    background-color: rgba(0, 0, 0, 0.85);
+}
+
+/* Firefox Compatibility: backdrop-filter fallback for older versions */
+@supports (backdrop-filter: blur(5px)) {
+    .dark-overlay.active {
+        backdrop-filter: blur(5px);
+        background-color: rgba(0, 0, 0, 0.75);
+    }
+}
+
+/* Fallback for browsers without backdrop-filter support (Firefox < 103) */
+@supports not (backdrop-filter: blur(5px)) {
+    .dark-overlay.active {
+        background-color: rgba(0, 0, 0, 0.95);
+    }
+}
+
+/* Music Button Progress Ring */
+.progress-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: rotate(-90deg);
+}
+
+.progress-ring__circle-bg {
+    stroke: rgba(var(--accent-rgb), 0.2);
+}
+
+.progress-ring__circle {
+    stroke: var(--accent-color);
+    transition: stroke-dashoffset var(--transition-fast) linear;
+    transform-origin: 50% 50%;
+}
+
+/* Action Button Disabled State */
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(100%);
+}

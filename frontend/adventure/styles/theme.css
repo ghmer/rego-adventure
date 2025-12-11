@@ -1,0 +1,241 @@
+/*
+   Copyright 2025 Mario Enrico Ragucci
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+/* ============================================
+   ADVENTURE THEME - Dark Tech Theme
+   Theme-specific CSS variables and overrides
+   ============================================ */
+
+:root {
+    /* Colors derived from logo - WCAG AAA compliant */
+    --bg-color: #ffffff;
+    --parchment-light: #fffbf5;
+    --parchment-dark: #f5f0e8;
+    --text-color: #1a1410;
+    --accent-color: #c77d00;
+    --secondary-accent: #9d6300;
+    --button-color: #c77d00;
+    --success-color: #2e7d32;
+    --error-color: #c62828;
+    --info-color: #c77d00;
+    --accent-rgb: 199, 125, 0;
+    
+    /* Fonts */
+    --font-heading: Georgia, "Times New Roman", Times, serif;
+    --font-body: Georgia, "Times New Roman", Times, serif;
+    --font-code: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+}
+
+/* Background Canvas */
+#bg-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: var(--z-background);
+    opacity: 0.6;
+}
+
+/* Global Scrollbar Styling */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--info-color) var(--parchment-dark);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--parchment-dark);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--info-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-accent);
+}
+
+/* Effects disabled state - base class for disabling CSS effects */
+body.effects-disabled {
+    /* This class will be used in custom.css files to disable animations */
+}
+
+/* ============================================
+   LANDING PAGE ENHANCEMENTS
+   ============================================ */
+
+/* Quest Pack Cards - Enhanced styling for better readability */
+.quest-pack-card {
+    background-color: var(--parchment-light) !important;
+    border: 2px solid var(--accent-color) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(var(--accent-rgb), 0.1) !important;
+}
+
+.quest-pack-card:hover {
+    background-color: var(--parchment-dark) !important;
+    border-color: var(--secondary-accent) !important;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(var(--accent-rgb), 0.2) !important;
+}
+
+/* Quest Pack Card Titles */
+.quest-pack-card h3 {
+    color: var(--secondary-accent) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Quest Pack Card Descriptions */
+.quest-pack-card p {
+    color: var(--text-color) !important;
+    opacity: 0.9;
+}
+
+/* Genre Badges - Enhanced visibility */
+.genre-badge {
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.15), rgba(var(--accent-rgb), 0.25)) !important;
+    border: 2px solid var(--accent-color) !important;
+    color: var(--secondary-accent) !important;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 8px rgba(var(--accent-rgb), 0.15) !important;
+}
+
+.genre-badge:hover {
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25), rgba(var(--accent-rgb), 0.35)) !important;
+    border-color: var(--secondary-accent) !important;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15), 0 0 12px rgba(var(--accent-rgb), 0.25) !important;
+}
+
+/* Main Title Enhancement */
+.main-title {
+    color: var(--secondary-accent) !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 20px rgba(var(--accent-rgb), 0.2);
+}
+
+/* Subtitle Enhancement */
+.subtitle {
+    color: var(--text-color) !important;
+    opacity: 0.75;
+}
+
+/* Start Screen Background Enhancement */
+.start-screen {
+    background: linear-gradient(to bottom, var(--bg-color), var(--parchment-light));
+}
+
+/* Landing Logo */
+.landing-logo {
+    width: 200px;
+    height: auto;
+    margin-bottom: 1.5rem;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+    transition: transform var(--transition-normal), filter var(--transition-normal);
+}
+
+.landing-logo:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 6px 12px rgba(199, 125, 0, 0.5));
+}
+
+@media (max-width: 768px) {
+    .landing-logo {
+        width: 160px;
+    }
+}
+
+/* Start Screen Footer */
+.start-footer {
+    margin-top: 3rem;
+    padding-top: 0;
+    text-align: center;
+}
+
+.footer-link {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    opacity: 0.8;
+    transition: opacity var(--transition-normal), color var(--transition-normal);
+}
+
+.footer-link:hover {
+    opacity: 1;
+    color: var(--secondary-accent);
+}
+
+@media (max-width: 768px) {
+    .start-footer {
+        margin-top: 2rem;
+    }
+    
+    .footer-link {
+        font-size: 0.85rem;
+    }
+}
+
+/* ============================================
+   LOGIN COMPONENT STYLING
+   ============================================ */
+
+/* Login Container */
+#login-container {
+    background-color: var(--parchment-light);
+    border: 2px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(var(--accent-rgb), 0.1);
+    max-width: 400px;
+    margin: 2rem auto;
+}
+
+#login-container:hover {
+    background-color: var(--parchment-dark);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(var(--accent-rgb), 0.2);
+}
+
+/* Login Button */
+#login-btn,
+.login-btn {
+    background: linear-gradient(135deg, var(--accent-color), var(--secondary-accent));
+    color: var(--parchment-light);
+    border: 2px solid var(--secondary-accent);
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), 0 0 12px rgba(var(--accent-rgb), 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+#login-btn:hover,
+.login-btn:hover {
+    background: linear-gradient(135deg, var(--secondary-accent), var(--accent-color));
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25), 0 0 16px rgba(var(--accent-rgb), 0.3);
+}
+
+#login-btn:active,
+.login-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 8px rgba(var(--accent-rgb), 0.15);
+}

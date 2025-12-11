@@ -1,0 +1,37 @@
+{
+  "name": "pbac-adventure-frontend",
+  "version": "1.0.0",
+  "description": "Policy-Based Access Control Adventure - Frontend Dependencies",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "audit": "npm audit",
+    "audit:fix": "npm audit fix",
+    "outdated": "npm outdated"
+  },
+  "devDependencies": {
+    "marked": "16.3.0",
+    "dompurify": "3.2.7",
+    "canvas-confetti": "1.9.4",
+    "oidc-client-ts": "3.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/pbac-adventure"
+  },
+  "keywords": [
+    "rego",
+    "opa",
+    "policy",
+    "pbac",
+    "security"
+  ],
+  "author": "Mario Enrico Ragucci",
+  "license": "Apache-2.0",
+  "comments": {
+    "purpose": "This package.json tracks CDN dependencies for security scanning only.",
+    "deployment": "Dependencies are loaded via CDN using Import Maps (see index.html).",
+    "security": "Run 'npm audit' to check for vulnerabilities in tracked dependencies.",
+    "updates": "Use 'npm outdated' to check for available updates, then update versions in both package.json and the import map in index.html."
+  }
+}

@@ -1,0 +1,328 @@
+/*
+   Copyright 2025 Mario Enrico Ragucci
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+/* 
+   ============================================
+   Shared Layout Components
+   App container, headers, game board, panes, and footers
+   ============================================ 
+*/
+
+/* App Container */
+.app-container {
+    width: 95%;
+    max-width: 1400px;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Game Header */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: var(--parchment-dark);
+    border: 1px solid var(--accent-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
+.game-header h1 {
+    font-family: var(--font-heading);
+    color: var(--accent-color);
+    font-size: 2rem;
+}
+
+.player-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-weight: bold;
+}
+
+/* Header Icon Buttons */
+#restart-btn,
+#home-btn,
+#logout-btn {
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+#restart-btn:hover,
+#home-btn:hover,
+#logout-btn:hover {
+    background-color: transparent;
+    transform: scale(1.1);
+}
+
+#restart-btn i,
+#home-btn i,
+#logout-btn i {
+    width: var(--icon-size);
+    height: var(--icon-size);
+    line-height: 36px;
+    text-align: center;
+    font-size: 1.2rem;
+    border-radius: var(--radius-round);
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    display: block;
+}
+
+/* Music Button */
+#music-btn {
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: var(--button-height);
+    height: var(--button-height);
+}
+
+#music-btn.music-playing {
+    animation: mute-pulse 2s ease-in-out infinite;
+}
+
+#music-btn:hover {
+    background-color: transparent;
+    transform: scale(1.1);
+}
+
+#music-btn i {
+    width: var(--icon-size);
+    height: var(--icon-size);
+    line-height: 36px;
+    text-align: center;
+    font-size: 1.2rem;
+    border-radius: var(--radius-round);
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    display: block;
+    z-index: 1;
+}
+
+/* Main Game Board */
+.game-board {
+    display: flex;
+    gap: 1.5rem;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Parchment Background */
+.parchment-bg {
+    background-color: var(--parchment-light);
+    border: 1px solid var(--accent-color);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Quest Pane */
+.quest-pane {
+    flex: 1;
+    max-width: 45%;
+}
+
+/* Editor Pane */
+.editor-pane {
+    flex: 1.5;
+}
+
+/* Pane Header */
+.pane-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--accent-color);
+    padding-bottom: 0.5rem;
+    justify-content: space-between;
+}
+
+.pane-header h2 {
+    font-family: var(--font-heading);
+    color: var(--accent-color);
+}
+
+.grimoire-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.npc-avatar {
+    width: var(--avatar-lg);
+    height: var(--avatar-lg);
+    border-radius: var(--radius-round);
+    border: 2px solid var(--accent-color);
+}
+
+/* Scroll Content */
+.scroll-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+/* Quest Footer */
+.quest-footer {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid var(--accent-color);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Editor Footer */
+.editor-footer {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid var(--accent-color);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#quest-back-btn {
+    margin-right: auto;
+}
+
+#verify-btn {
+    flex: 0 1 auto;
+}
+
+#quest-forward-btn {
+    margin-left: auto;
+}
+
+#quest-back-btn,
+#quest-forward-btn {
+    padding: 0.75rem 1rem;
+    min-width: 50px;
+}
+
+#quest-back-btn i,
+#quest-forward-btn i {
+    font-size: 1.2rem;
+}
+
+/* Check Manual and Test Payload Button Styling */
+#check-manual-btn,
+#check-test-payload-btn {
+    height: 64px;
+    border-radius: var(--radius-lg);
+}
+
+#check-test-payload-btn {
+    margin-right: 0.5rem;
+}
+
+#check-manual-btn {
+    margin-left: auto;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    /* Fix body layout for mobile - remove centering and allow scrolling */
+    body {
+        height: auto;
+        min-height: 100vh;
+        overflow: auto;
+        display: block;
+        align-items: unset;
+        justify-content: unset;
+    }
+    
+    .app-container {
+        height: auto;
+        min-height: 100vh;
+        width: 100%;
+        padding: 0.5rem;
+    }
+    
+    /* Stack game board vertically */
+    .game-board {
+        flex-direction: column;
+        gap: 1rem;
+        overflow: visible;
+    }
+    
+    /* Remove width constraints on panes */
+    .quest-pane,
+    .editor-pane {
+        max-width: 100%;
+        min-height: 50vh;
+    }
+    
+    .editor-pane {
+        min-height: 60vh;
+    }
+    
+    /* Adjust header for mobile */
+    .game-header {
+        padding: 0.75rem 1rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .game-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    /* Stack player status elements */
+    .player-status {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Reduce font sizes for better mobile readability */
+    body {
+        font-size: 0.95rem;
+    }
+    
+    .pane-header h2 {
+        font-size: 1.1rem;
+    }
+    
+    /* Reduce avatar sizes slightly */
+    .avatar {
+        width: var(--avatar-sm);
+        height: var(--avatar-sm);
+    }
+    
+    .npc-avatar {
+        width: 56px;
+        height: 56px;
+    }
+}
