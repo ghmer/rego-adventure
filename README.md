@@ -18,7 +18,7 @@ An interactive learning platform for mastering Policy-Based Access Control (PBAC
 ### Backend (Go)
 
 - **HTTP Server**: gin-gonic based REST API
-- **Quest System**: Dynamic quest pack loading from JSON files with validation
+- **Quest System**: Dynamic quest pack loading from JSON files
 - **Policy Verification**: OPA integration for Rego policy evaluation against test cases
 - **Authentication**: Optional OIDC/JWT authentication with JWKS validation
 
@@ -176,7 +176,7 @@ Only if the proper proxy is set, the rate limiter will use the original IP addre
 
 ### Rate Limiting Configuration
 
-The application includes configurable rate limiting to protect against abuse and ensure fair resource usage. Rate limiting is applied per IP address using a sliding window algorithm.
+The application includes a very basic rate limiting support to protect against abuse. However, protecting your deployments via more sophisticated options is advised.
 
 **Rate Limiting Behavior:**
 
