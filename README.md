@@ -2,7 +2,15 @@
 
 An interactive learning platform for mastering Policy-Based Access Control (PBAC) using Open Policy Agent (OPA) and Rego policy language through themed quest-based challenges.
 
-## Gallery
+## example deployment
+
+A deployment with custom quests exists at [https://regoadventure.r5i.xyz](https://regoadventure.r5i.xyz).
+
+Use the following credentials:
+- user: rego
+- pass: adventure
+
+### Gallery
 
 <p align="center">
   <a href="docu/images/screenshot_ui_1.jpg"><img src="docu/images/screenshot_ui_1.jpg" alt="Screenshot 1" width="400"></a>
@@ -100,7 +108,7 @@ docker build -t rego-adventure .
 Run the container:
 ```bash
 docker run -p 8080:8080 \
-  -e DOMAIN="http://localhost:8080" \
+  -e DOMAIN="http://localhost:8080" -e PORT="8080" \
   rego-adventure
 ```
 
@@ -131,7 +139,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 
 ```
 .
-├── main.go                 # Application entry point
+├── main.go                # Application entry point
 ├── cmd/
 │   └── assetgen/          # Quest pack asset generator
 ├── internal/
@@ -290,7 +298,7 @@ Mount a PersistentVolume containing your custom impressum.html file to `/app/fro
 
 ## Quest Packs
 
-Quest packs are defined in JSON format under [`frontend/quests/`](frontend/quests/). Each pack contains:
+Quest packs are defined in JSON format in a dedicated folder under [`frontend/quests/`](frontend/quests/) (for example: `frontend/quests/my-quest-pack`). Each pack contains:
 
 - Metadata (title, description, genre)
 - Prologue and epilogue narratives
@@ -311,6 +319,8 @@ go run cmd/assetgen/main.go -theme <theme-name> -output <output-directory>
 **Example:**
 ```bash
 go run cmd/assetgen/main.go -theme western -output frontend/quests
+
+# creates a folder "western" below "frontend/quests"
 ```
 
 **Generated Files:**
@@ -356,6 +366,12 @@ Refer to
 - [`Dockerfile`](Dockerfile) for container build configuration
 - [`docker-compose.yml`](docu/deploy/docker/docker-compose.yml) for docker-based setups, and
 - [`kustomization.yaml`](docu/deploy/k8s/kustomization.yaml) for Kubernetes deployments.
+
+### Quest Packs Deployment
+
+Locally, a quest pack must be put below the `frontend/quests` folder.
+
+For Kubernetes or Docker Compose deployments, they can mount the quest packs below this directory.
 
 ## License
 
