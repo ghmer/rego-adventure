@@ -27,6 +27,11 @@ spec:
           volumeMounts:
             - name: tmp-volume
               mountPath: /tmp
+            # Uncomment to mount custom quest packs
+            # Option 1: Using a PersistentVolume (recommended)
+            # You'll need to create a PV and PVC that references your quest pack data
+            # - name: quest-pack-pv
+            #   mountPath: /app/frontend/quests/my-quest-pack
             # Uncomment to override the impressum page with a custom version
             # Option 1: Using a ConfigMap (recommended)
             # - name: impressum-volume
@@ -62,6 +67,13 @@ spec:
       volumes:
         - name: tmp-volume
           emptyDir: {}
+        # Uncomment to mount custom quest packs
+        # Using a PersistentVolume (recommended)
+        # You'll need to create a PV and PVC that references your quest pack data
+        # The PV should point to a storage location containing your quest pack folder
+        # - name: quest-pack-pv
+        #   persistentVolumeClaim:
+        #     claimName: my-quest-pack-pvc
         # Uncomment to use a ConfigMap for custom impressum content
         # First create the ConfigMap:
         # kubectl create configmap impressum-html --from-file=impressum.html=./custom-impressum.html

@@ -45,6 +45,8 @@ services:
     # Create a custom-impressum.html file with your actual legal information
     # volumes:
     #   - ./custom-impressum.html:/app/frontend/adventure/impressum.html:ro
+    #   # Mount custom quest packs
+    #   # - ./my-quest-pack:/app/frontend/quests/my-quest-pack
     restart: unless-stopped
 
 networks:

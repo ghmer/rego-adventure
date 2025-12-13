@@ -339,6 +339,37 @@ go run cmd/assetgen/main.go -theme western -output frontend/quests
 
 All generated images are solid color placeholders. Replace with theme-appropriate artwork before deployment.
 
+### Mounting Quest Packs
+
+Custom quest packs can be added to the application by mounting them into the container. The target directory is `/app/frontend/quests/`.
+
+**Docker:**
+
+Mount your local quest pack folder to a subdirectory within `frontend/quests`:
+
+```bash
+docker run -v ./my-pack:/app/frontend/quests/my-pack ...
+```
+
+**Docker Compose:**
+
+Mount your local quest pack folder using the `volumes` configuration:
+
+```yaml
+volumes:
+  - ./my-pack:/app/frontend/quests/my-pack
+```
+
+**Kubernetes:**
+
+Mount a volume containing your quest pack structure to the same path:
+
+```yaml
+volumeMounts:
+  - name: my-quest-pack
+    mountPath: /app/frontend/quests/my-pack
+```
+
 ## Quest Editor
 
 A browser-based visual editor for creating and modifying quest packs. The editor provides a complete interface for managing all aspects of quest pack development without requiring manual JSON editing.
