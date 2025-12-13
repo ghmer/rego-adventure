@@ -58,7 +58,7 @@ func GenerateTheme(themeName, outputDir string) error {
 	}
 
 	assets := []Asset{
-		{"bg-adventure.jpg", 1920, 1080, "#f8f6f3"}, // warm parchment background
+		{"bg-adventure.jpg", 1920, 1080, "#f8f6f3"}, // warm surface background
 		{"hero-avatar.png", 128, 128, "#d97706"},    // amber accent
 		{"npc-questgiver.png", 128, 128, "#b45309"}, // deep amber
 		{"icon-success.png", 128, 128, "#16a34a"},   // fresh green success

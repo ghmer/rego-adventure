@@ -213,7 +213,7 @@ button[onclick*="login"] {
 .action-btn.login-btn:hover,
 button[onclick*="login"]:hover {
     background-color: var(--accent-color);
-    color: var(--parchment-light);
+    color: var(--surface-light);
 }
 
 /* ============================================
@@ -417,7 +417,7 @@ button[onclick*="login"]:hover {
     width: 90%;
     max-width: 800px;
     text-align: left;
-    background-color: var(--parchment-light);
+    background-color: var(--surface-light);
     border: 1px solid var(--accent-color);
     border-radius: var(--radius-lg);
     color: var(--text-color);
@@ -880,7 +880,7 @@ button[onclick*="login"]:hover {
 /* Tutorial Tooltip */
 .tutorial-tooltip {
     position: fixed;
-    background-color: var(--parchment-light);
+    background-color: var(--surface-light);
     border: 2px solid var(--accent-color);
     border-radius: var(--radius-lg);
     padding: 1.5rem;

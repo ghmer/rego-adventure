@@ -32,8 +32,8 @@ const themeCSSTemplate = `/* ============================================
 :root {
     /* Core Colors - Warm, sophisticated palette with excellent contrast */
     --bg-color: #f8f6f3;
-    --parchment-light: #fffef9;
-    --parchment-dark: #e8e4dc;
+    --surface-light: #fffef9;
+    --surface-dark: #e8e4dc;
     --text-color: #2c2416;
     --accent-color: #d97706;
     --secondary-accent: #b45309;
@@ -58,8 +58,8 @@ body {
     background-attachment: fixed;
 }
 
-/* Parchment Background */
-.parchment-bg {
+/* surface Background */
+.surface-bg {
     box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.1);
 }
 
@@ -305,7 +305,7 @@ body {
 
 /* Editor */
 #rego-editor {
-    background-color: var(--parchment-light);
+    background-color: var(--surface-light);
     color: var(--text-color);
     border-radius: 0;
     box-shadow: inset 0 0 25px rgba(var(--accent-rgb), 0.1);
@@ -381,7 +381,7 @@ body {
 }
 
 .modal-content {
-    background-color: var(--parchment-dark);
+    background-color: var(--surface-dark);
     box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.2);
 }
 
@@ -412,7 +412,7 @@ body {
 /* Global Scrollbar Styling */
 * {
     scrollbar-width: thin;
-    scrollbar-color: var(--accent-color) var(--parchment-dark);
+    scrollbar-color: var(--accent-color) var(--surface-dark);
 }
 
 ::-webkit-scrollbar {
@@ -420,7 +420,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--parchment-dark);
+    background: var(--surface-dark);
     border-radius: 4px;
 }
 
@@ -491,7 +491,7 @@ body {
 }
 
 .tutorial-prompt-content {
-    background-color: var(--parchment-dark);
+    background-color: var(--surface-dark);
     border: 1px solid var(--accent-color);
     border-radius: 0;
     box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.4);
@@ -516,7 +516,7 @@ body {
 
 /* Tutorial Tooltip */
 .tutorial-tooltip {
-    background-color: var(--parchment-dark);
+    background-color: var(--surface-dark);
     border-radius: 0;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9),
                 0 0 30px rgba(var(--accent-rgb), 0.5);
@@ -720,7 +720,7 @@ Update CSS variables in the %%:root%% section of theme.css:
 
 **Colors:**
 - %%--bg-color%% - Main background color
-- %%--parchment-light%% / %%--parchment-dark%% - Panel backgrounds
+- %%--surface-light%% / %%--surface-dark%% - Panel backgrounds
 - %%--text-color%% - Primary text color
 - %%--accent-color%% - Theme accent (buttons, borders, highlights)
 - %%--success-color%% / %%--error-color%% - Feedback colors

@@ -60,7 +60,7 @@
     
     <canvas id="bg-canvas" aria-hidden="true"></canvas>
     <section id="start-screen" class="start-screen" aria-label="Start Screen">
-        <div class="start-content parchment-bg">
+        <div class="start-content surface-bg">
             <img src="public/rego-adventure-logo.svg" alt="Rego Adventure Logo" class="landing-logo">
             <h1 class="main-title" id="main-title">Rego Adventure</h1>
             <p class="subtitle">Choose your path to master Policy-Based Access Control</p>
@@ -110,7 +110,7 @@
 
         <main id="main-content" class="game-board">
             <!-- Left Pane: Quest Log -->
-            <section id="quest-navigation" class="quest-pane parchment-bg" aria-labelledby="quest-title">
+            <section id="quest-navigation" class="quest-pane surface-bg" aria-labelledby="quest-title">
                 <div class="pane-header">
                     <img src="public/assets/npc-questgiver.png" alt="Quest giver character providing guidance" class="npc-avatar">
                     <h2 id="quest-title">Loading Quest...</h2>
@@ -155,7 +155,7 @@
             </section>
 
             <!-- Right Pane: Grimoire (Editor) -->
-            <section id="editor-pane" class="editor-pane parchment-bg" aria-labelledby="grimoire-title">
+            <section id="editor-pane" class="editor-pane surface-bg" aria-labelledby="grimoire-title">
                 <div class="pane-header">
                     <h2 id="grimoire-title">Policy Grimoire</h2>
                     <div class="grimoire-controls">
@@ -182,7 +182,7 @@
 
     <!-- Restart Confirmation Modal -->
     <div id="restart-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="restart-title">
-        <div class="modal-content parchment-bg">
+        <div class="modal-content surface-bg">
             <h2 id="restart-title">Restart Adventure?</h2>
             <p>Are you sure you want to restart? All progress will be lost!</p>
             <div class="modal-actions">
@@ -194,7 +194,7 @@
 
     <!-- Manual Modal -->
     <div id="manual-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="manual-title">
-        <div class="modal-content parchment-bg">
+        <div class="modal-content surface-bg">
             <div class="modal-header">
                 <h2 id="manual-title">Manual</h2>
                 <button id="close-manual-btn" class="close-btn" aria-label="Close Manual Modal" title="Close the manual">&times;</button>
@@ -207,7 +207,7 @@
 
     <!-- Test Payload Modal -->
     <div id="test-payload-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="test-payload-title">
-        <div class="modal-content parchment-bg">
+        <div class="modal-content surface-bg">
             <div class="modal-header">
                 <h2 id="test-payload-title">Test Cases</h2>
                 <button id="close-test-payload-btn" class="close-btn" aria-label="Close Test Payload Modal" title="Close the test cases">&times;</button>
@@ -221,7 +221,7 @@
 
     <!-- Result Modal -->
     <div id="result-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="result-title">
-        <div class="modal-content parchment-bg result-modal-content">
+        <div class="modal-content surface-bg result-modal-content">
             <div class="result-icon-container">
                 <img id="result-icon" src="" alt="" class="result-icon">
             </div>
@@ -247,7 +247,7 @@
 
     <!-- Perfect Score Modal -->
     <div id="perfect-score-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="perfect-score-title">
-        <div class="modal-content parchment-bg perfect-score-modal-content">
+        <div class="modal-content surface-bg perfect-score-modal-content">
             <div class="modal-header">
                 <h2 id="perfect-score-title">Perfect Mastery Achieved!</h2>
                 <button id="close-perfect-score-btn" class="close-btn" aria-label="Close Perfect Score Modal" title="Close the perfect score message">&times;</button>

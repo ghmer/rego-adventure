@@ -22,8 +22,8 @@
 :root {
     /* Colors derived from logo - WCAG AAA compliant */
     --bg-color: #ffffff;
-    --parchment-light: #fffbf5;
-    --parchment-dark: #f5f0e8;
+    --surface-light: #fffbf5;
+    --surface-dark: #f5f0e8;
     --text-color: #1a1410;
     --accent-color: #c77d00;
     --secondary-accent: #9d6300;
@@ -53,7 +53,7 @@
 /* Global Scrollbar Styling */
 * {
     scrollbar-width: thin;
-    scrollbar-color: var(--info-color) var(--parchment-dark);
+    scrollbar-color: var(--info-color) var(--surface-dark);
 }
 
 ::-webkit-scrollbar {
@@ -61,7 +61,7 @@
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--parchment-dark);
+    background: var(--surface-dark);
     border-radius: 4px;
 }
 
@@ -85,13 +85,13 @@ body.effects-disabled {
 
 /* Quest Pack Cards - Enhanced styling for better readability */
 .quest-pack-card {
-    background-color: var(--parchment-light) !important;
+    background-color: var(--surface-light) !important;
     border: 2px solid var(--accent-color) !important;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(var(--accent-rgb), 0.1) !important;
 }
 
 .quest-pack-card:hover {
-    background-color: var(--parchment-dark) !important;
+    background-color: var(--surface-dark) !important;
     border-color: var(--secondary-accent) !important;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(var(--accent-rgb), 0.2) !important;
 }
@@ -137,7 +137,7 @@ body.effects-disabled {
 
 /* Start Screen Background Enhancement */
 .start-screen {
-    background: linear-gradient(to bottom, var(--bg-color), var(--parchment-light));
+    background: linear-gradient(to bottom, var(--bg-color), var(--surface-light));
 }
 
 /* Landing Logo */
@@ -196,7 +196,7 @@ body.effects-disabled {
 
 /* Login Container */
 #login-container {
-    background-color: var(--parchment-light);
+    background-color: var(--surface-light);
     border: 2px solid var(--accent-color);
     border-radius: 8px;
     padding: 2rem;
@@ -206,7 +206,7 @@ body.effects-disabled {
 }
 
 #login-container:hover {
-    background-color: var(--parchment-dark);
+    background-color: var(--surface-dark);
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(var(--accent-rgb), 0.2);
 }
 
@@ -214,7 +214,7 @@ body.effects-disabled {
 #login-btn,
 .login-btn {
     background: linear-gradient(135deg, var(--accent-color), var(--secondary-accent));
-    color: var(--parchment-light);
+    color: var(--surface-light);
     border: 2px solid var(--secondary-accent);
     padding: 0.75rem 2rem;
     font-size: 1.1rem;

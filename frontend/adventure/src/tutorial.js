@@ -61,7 +61,7 @@ export class TutorialSystem {
         modal.setAttribute('aria-labelledby', 'tutorial-prompt-title');
         modal.setAttribute('aria-modal', 'true');
         modal.innerHTML = `
-            <div class="tutorial-prompt-content parchment-bg">
+            <div class="tutorial-prompt-content surface-bg">
                 <h2 id="tutorial-prompt-title">Welcome, Adventurer!</h2>
                 <p>Would you like a guided tour of the interface? This will help you understand how to navigate your quest.</p>
                 <div class="tutorial-prompt-checkbox">
