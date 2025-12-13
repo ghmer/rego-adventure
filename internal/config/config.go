@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/MicahParks/keyfunc/v3"
@@ -39,18 +38,9 @@ type AuthConfig struct {
 	ShowImpressum bool   `json:"show_impressum"`
 }
 
-// RateLimitConfig holds the rate limiter configuration
-type RateLimitConfig struct {
-	Enabled        bool `json:"enabled"`
-	APILimit       int  `json:"api_limit"`       // requests per second for /api endpoints
-	FrontendLimit  int  `json:"frontend_limit"`  // requests per second for frontend
-	WindowDuration int  `json:"window_duration"` // time window in seconds (default 1)
-}
-
 // Config holds all application configuration
 type Config struct {
 	Auth           AuthConfig
-	RateLimit      RateLimitConfig
 	TrustedProxies []string
 	AllowedOrigin  string
 	Port           string
@@ -75,11 +65,6 @@ func Load() (*Config, error) {
 		cfg.Port = "8080"
 	}
 
-	// Parse rate limiter configuration
-	if err := cfg.parseRateLimitConfig(); err != nil {
-		return nil, err
-	}
-
 	// Parse Trusted Proxies
 	if err := cfg.parseTrustedProxies(); err != nil {
 		return nil, err
@@ -99,71 +84,6 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-// parseRateLimitConfig parses and validates rate limiter configuration from environment variables
-func (c *Config) parseRateLimitConfig() error {
-	enabled := false
-	if env := os.Getenv("RATE_LIMIT_ENABLED"); env != "" {
-		var err error
-		enabled, err = strconv.ParseBool(env)
-		if err != nil {
-			slog.Error("invalid RATE_LIMIT_ENABLED value", "error", err)
-			os.Exit(1)
-		}
-	}
-
-	// API limit: requests per second for /api endpoints (default: 5)
-	apiLimit := 5
-	if env := os.Getenv("RATE_LIMIT_API"); env != "" {
-		var err error
-		apiLimit64, err := strconv.ParseInt(env, 10, 64)
-		if err != nil {
-			slog.Error("invalid RATE_LIMIT_API value", "error", err)
-			os.Exit(1)
-		}
-		apiLimit = int(apiLimit64)
-	}
-
-	// Frontend limit: requests per second for non-API endpoints (default: 50)
-	frontendLimit := 50
-	if env := os.Getenv("RATE_LIMIT_FRONTEND"); env != "" {
-		var err error
-		frontendLimit64, err := strconv.ParseInt(env, 10, 64)
-		if err != nil {
-			slog.Error("invalid RATE_LIMIT_FRONTEND value", "error", err)
-			os.Exit(1)
-		}
-		frontendLimit = int(frontendLimit64)
-	}
-
-	// Window duration in seconds (default: 1)
-	windowDuration := 1
-	if env := os.Getenv("RATE_LIMIT_WINDOW"); env != "" {
-		var err error
-		windowDuration64, err := strconv.ParseInt(env, 10, 64)
-		if err != nil {
-			slog.Error("invalid RATE_LIMIT_WINDOW value", "error", err)
-			os.Exit(1)
-		}
-		windowDuration = int(windowDuration64)
-	}
-
-	c.RateLimit = RateLimitConfig{
-		Enabled:        enabled,
-		APILimit:       apiLimit,
-		FrontendLimit:  frontendLimit,
-		WindowDuration: windowDuration,
-	}
-
-	if c.RateLimit.Enabled {
-		slog.Info("rate limiting enabled",
-			"api_limit", c.RateLimit.APILimit,
-			"frontend_limit", c.RateLimit.FrontendLimit,
-			"window_duration_seconds", c.RateLimit.WindowDuration)
-	}
-
-	return nil
 }
 
 // parseTrustedProxies parses and validates TRUSTED_PROXIES environment variable

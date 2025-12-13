@@ -173,50 +173,8 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | `AUTH_AUDIENCE` | Conditional | - | JWT audience claim (required if auth enabled) |
 | `TRUSTED_PROXIES` | No | - | Comma-separated CIDR ranges for trusted proxies |
 | `SHOW_IMPRESSUM` | No | `false` | Enable impressum/legal notice page link in footer |
-| `RATE_LIMIT_ENABLED` | No | `false` | Enable rate limiting for API and frontend endpoints |
-| `RATE_LIMIT_API` | No | `5` | API requests per second (for `/api/*` endpoints) |
-| `RATE_LIMIT_FRONTEND` | No | `50` | Frontend requests per second (for non-API endpoints) |
-| `RATE_LIMIT_WINDOW` | No | `1` | Time window in seconds for rate limiting |
 
-**ATTENTION**: When deployed behind a proxy or running in a containerized environment, 
-**especially** when enabling the **rate-limiter**, setting `TRUSTED_PROXIES` is crucial. 
-Only if the proper proxy is set, the rate limiter will use the original IP address rather than using the IP of the proxy.
-
-### Rate Limiting Configuration
-
-The application includes a very basic rate limiting support to protect against abuse. However, protecting your deployments via more sophisticated options is advised.
-
-**Rate Limiting Behavior:**
-
-- **API Endpoints** (`/api/*`): More restrictive limits for policy verification and quest-related operations (default: 5 requests per second)
-- **Frontend Endpoints**: Higher limits for static content and general application pages (default: 50 requests per second)
-
-**Configuration:**
-
-Enable or disable rate limiting:
-```bash
-export RATE_LIMIT_ENABLED="true"
-```
-
-Configure API endpoint limits:
-```bash
-export RATE_LIMIT_API="5"           # Requests per second for /api/* endpoints
-```
-
-Configure frontend endpoint limits:
-```bash
-export RATE_LIMIT_FRONTEND="50"     # Requests per second for non-API endpoints
-```
-
-Configure time window:
-```bash
-export RATE_LIMIT_WINDOW="1"        # Time window in seconds (default: 1)
-```
-
-**Important Notes:**
-- When rate limits are exceeded, clients receive a `429 Too Many Requests` response
-- The rate limiter automatically cleans up stale entries to prevent memory leaks
-- Ensure `TRUSTED_PROXIES` is properly configured when behind a proxy to rate limit by actual client IP
+> **Note:** When deploying behind a proxy or load balancer (e.g., nginx, Kubernetes ingress, cloud load balancer), it's important to set `TRUSTED_PROXIES` to ensure accurate client IP detection. Without this configuration, the application will see the proxy's IP address instead of the actual client IP. Set this to the CIDR range(s) of your trusted proxy infrastructure (e.g., `TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12"`).
 
 ### Impressum / Legal Notice Configuration
 
