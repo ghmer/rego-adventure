@@ -10,7 +10,7 @@
     "outdated": "npm outdated"
   },
   "devDependencies": {
-    "marked": "16.3.0",
+    "marked": "17.0.1",
     "dompurify": "3.2.7",
     "canvas-confetti": "1.9.4",
     "oidc-client-ts": "3.3.0"
