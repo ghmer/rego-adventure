@@ -176,6 +176,10 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 
 > **Note:** When deploying behind a proxy or load balancer (e.g., nginx, Kubernetes ingress, cloud load balancer), it's important to set `TRUSTED_PROXIES` to ensure accurate client IP detection. Without this configuration, the application will see the proxy's IP address instead of the actual client IP. Set this to the CIDR range(s) of your trusted proxy infrastructure (e.g., `TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12"`).
 
+### Authentication
+
+The application uses the **OIDC/OAuth2 Authorization Code Flow** if `AUTH_ENABLED` is set to `true`. More information can be found in [AUTHENTICATION.md](AUTHENTICATION.md).
+
 ### Impressum / Legal Notice Configuration
 
 The application includes an optional impressum (legal notice) page that can be enabled for deployments requiring legal compliance (e.g., German TMG requirements).
