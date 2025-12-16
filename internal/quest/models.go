@@ -126,7 +126,7 @@ func validateQuest(quest *Quest, questIndex int) error {
 	if err := validateNonEmpty(quest.Title, prefix+" title"); err != nil {
 		return err
 	}
-	if err := validateStringLength(quest.Title, 100, prefix+" title"); err != nil {
+	if err := validateStringLength(quest.Title, MaxQuestTitle, prefix+" title"); err != nil {
 		return err
 	}
 
@@ -134,7 +134,7 @@ func validateQuest(quest *Quest, questIndex int) error {
 	if err := validateNonEmpty(quest.DescriptionTask, prefix+" task"); err != nil {
 		return err
 	}
-	if err := validateStringLength(quest.DescriptionTask, 1000, prefix+" task"); err != nil {
+	if err := validateStringLength(quest.DescriptionTask, MaxQuestDescriptionTask, prefix+" task"); err != nil {
 		return err
 	}
 
@@ -143,40 +143,40 @@ func validateQuest(quest *Quest, questIndex int) error {
 		return fmt.Errorf("%s must have at least one lore entry", prefix)
 	}
 	for i, lore := range quest.DescriptionLore {
-		if err := validateStringLength(lore, 2000, fmt.Sprintf("%s lore[%d]", prefix, i)); err != nil {
+		if err := validateStringLength(lore, MaxQuestDescriptionLore, fmt.Sprintf("%s lore[%d]", prefix, i)); err != nil {
 			return err
 		}
 	}
 
 	// Validate hints (optional but if present, must be valid)
 	for i, hint := range quest.Hints {
-		if err := validateStringLength(hint, 500, fmt.Sprintf("%s hint[%d]", prefix, i)); err != nil {
+		if err := validateStringLength(hint, MaxQuestHint, fmt.Sprintf("%s hint[%d]", prefix, i)); err != nil {
 			return err
 		}
 	}
 
 	// Validate solution (optional)
 	if quest.Solution != "" {
-		if err := validateStringLength(quest.Solution, 5000, prefix+" solution"); err != nil {
+		if err := validateStringLength(quest.Solution, MaxQuestSolution, prefix+" solution"); err != nil {
 			return err
 		}
 	}
 
 	// Validate template (optional)
 	if quest.Template != "" {
-		if err := validateStringLength(quest.Template, 10000, prefix+" template"); err != nil {
+		if err := validateStringLength(quest.Template, MaxQuestTemplate, prefix+" template"); err != nil {
 			return err
 		}
 	}
 
 	// Validate manual fields
-	if err := validateStringLength(quest.Manual.DataModel, 2000, prefix+" manual.data_model"); err != nil {
+	if err := validateStringLength(quest.Manual.DataModel, MaxManualDataModel, prefix+" manual.data_model"); err != nil {
 		return err
 	}
-	if err := validateStringLength(quest.Manual.RegoSnippet, 5000, prefix+" manual.rego_snippet"); err != nil {
+	if err := validateStringLength(quest.Manual.RegoSnippet, MaxManualRegoSnippet, prefix+" manual.rego_snippet"); err != nil {
 		return err
 	}
-	if err := validateStringLength(quest.Manual.ExternalLink, 500, prefix+" manual.external_link"); err != nil {
+	if err := validateStringLength(quest.Manual.ExternalLink, MaxManualExternalLink, prefix+" manual.external_link"); err != nil {
 		return err
 	}
 
@@ -192,8 +192,8 @@ func validateQuest(quest *Quest, questIndex int) error {
 		if err != nil {
 			return fmt.Errorf("%s test[%d] has invalid payload: %w", prefix, i, err)
 		}
-		if len(payloadJSON) > 50000 { // 50KB limit for test payloads
-			return fmt.Errorf("%s test[%d] payload exceeds maximum size of 50KB", prefix, i)
+		if len(payloadJSON) > MaxTestPayloadBytes {
+			return fmt.Errorf("%s test[%d] payload exceeds maximum size of %d bytes", prefix, i, MaxTestPayloadBytes)
 		}
 
 		// Validate input field if present
@@ -202,8 +202,8 @@ func validateQuest(quest *Quest, questIndex int) error {
 			if err != nil {
 				return fmt.Errorf("%s test[%d] has invalid input: %w", prefix, i, err)
 			}
-			if len(inputJSON) > 50000 { // 50KB limit for test input
-				return fmt.Errorf("%s test[%d] input exceeds maximum size of 50KB", prefix, i)
+			if len(inputJSON) > MaxTestPayloadBytes {
+				return fmt.Errorf("%s test[%d] input exceeds maximum size of %d bytes", prefix, i, MaxTestPayloadBytes)
 			}
 		}
 
@@ -213,8 +213,8 @@ func validateQuest(quest *Quest, questIndex int) error {
 			if err != nil {
 				return fmt.Errorf("%s test[%d] has invalid data: %w", prefix, i, err)
 			}
-			if len(dataJSON) > 50000 { // 50KB limit for test data
-				return fmt.Errorf("%s test[%d] data exceeds maximum size of 50KB", prefix, i)
+			if len(dataJSON) > MaxTestPayloadBytes {
+				return fmt.Errorf("%s test[%d] data exceeds maximum size of %d bytes", prefix, i, MaxTestPayloadBytes)
 			}
 		}
 	}
@@ -228,21 +228,21 @@ func validateQuestPack(pack *QuestPack) error {
 	if err := validateNonEmpty(pack.Meta.Title, "pack title"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.Meta.Title, 100, "pack title"); err != nil {
+	if err := validateStringLength(pack.Meta.Title, MaxPackTitle, "pack title"); err != nil {
 		return err
 	}
 
 	if err := validateNonEmpty(pack.Meta.Description, "pack description"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.Meta.Description, 500, "pack description"); err != nil {
+	if err := validateStringLength(pack.Meta.Description, MaxPackDescription, "pack description"); err != nil {
 		return err
 	}
 
 	if err := validateNonEmpty(pack.Meta.Genre, "pack genre"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.Meta.Genre, 50, "pack genre"); err != nil {
+	if err := validateStringLength(pack.Meta.Genre, MaxPackGenre, "pack genre"); err != nil {
 		return err
 	}
 	if err := validateAlphanumericWithSpaces(pack.Meta.Genre, "pack genre"); err != nil {
@@ -251,12 +251,12 @@ func validateQuestPack(pack *QuestPack) error {
 
 	// Validate optional metadata fields
 	if pack.Meta.InitialObjective != "" {
-		if err := validateStringLength(pack.Meta.InitialObjective, 500, "pack initial_objective"); err != nil {
+		if err := validateStringLength(pack.Meta.InitialObjective, MaxPackObjective, "pack initial_objective"); err != nil {
 			return err
 		}
 	}
 	if pack.Meta.FinalObjective != "" {
-		if err := validateStringLength(pack.Meta.FinalObjective, 500, "pack final_objective"); err != nil {
+		if err := validateStringLength(pack.Meta.FinalObjective, MaxPackObjective, "pack final_objective"); err != nil {
 			return err
 		}
 	}
@@ -265,34 +265,34 @@ func validateQuestPack(pack *QuestPack) error {
 	if err := validateNonEmpty(pack.UILabels.GrimoireTitle, "ui_labels.grimoire_title"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.UILabels.GrimoireTitle, 100, "ui_labels.grimoire_title"); err != nil {
+	if err := validateStringLength(pack.UILabels.GrimoireTitle, MaxUIGrimoireTitle, "ui_labels.grimoire_title"); err != nil {
 		return err
 	}
 	if err := validateNonEmpty(pack.UILabels.HintButton, "ui_labels.hint_button"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.UILabels.HintButton, 100, "ui_labels.hint_button"); err != nil {
+	if err := validateStringLength(pack.UILabels.HintButton, MaxUIHintButton, "ui_labels.hint_button"); err != nil {
 		return err
 	}
 	if err := validateNonEmpty(pack.UILabels.VerifyButton, "ui_labels.verify_button"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.UILabels.VerifyButton, 100, "ui_labels.verify_button"); err != nil {
+	if err := validateStringLength(pack.UILabels.VerifyButton, MaxUIVerifyButton, "ui_labels.verify_button"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.UILabels.MessageSuccess, 200, "ui_labels.message_success"); err != nil {
+	if err := validateStringLength(pack.UILabels.MessageSuccess, MaxUIMessageSuccess, "ui_labels.message_success"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.UILabels.MessageFailure, 200, "ui_labels.message_failure"); err != nil {
+	if err := validateStringLength(pack.UILabels.MessageFailure, MaxUIMessageFailure, "ui_labels.message_failure"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.UILabels.PerfectScoreMessage, 1000, "ui_labels.perfect_score_message"); err != nil {
+	if err := validateStringLength(pack.UILabels.PerfectScoreMessage, MaxUIPerfectScoreMessage, "ui_labels.perfect_score_message"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.UILabels.PerfectScoreButtonText, 100, "ui_labels.perfect_score_button_text"); err != nil {
+	if err := validateStringLength(pack.UILabels.PerfectScoreButtonText, MaxUIPerfectScoreButton, "ui_labels.perfect_score_button_text"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.UILabels.BeginAdventureButton, 100, "ui_labels.begin_adventure_button"); err != nil {
+	if err := validateStringLength(pack.UILabels.BeginAdventureButton, MaxUIBeginAdventureButton, "ui_labels.begin_adventure_button"); err != nil {
 		return err
 	}
 
@@ -301,7 +301,7 @@ func validateQuestPack(pack *QuestPack) error {
 		return fmt.Errorf("pack must have at least one prologue entry")
 	}
 	for i, entry := range pack.Prologue {
-		if err := validateStringLength(entry, 2000, fmt.Sprintf("prologue[%d]", i)); err != nil {
+		if err := validateStringLength(entry, MaxPrologueItem, fmt.Sprintf("prologue[%d]", i)); err != nil {
 			return err
 		}
 	}
@@ -310,7 +310,7 @@ func validateQuestPack(pack *QuestPack) error {
 		return fmt.Errorf("pack must have at least one epilogue entry")
 	}
 	for i, entry := range pack.Epilogue {
-		if err := validateStringLength(entry, 2000, fmt.Sprintf("epilogue[%d]", i)); err != nil {
+		if err := validateStringLength(entry, MaxEpilogueItem, fmt.Sprintf("epilogue[%d]", i)); err != nil {
 			return err
 		}
 	}

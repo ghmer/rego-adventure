@@ -45,3 +45,54 @@ Each element in the `quests` array is a `quest` specification with the following
   - `payload`: Object reflecting the `input` data received by Rego
   - `data`: (Optional) Object containing external data accessible via `data.*` in Rego policies
   - `expected_outcome`: Boolean result that the policy must return
+
+## String Length Validation Limits
+
+All text fields in the quest JSON structure are validated against maximum length limits. These limits are enforced server-side when validating a quest pack and in the quest editor HTML forms.
+
+### Pack Metadata Limits
+
+- `meta.title`: 100 characters
+- `meta.description`: 500 characters
+- `meta.genre`: 50 characters (alphanumeric and basic punctuation only)
+- `meta.initial_objective`: 500 characters (optional field)
+- `meta.final_objective`: 500 characters (optional field)
+
+### UI Labels Limits
+
+- `ui_labels.grimoire_title`: 100 characters
+- `ui_labels.hint_button`: 100 characters
+- `ui_labels.verify_button`: 100 characters
+- `ui_labels.message_success`: 200 characters
+- `ui_labels.message_failure`: 200 characters
+- `ui_labels.perfect_score_message`: 1000 characters
+- `ui_labels.perfect_score_button_text`: 100 characters
+- `ui_labels.begin_adventure_button`: 100 characters
+
+### Narrative Content Limits
+
+- `prologue` array items: 2000 characters each (at least one item required)
+- `epilogue` array items: 2000 characters each (at least one item required)
+
+### Quest Field Limits
+
+- `quest.title`: 100 characters
+- `quest.description_task`: 1000 characters
+- `quest.description_lore` array items: 2000 characters each (at least one item required)
+- `quest.hints` array items: 500 characters each (optional)
+- `quest.solution`: 5000 characters (optional)
+- `quest.template`: 10000 characters (optional)
+- `quest.query`: No explicit limit (required field)
+
+### Manual Field Limits
+
+- `quest.manual.data_model`: 2000 characters
+- `quest.manual.rego_snippet`: 5000 characters
+- `quest.manual.external_link`: 500 characters
+
+### Test Payload Limits
+
+- `test.payload`: 50KB maximum (JSON serialized size)
+- `test.payload.input`: 50KB maximum (JSON serialized size)
+- `test.payload.data`: 50KB maximum (JSON serialized size)
+

@@ -15,6 +15,48 @@
 */
 
 // ============================================================================
+// VALIDATION CONSTANTS
+// ============================================================================
+// String length validation limits - must match internal/quest/constants.go
+const VALIDATION_LIMITS = {
+    // Pack Meta
+    PACK_TITLE: 100,
+    PACK_DESCRIPTION: 500,
+    PACK_GENRE: 50,
+    PACK_OBJECTIVE: 500,
+    
+    // UI Labels
+    UI_GRIMOIRE_TITLE: 100,
+    UI_HINT_BUTTON: 100,
+    UI_VERIFY_BUTTON: 100,
+    UI_MESSAGE_SUCCESS: 200,
+    UI_MESSAGE_FAILURE: 200,
+    UI_PERFECT_SCORE_MESSAGE: 1000,
+    UI_PERFECT_SCORE_BUTTON: 100,
+    UI_BEGIN_ADVENTURE_BUTTON: 100,
+    
+    // Quest
+    QUEST_TITLE: 100,
+    QUEST_DESCRIPTION_TASK: 1000,
+    QUEST_DESCRIPTION_LORE: 2000,
+    QUEST_HINT: 500,
+    QUEST_SOLUTION: 5000,
+    QUEST_TEMPLATE: 10000,
+    
+    // Manual
+    MANUAL_DATA_MODEL: 2000,
+    MANUAL_REGO_SNIPPET: 5000,
+    MANUAL_EXTERNAL_LINK: 500,
+    
+    // Narrative
+    PROLOGUE_ITEM: 2000,
+    EPILOGUE_ITEM: 2000,
+    
+    // Test
+    TEST_PAYLOAD_MAX_BYTES: 50000
+};
+
+// ============================================================================
 // GLOBAL STATE
 // ============================================================================
 let questData = null;
@@ -26,6 +68,7 @@ let currentModalTest = null;
 // ============================================================================
 document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
+    initializeMaxLengthAttributes();
 });
 
 function initializeEventListeners() {
@@ -66,6 +109,42 @@ function initializeEventListeners() {
     
     // Form change listeners for auto-save
     setupFormListeners();
+}
+
+// Initialize maxlength attributes on form fields from constants
+function initializeMaxLengthAttributes() {
+    // Meta fields
+    const metaFields = {
+        'meta-title': VALIDATION_LIMITS.PACK_TITLE,
+        'meta-description': VALIDATION_LIMITS.PACK_DESCRIPTION,
+        'meta-genre': VALIDATION_LIMITS.PACK_GENRE,
+        'meta-initial_objective': VALIDATION_LIMITS.PACK_OBJECTIVE,
+        'meta-final_objective': VALIDATION_LIMITS.PACK_OBJECTIVE
+    };
+    
+    // UI Labels fields
+    const uiLabelsFields = {
+        'ui_labels-grimoire_title': VALIDATION_LIMITS.UI_GRIMOIRE_TITLE,
+        'ui_labels-hint_button': VALIDATION_LIMITS.UI_HINT_BUTTON,
+        'ui_labels-verify_button': VALIDATION_LIMITS.UI_VERIFY_BUTTON,
+        'ui_labels-message_success': VALIDATION_LIMITS.UI_MESSAGE_SUCCESS,
+        'ui_labels-message_failure': VALIDATION_LIMITS.UI_MESSAGE_FAILURE,
+        'ui_labels-perfect_score_message': VALIDATION_LIMITS.UI_PERFECT_SCORE_MESSAGE,
+        'ui_labels-perfect_score_button_text': VALIDATION_LIMITS.UI_PERFECT_SCORE_BUTTON,
+        'ui_labels-begin_adventure_button': VALIDATION_LIMITS.UI_BEGIN_ADVENTURE_BUTTON
+    };
+    
+    // Apply maxlength to meta fields
+    Object.entries(metaFields).forEach(([id, maxLength]) => {
+        const el = document.getElementById(id);
+        if (el) el.maxLength = maxLength;
+    });
+    
+    // Apply maxlength to UI labels fields
+    Object.entries(uiLabelsFields).forEach(([id, maxLength]) => {
+        const el = document.getElementById(id);
+        if (el) el.maxLength = maxLength;
+    });
 }
 
 // ============================================================================
@@ -174,6 +253,9 @@ function switchToQuest(questIndex) {
         questView.style.display = '';
         document.querySelector('.main-content').appendChild(questView);
         
+        // Initialize maxlength attributes for quest fields
+        initializeQuestMaxLengthAttributes(questView);
+        
         // Setup tab switching for this quest view
         setupQuestTabs(questView, questIndex);
         
@@ -202,6 +284,24 @@ function switchToQuest(questIndex) {
         view.classList.remove('active');
     });
     questView.classList.add('active');
+}
+
+// Initialize maxlength attributes for quest template fields
+function initializeQuestMaxLengthAttributes(questView) {
+    const questFields = {
+        'quest-title': VALIDATION_LIMITS.QUEST_TITLE,
+        'quest-description_task': VALIDATION_LIMITS.QUEST_DESCRIPTION_TASK,
+        'quest-solution': VALIDATION_LIMITS.QUEST_SOLUTION,
+        'quest-template': VALIDATION_LIMITS.QUEST_TEMPLATE,
+        'quest-manual-data_model': VALIDATION_LIMITS.MANUAL_DATA_MODEL,
+        'quest-manual-rego_snippet': VALIDATION_LIMITS.MANUAL_REGO_SNIPPET,
+        'quest-manual-external_link': VALIDATION_LIMITS.MANUAL_EXTERNAL_LINK
+    };
+    
+    Object.entries(questFields).forEach(([id, maxLength]) => {
+        const el = questView.querySelector(`#${id}`);
+        if (el) el.maxLength = maxLength;
+    });
 }
 
 function setupQuestTabs(questView, questIndex) {
@@ -274,7 +374,7 @@ function renderPrologue() {
     questData.prologue.forEach((item, index) => {
         const div = createListItem(item, () => removePrologueItem(index), (value) => {
             questData.prologue[index] = value;
-        });
+        }, VALIDATION_LIMITS.PROLOGUE_ITEM);
         container.appendChild(div);
     });
 }
@@ -288,7 +388,7 @@ function renderEpilogue() {
     questData.epilogue.forEach((item, index) => {
         const div = createListItem(item, () => removeEpilogueItem(index), (value) => {
             questData.epilogue[index] = value;
-        });
+        }, VALIDATION_LIMITS.EPILOGUE_ITEM);
         container.appendChild(div);
     });
 }
@@ -369,7 +469,7 @@ function renderLore(questIndex, questView) {
     quest.description_lore.forEach((item, index) => {
         const div = createListItem(item, () => removeLoreItem(questIndex, index), (value) => {
             questData.quests[questIndex].description_lore[index] = value;
-        });
+        }, VALIDATION_LIMITS.QUEST_DESCRIPTION_LORE);
         container.appendChild(div);
     });
 }
@@ -384,7 +484,7 @@ function renderHints(questIndex, questView) {
     quest.hints.forEach((item, index) => {
         const div = createListItem(item, () => removeHintItem(questIndex, index), (value) => {
             questData.quests[questIndex].hints[index] = value;
-        });
+        }, VALIDATION_LIMITS.QUEST_HINT);
         container.appendChild(div);
     });
 }
@@ -405,7 +505,7 @@ function renderTests(questIndex, questView) {
 // ============================================================================
 // HELPER FUNCTIONS FOR CREATING ELEMENTS
 // ============================================================================
-function createListItem(text, onRemove, onChange) {
+function createListItem(text, onRemove, onChange, maxLength) {
     const div = document.createElement('div');
     div.className = 'list-item';
     
@@ -413,6 +513,9 @@ function createListItem(text, onRemove, onChange) {
     textarea.className = 'form-control';
     textarea.rows = 2;
     textarea.value = text;
+    if (maxLength) {
+        textarea.maxLength = maxLength;
+    }
     textarea.addEventListener('change', () => onChange(textarea.value));
     
     const actionsDiv = document.createElement('div');
