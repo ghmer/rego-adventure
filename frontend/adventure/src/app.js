@@ -70,7 +70,7 @@ async function init() {
             const user = await AuthService.getUser();
             if (!user) {
                 // Show login button, hide quest pack list and logout button
-                uiManager.elements.loginContainer.style.display = 'block';
+                uiManager.elements.loginContainer.classList.remove('hidden');
                 uiManager.elements.questPackList.style.display = 'none';
                 uiManager.elements.logoutBtn.style.display = 'none';
                 return; // Stop initialization until logged in
