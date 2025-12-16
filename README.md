@@ -10,7 +10,7 @@ Use the following credentials:
 - user: rego
 - pass: adventure
 
-### Gallery
+### Gallery of custom adventures
 
 <p align="center">
   <a href="docu/images/screenshot_ui_1.jpg"><img src="docu/images/screenshot_ui_1.jpg" alt="Screenshot 1" width="400"></a>
