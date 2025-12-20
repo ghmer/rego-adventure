@@ -1,6 +1,6 @@
 {
-  "name": "pbac-adventure-frontend",
-  "version": "1.0.0",
+  "name": "rego-adventure-frontend",
+  "version": "1.0.3",
   "description": "Policy-Based Access Control Adventure - Frontend Dependencies",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-repo/pbac-adventure"
+    "url": "https://github.com/ghmer/rego-adventure"
   },
   "keywords": [
     "rego",

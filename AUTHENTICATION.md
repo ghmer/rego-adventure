@@ -62,8 +62,8 @@ Configure the following environment variables to enable and configure authentica
 | `AUTH_ENABLED` | Yes | Enable/disable authentication | `true` or `false` |
 | `AUTH_ISSUER` | When enabled | OIDC issuer URL (must match token `iss` claim) | `https://keycloak.example.com/realms/myrealm` |
 | `AUTH_DISCOVERY_URL` | When enabled | OIDC discovery endpoint URL | `https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration` |
-| `AUTH_CLIENT_ID` | When enabled | OAuth2 client identifier | `pbac-adventure` |
-| `AUTH_AUDIENCE` | When enabled | Expected audience in JWT tokens | `pbac-adventure` |
+| `AUTH_CLIENT_ID` | When enabled | OAuth2 client identifier | `rego-adventure` |
+| `AUTH_AUDIENCE` | When enabled | Expected audience in JWT tokens | `rego-adventure` |
 | `DOMAIN` | Yes | Application domain (used for CORS) | `https://adventure.example.com` |
 
 ## Keycloak Configuration
@@ -78,7 +78,7 @@ This section provides general instructions for configuring Keycloak as your iden
 
    **General Settings:**
    - **Client type**: `OpenID Connect`
-   - **Client ID**: `pbac-adventure` (must match `AUTH_CLIENT_ID`)
+   - **Client ID**: `rego-adventure` (must match `AUTH_CLIENT_ID`)
    - **Name**: `Rego Adventure` (display name)
    - **Description**: `Rego Adventure Game Application`
    - Click **"Next"**
@@ -112,14 +112,14 @@ This section provides general instructions for configuring Keycloak as your iden
 
 The audience mapper is **essential** for token validation. Without it, tokens will be rejected by the backend.
 
-1. Navigate to your client (`pbac-adventure`)
+1. Navigate to your client (`rego-adventure`)
 2. Go to **"Client scopes"** tab
-3. Click on the dedicated scope (e.g., `pbac-adventure-dedicated`)
+3. Click on the dedicated scope (e.g., `rego-adventure-dedicated`)
 4. Click **"Add New mapper"**
 5. Select **"Audience"**
 6. Configure the mapper:
    - **Name**: `audience-mapper`
-   - **Included Client Audience**: `pbac-adventure` (must match `AUTH_AUDIENCE`)
+   - **Included Client Audience**: `rego-adventure` (must match `AUTH_AUDIENCE`)
    - **Add to ID token**: `OFF`
    - **Add to access token**: `ON`
    - Click **"Save"**
