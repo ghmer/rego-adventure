@@ -1,10 +1,10 @@
 # Authentication Configuration Guide
 
-This document provides instructions for configuring an Identity Provider (IDP) for the PBAC Adventure application, with Keycloak as the primary example.
+This document provides instructions for configuring an Identity Provider (IDP) for the Rego Adventure application, with Keycloak as the primary example.
 
 ## Overview
 
-The PBAC Adventure application implements **OIDC/OAuth2 Authorization Code Flow** for user authentication. Key characteristics:
+The Rego Adventure application implements **OIDC/OAuth2 Authorization Code Flow** for user authentication. Key characteristics:
 
 - **Optional Authentication**: Authentication can be enabled or disabled via environment variables
 - **OIDC-Compliant**: Works with any OIDC-compliant identity provider (Keycloak, Auth0, Okta, Azure AD, etc.)
@@ -79,8 +79,8 @@ This section provides general instructions for configuring Keycloak as your iden
    **General Settings:**
    - **Client type**: `OpenID Connect`
    - **Client ID**: `pbac-adventure` (must match `AUTH_CLIENT_ID`)
-   - **Name**: `PBAC Adventure` (display name)
-   - **Description**: `PBAC Adventure Game Application`
+   - **Name**: `Rego Adventure` (display name)
+   - **Description**: `Rego Adventure Game Application`
    - Click **"Next"**
 
    **Capability config:**

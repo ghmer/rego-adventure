@@ -1,6 +1,6 @@
 # Quest Editor
 
-A browser-based tool for creating and editing quest packs for the PBAC Adventure game.
+A browser-based tool for creating and editing quest packs for the Rego Adventure game.
 
 ## What It Does
 
