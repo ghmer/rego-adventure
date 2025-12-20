@@ -2,7 +2,7 @@ name: Build and push container images (multi-arch)
 
 on:
   push:
-    tags: ['v*', 'v*.*.*']
+    tags: ["v*", "v*.*.*"]
   workflow_dispatch:
 
 permissions:
@@ -40,18 +40,23 @@ jobs:
         id: set-image
         run: |
           # Image name in GitHub Container Registry
-          echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY}" >> $GITHUB_ENV
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY}"
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "image-name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
 
-          # If this is a tag push, use the tag name; if it is a push to main, use 'latest'
+          # If this is a tag push, use the tag name
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"
-            echo "IMAGE_TAG=${TAG_NAME}" >> $GITHUB_ENV
             echo "Detected tag push: ${TAG_NAME}"
-          elif [[ "${GITHUB_REF}" == refs/heads/main ]]; then
-            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
-            echo "Detected push to main: tagging as latest"
+            
+            # Build both tag and latest
+            TAGS="${IMAGE_NAME}:${TAG_NAME},${IMAGE_NAME}:latest"
+            echo "Building: ${TAG_NAME} and latest"
+            
+            echo "IMAGE_TAG=${TAGS}" >> $GITHUB_ENV
+            echo "image-tag=${TAGS}" >> $GITHUB_OUTPUT
           else
-            echo "This workflow is only intended for main branch or tag pushes. Skipping." >&2
+            echo "This workflow is only intended for tag pushes. Skipping." >&2
             exit 0
           fi
 
@@ -62,6 +67,6 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          tags: ${{ steps.set-image.outputs.image-name }}:${{ steps.set-image.outputs.image-tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
