@@ -30,7 +30,7 @@
   "license": "Apache-2.0",
   "comments": {
     "purpose": "This package.json tracks CDN dependencies for security scanning only.",
-    "deployment": "Dependencies are loaded via CDN using Import Maps (see index.html).",
+    "deployment": "Dependencies are loaded via CDN using Import Maps (see index.html/importmap.json).",
     "security": "Run 'npm audit' to check for vulnerabilities in tracked dependencies.",
     "updates": "Use 'npm outdated' to check for available updates, then update versions in both package.json and the import map in index.html."
   }
