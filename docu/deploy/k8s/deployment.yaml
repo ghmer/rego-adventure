@@ -18,7 +18,7 @@ spec:
         fsGroup: 10001
       containers:
         - name: rego-adventure
-          image: YOUR_REGISTRY/rego-adventure:latest
+          image: ghcr.io/ghmer/rego-adventure:latest
           ports:
             - containerPort: 8080
           envFrom:
