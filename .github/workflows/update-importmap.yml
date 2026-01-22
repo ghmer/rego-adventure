@@ -16,10 +16,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check out Trusted Code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.base_ref }}
+          path: trusted-base
+
       - name: Check out PR head
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          path: pr-head
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -28,11 +36,13 @@ jobs:
 
       - name: Generate importmap.json
         run: |
-          go run ./main.go \
-            -pkgPath frontend/adventure/package.json \
-            -mapPath frontend/adventure/importmap.json
+          cd trusted-base
+          go run ./cmd/importmapgen/main.go \
+            -pkgPath ../pr-head/frontend/adventure/package.json \
+            -mapPath ../pr-head/frontend/adventure/importmap.json
 
       - name: Commit and push if changed
+        working-directory: pr-head
         run: |
           if git diff --quiet -- frontend/adventure/importmap.json; then
             echo "No changes to importmap.json"
