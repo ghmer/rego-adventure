@@ -34,24 +34,24 @@ jobs:
         with:
           go-version: "1.25"
 
-      - name: Generate importmap.json
+      - name: Generate index.html with updated importmap
         run: |
           cd trusted-base
           go run ./cmd/importmapgen/main.go \
             -pkgPath ../pr-head/frontend/adventure/package.json \
-            -mapPath ../pr-head/frontend/adventure/importmap.json
+            -mapPath ../pr-head/frontend/adventure/index.html
 
       - name: Commit and push if changed
         working-directory: pr-head
         run: |
-          if git diff --quiet -- frontend/adventure/importmap.json; then
-            echo "No changes to importmap.json"
+          if git diff --quiet -- frontend/adventure/index.html; then
+            echo "No changes to index.html"
             exit 0
           fi
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add frontend/adventure/importmap.json
-          git commit -m "chore: update importmap.json"
+          git add frontend/adventure/index.html
+          git commit -m "chore: update index.html"
           git push

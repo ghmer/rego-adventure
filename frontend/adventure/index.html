@@ -15,13 +15,23 @@
 -->
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="page-title">Rego Adventure</title>
-    
+
     <!-- Import Map for Dependency Version Pinning -->
-    <script type="importmap" src="importmap.json"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "canvas-confetti": "https://esm.sh/canvas-confetti@1.9.4",
+                "dompurify": "https://esm.sh/dompurify@3.3.1",
+                "marked": "https://esm.sh/marked@17.0.1",
+                "oidc-client-ts": "https://esm.sh/oidc-client-ts@3.4.1"
+            }
+        }
+    </script>
     <link rel="icon" type="image/x-icon" href="public/favicon.ico">
     <link rel="apple-touch-icon" href="public/apple-touch-icon.png">
     <style>
@@ -30,6 +40,7 @@
             visibility: hidden;
             opacity: 0;
         }
+
         html.loaded {
             visibility: visible;
             opacity: 1;
@@ -44,11 +55,12 @@
     <link rel="stylesheet" href="styles/theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
+
 <body>
     <!-- Skip Links for Accessibility -->
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <a href="#quest-navigation" class="skip-link">Skip to quest navigation</a>
-    
+
     <canvas id="bg-canvas" aria-hidden="true"></canvas>
     <section id="start-screen" class="start-screen" aria-label="Start Screen">
         <div class="start-content surface-bg">
@@ -56,7 +68,8 @@
             <h1 class="main-title" id="main-title">Rego Adventure</h1>
             <p class="subtitle">Choose your path to master Policy-Based Access Control</p>
             <div id="login-container" class="hidden">
-                <button id="login-btn" class="action-btn login-btn" aria-label="Login to Start Adventure" title="Login to Start Adventure">Login to Start Adventure</button>
+                <button id="login-btn" class="action-btn login-btn" aria-label="Login to Start Adventure"
+                    title="Login to Start Adventure">Login to Start Adventure</button>
             </div>
             <div id="quest-pack-list" class="quest-pack-list">
                 <!-- Quest packs will be loaded here -->
@@ -72,23 +85,30 @@
         <header class="game-header">
             <h1 id="game-title">Rego Adventure</h1>
             <div class="player-status">
-                <button id="music-btn" class="action-btn secondary" aria-label="Unmute background music" aria-pressed="false" title="Toggle background music on/off">
+                <button id="music-btn" class="action-btn secondary" aria-label="Unmute background music"
+                    aria-pressed="false" title="Toggle background music on/off">
                     <svg class="progress-ring" width="44" height="44">
-                        <circle class="progress-ring__circle-bg" stroke="currentColor" stroke-width="2" fill="transparent" r="20" cx="22" cy="22"/>
-                        <circle class="progress-ring__circle" stroke="currentColor" stroke-width="2" fill="transparent" r="20" cx="22" cy="22"/>
+                        <circle class="progress-ring__circle-bg" stroke="currentColor" stroke-width="2"
+                            fill="transparent" r="20" cx="22" cy="22" />
+                        <circle class="progress-ring__circle" stroke="currentColor" stroke-width="2" fill="transparent"
+                            r="20" cx="22" cy="22" />
                     </svg>
                     <i class="fa-solid fa-volume-xmark"></i>
                 </button>
-                <button id="effects-btn" class="action-btn secondary" aria-label="Disable visual effects" aria-pressed="true" title="Toggle visual effects on/off">
+                <button id="effects-btn" class="action-btn secondary" aria-label="Disable visual effects"
+                    aria-pressed="true" title="Toggle visual effects on/off">
                     <i class="fa-solid fa-wand-magic-sparkles"></i>
                 </button>
-                <button id="restart-btn" class="action-btn secondary" aria-label="Restart Adventure" title="Restart the adventure from the beginning">
+                <button id="restart-btn" class="action-btn secondary" aria-label="Restart Adventure"
+                    title="Restart the adventure from the beginning">
                     <i class="fa-solid fa-rotate-right"></i>
                 </button>
-                <button id="home-btn" class="action-btn secondary" aria-label="Return to Home" title="Return to home screen">
+                <button id="home-btn" class="action-btn secondary" aria-label="Return to Home"
+                    title="Return to home screen">
                     <i class="fa-solid fa-home"></i>
                 </button>
-                <button id="logout-btn" class="action-btn secondary" aria-label="Logout" title="Logout from the adventure">
+                <button id="logout-btn" class="action-btn secondary" aria-label="Logout"
+                    title="Logout from the adventure">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
                 <div class="avatar-container">
@@ -103,22 +123,25 @@
             <!-- Left Pane: Quest Log -->
             <section id="quest-navigation" class="quest-pane surface-bg" aria-labelledby="quest-title">
                 <div class="pane-header">
-                    <img src="public/assets/npc-questgiver.png" alt="Quest giver character providing guidance" class="npc-avatar">
+                    <img src="public/assets/npc-questgiver.png" alt="Quest giver character providing guidance"
+                        class="npc-avatar">
                     <h2 id="quest-title">Loading Quest...</h2>
                 </div>
-                
+
                 <div class="scroll-content">
                     <div class="lore-container">
                         <div class="lore-text" id="quest-lore">
                             <!-- Lore goes here -->
                         </div>
                         <div class="lore-controls hidden" id="lore-controls">
-                            <button id="lore-prev-btn" class="action-btn small secondary" aria-label="Previous Page" title="Go to previous lore page"><i class="fa-solid fa-chevron-left"></i></button>
+                            <button id="lore-prev-btn" class="action-btn small secondary" aria-label="Previous Page"
+                                title="Go to previous lore page"><i class="fa-solid fa-chevron-left"></i></button>
                             <span id="lore-page-indicator">1/1</span>
-                            <button id="lore-next-btn" class="action-btn small secondary" aria-label="Next Page" title="Go to next lore page"><i class="fa-solid fa-chevron-right"></i></button>
+                            <button id="lore-next-btn" class="action-btn small secondary" aria-label="Next Page"
+                                title="Go to next lore page"><i class="fa-solid fa-chevron-right"></i></button>
                         </div>
                     </div>
-                    
+
                     <section class="task-box" aria-labelledby="task-heading">
                         <h3 id="task-heading">Your Task</h3>
                         <p id="quest-task"><!-- Task description --></p>
@@ -126,20 +149,24 @@
 
                     <section class="hints-section" aria-label="Hints">
                         <div class="quest-actions">
-                            <button id="hint-btn" class="action-btn secondary" aria-label="Reveal a hint for the current quest" title="Get a hint for the current quest">Ask Advisor</button>
+                            <button id="hint-btn" class="action-btn secondary"
+                                aria-label="Reveal a hint for the current quest"
+                                title="Get a hint for the current quest">Ask Advisor</button>
                         </div>
                         <ul id="hints-list" class="hidden" aria-live="polite"></ul>
                     </section>
 
-                    <section id="outcome-area" class="outcome-area hidden" aria-live="polite" aria-labelledby="outcome-heading">
+                    <section id="outcome-area" class="outcome-area hidden" aria-live="polite"
+                        aria-labelledby="outcome-heading">
                         <h3 id="outcome-heading">Outcome</h3>
                         <div id="outcome-message"></div>
                         <ul id="test-results"></ul>
                     </section>
                 </div>
-                
+
                 <div class="quest-footer">
-                    <button id="perfect-score-btn" class="action-btn perfect-score-btn" aria-label="Reveal perfect score message" title="View perfect score achievement message">
+                    <button id="perfect-score-btn" class="action-btn perfect-score-btn"
+                        aria-label="Reveal perfect score message" title="View perfect score achievement message">
                         A Secret Awaits...
                     </button>
                 </div>
@@ -150,22 +177,29 @@
                 <div class="pane-header">
                     <h2 id="grimoire-title">Policy Grimoire</h2>
                     <div class="grimoire-controls">
-                        <button id="check-manual-btn" class="action-btn secondary" aria-label="Show manual" title="View quest manual and documentation"><i class="fa-solid fa-book"></i></button>
-                        <button id="check-test-payload-btn" class="action-btn secondary" aria-label="Show test payload" title="View test cases for this quest"><i class="fa-solid fa-vial"></i></button>
+                        <button id="check-manual-btn" class="action-btn secondary" aria-label="Show manual"
+                            title="View quest manual and documentation"><i class="fa-solid fa-book"></i></button>
+                        <button id="check-test-payload-btn" class="action-btn secondary" aria-label="Show test payload"
+                            title="View test cases for this quest"><i class="fa-solid fa-vial"></i></button>
                     </div>
                 </div>
                 <div class="editor-container">
-                    <textarea id="rego-editor" spellcheck="false" placeholder="Write your Rego policy here..."></textarea>
+                    <textarea id="rego-editor" spellcheck="false"
+                        placeholder="Write your Rego policy here..."></textarea>
                 </div>
                 <div class="editor-footer">
-                    <button id="quest-back-btn" class="action-btn secondary" aria-label="Previous Quest" title="Go to previous quest">
+                    <button id="quest-back-btn" class="action-btn secondary" aria-label="Previous Quest"
+                        title="Go to previous quest">
                         <i class="fa-solid fa-chevron-left"></i>
                     </button>
-                    <button id="verify-btn" class="action-btn primary" aria-label="Verify your solution" title="Test your policy against the quest requirements">Apply Policy</button>
-                    <button id="quest-forward-btn" class="action-btn secondary" aria-label="Next Quest" title="Go to next quest">
+                    <button id="verify-btn" class="action-btn primary" aria-label="Verify your solution"
+                        title="Test your policy against the quest requirements">Apply Policy</button>
+                    <button id="quest-forward-btn" class="action-btn secondary" aria-label="Next Quest"
+                        title="Go to next quest">
                         <i class="fa-solid fa-chevron-right"></i>
                     </button>
-                    <button id="start-adventure" class="action-btn primary hidden" aria-label="Proceed to the next quest" title="Continue to the next quest">Next Quest</button>
+                    <button id="start-adventure" class="action-btn primary hidden"
+                        aria-label="Proceed to the next quest" title="Continue to the next quest">Next Quest</button>
                 </div>
             </section>
         </main>
@@ -177,8 +211,10 @@
             <h2 id="restart-title">Restart Adventure?</h2>
             <p>Are you sure you want to restart? All progress will be lost!</p>
             <div class="modal-actions">
-                <button id="cancel-restart-btn" class="action-btn secondary" aria-label="Cancel restart" title="Cancel the restart">Cancel</button>
-                <button id="confirm-restart-btn" class="action-btn danger" aria-label="Confirm restart" title="Confirm and restart the adventure">Yes, Restart</button>
+                <button id="cancel-restart-btn" class="action-btn secondary" aria-label="Cancel restart"
+                    title="Cancel the restart">Cancel</button>
+                <button id="confirm-restart-btn" class="action-btn danger" aria-label="Confirm restart"
+                    title="Confirm and restart the adventure">Yes, Restart</button>
             </div>
         </div>
     </div>
@@ -188,7 +224,8 @@
         <div class="modal-content surface-bg">
             <div class="modal-header">
                 <h2 id="manual-title">Manual</h2>
-                <button id="close-manual-btn" class="close-btn" aria-label="Close Manual Modal" title="Close the manual">&times;</button>
+                <button id="close-manual-btn" class="close-btn" aria-label="Close Manual Modal"
+                    title="Close the manual">&times;</button>
             </div>
             <div id="manual-content" class="manual-content">
                 <!-- Manual content populated via JS -->
@@ -197,14 +234,17 @@
     </div>
 
     <!-- Test Payload Modal -->
-    <div id="test-payload-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="test-payload-title">
+    <div id="test-payload-modal" class="modal hidden" role="dialog" aria-modal="true"
+        aria-labelledby="test-payload-title">
         <div class="modal-content surface-bg">
             <div class="modal-header">
                 <h2 id="test-payload-title">Test Cases</h2>
-                <button id="close-test-payload-btn" class="close-btn" aria-label="Close Test Payload Modal" title="Close the test cases">&times;</button>
+                <button id="close-test-payload-btn" class="close-btn" aria-label="Close Test Payload Modal"
+                    title="Close the test cases">&times;</button>
             </div>
             <div id="test-payload-content" class="test-payload-content">
-                <p>Your policy will be tested against the following test cases. Each test provides <code>input</code> data and optionally <code>data</code> for the OPA store.</p>
+                <p>Your policy will be tested against the following test cases. Each test provides <code>input</code>
+                    data and optionally <code>data</code> for the OPA store.</p>
                 <div id="test-payload-data"></div>
             </div>
         </div>
@@ -230,22 +270,27 @@
             </div>
             <ul id="result-test-list" class="result-test-list"></ul>
             <div class="modal-actions">
-                <button id="close-result-btn" class="action-btn secondary" aria-label="Close result modal" title="Close the result modal">Close</button>
-                <button id="next-quest-btn" class="action-btn success hidden" aria-label="Proceed to next quest" title="Continue to the next quest">Next Quest</button>
+                <button id="close-result-btn" class="action-btn secondary" aria-label="Close result modal"
+                    title="Close the result modal">Close</button>
+                <button id="next-quest-btn" class="action-btn success hidden" aria-label="Proceed to next quest"
+                    title="Continue to the next quest">Next Quest</button>
             </div>
         </div>
     </div>
 
     <!-- Perfect Score Modal -->
-    <div id="perfect-score-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="perfect-score-title">
+    <div id="perfect-score-modal" class="modal hidden" role="dialog" aria-modal="true"
+        aria-labelledby="perfect-score-title">
         <div class="modal-content surface-bg perfect-score-modal-content">
             <div class="modal-header">
                 <h2 id="perfect-score-title">Perfect Mastery Achieved!</h2>
-                <button id="close-perfect-score-btn" class="close-btn" aria-label="Close Perfect Score Modal" title="Close the perfect score message">&times;</button>
+                <button id="close-perfect-score-btn" class="close-btn" aria-label="Close Perfect Score Modal"
+                    title="Close the perfect score message">&times;</button>
             </div>
             <div class="perfect-score-content">
                 <div class="perfect-score-image-container">
-                    <img id="perfect-score-image" src="" alt="Perfect score achievement celebration" class="perfect-score-image">
+                    <img id="perfect-score-image" src="" alt="Perfect score achievement celebration"
+                        class="perfect-score-image">
                 </div>
                 <div id="perfect-score-message" class="perfect-score-message">
                     <!-- Message populated via JS -->
@@ -315,7 +360,7 @@
                 <h4 class="test-case-title"></h4>
                 <span class="test-case-expected"></span>
             </div>
-            
+
             <div class="test-case-input">
                 <div class="test-case-label">
                     <i class="fa-solid fa-arrow-right"></i>
@@ -323,7 +368,7 @@
                 </div>
                 <pre class="test-case-input-data"></pre>
             </div>
-            
+
             <div class="test-case-data hidden">
                 <div class="test-case-label">
                     <i class="fa-solid fa-database"></i>
@@ -337,4 +382,5 @@
     <script type="module" src="src/app.js"></script>
     <audio id="bg-music" aria-label="Background music"></audio>
 </body>
+
 </html>

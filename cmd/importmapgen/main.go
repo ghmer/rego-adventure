@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -17,11 +18,11 @@ type ImportMap struct {
 }
 
 var pkgPath string
-var mapPath string
+var indexPath string
 
 func init() {
 	flag.StringVar(&pkgPath, "pkgPath", "frontend/adventure/package.json", "full path to package.json")
-	flag.StringVar(&mapPath, "mapPath", "frontend/adventure/importmap.json", "full path to importmap.json")
+	flag.StringVar(&indexPath, "indexPath", "frontend/adventure/index.html", "full path to index.html")
 	flag.Parse()
 }
 
@@ -49,16 +50,39 @@ func main() {
 	}
 
 	importMap := ImportMap{Imports: imports}
-	mapContent, err := json.MarshalIndent(importMap, "", "  ")
+	mapContent, err := json.MarshalIndent(importMap, "        ", "    ")
 	if err != nil {
 		fmt.Printf("Error marshaling import map: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 3. Write importmap.json
-	if err := os.WriteFile(mapPath, mapContent, 0644); err != nil {
-		fmt.Printf("Error writing %s: %v\n", mapPath, err)
+	// 3. Read index.html
+	indexContent, err := os.ReadFile(indexPath)
+	if err != nil {
+		fmt.Printf("Error reading %s: %v\n", indexPath, err)
 		os.Exit(1)
 	}
-	fmt.Printf("Generated %s\n", mapPath)
+
+	// 4. Replace import map in index.html
+	// We look for <script type="importmap"> ... </script>
+	// and replace the content inside.
+	re := regexp.MustCompile(`(?s)<script type="importmap">.*?</script>`)
+
+	newScriptTag := fmt.Sprintf(`<script type="importmap">
+        %s
+    </script>`, string(mapContent))
+
+	if !re.Match(indexContent) {
+		fmt.Printf("Error: Could not find <script type=\"importmap\"> in %s\n", indexPath)
+		os.Exit(1)
+	}
+
+	newIndexContent := re.ReplaceAll(indexContent, []byte(newScriptTag))
+
+	// 5. Write index.html
+	if err := os.WriteFile(indexPath, newIndexContent, 0644); err != nil {
+		fmt.Printf("Error writing %s: %v\n", indexPath, err)
+		os.Exit(1)
+	}
+	fmt.Printf("Updated import map in %s\n", indexPath)
 }
