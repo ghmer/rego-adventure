@@ -143,7 +143,7 @@ func serveQuestAssets(c *gin.Context) {
 	}
 
 	// Serve the file
-	c.File(safePath)
+	c.File(absPath)
 }
 
 // serveQuestCSS handles serving quest CSS files (theme.css, custom.css, styles.css)
@@ -198,7 +198,7 @@ func serveQuestCSS(c *gin.Context) {
 
 	// Set proper content type for CSS
 	c.Header("Content-Type", "text/css; charset=utf-8")
-	c.File(safePath)
+	c.File(absPath)
 }
 
 // serveSharedCSS handles serving shared CSS files from frontend/shared/css/
@@ -248,7 +248,7 @@ func serveSharedCSS(c *gin.Context) {
 
 	// Set proper content type for CSS
 	c.Header("Content-Type", "text/css; charset=utf-8")
-	c.File(safePath)
+	c.File(absPath)
 }
 
 // createSPAHandler creates a handler for SPA routing
