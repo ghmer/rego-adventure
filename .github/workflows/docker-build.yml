@@ -67,6 +67,6 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.set-image.outputs.image-name }}:${{ steps.set-image.outputs.image-tag }}
+          tags: ${{ steps.set-image.outputs.image-tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
