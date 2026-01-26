@@ -22,10 +22,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ghmer/rego-adventure/internal/config"
-	"github.com/ghmer/rego-adventure/internal/http"
-	_ "github.com/ghmer/rego-adventure/internal/logger"
-	"github.com/ghmer/rego-adventure/internal/quest"
+	"github.com/ghmer/rego-adventure/backend/config"
+	"github.com/ghmer/rego-adventure/backend/http"
+	_ "github.com/ghmer/rego-adventure/backend/logger"
+	"github.com/ghmer/rego-adventure/backend/quest"
 )
 
 func main() {

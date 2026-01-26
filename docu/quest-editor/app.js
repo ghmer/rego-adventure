@@ -17,7 +17,7 @@
 // ============================================================================
 // VALIDATION CONSTANTS
 // ============================================================================
-// String length validation limits - must match internal/quest/constants.go
+// String length validation limits - must match backend/quest/constants.go
 const VALIDATION_LIMITS = {
     // Pack Meta
     PACK_TITLE: 100,

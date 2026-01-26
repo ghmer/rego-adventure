@@ -32,9 +32,9 @@ Use the following credentials:
 
 **Key Components:**
 - [`main.go`](main.go:1) - Application entry point and initialization
-- [`internal/http/`](internal/http/) - HTTP server, routing, and middleware
-- [`internal/quest/`](internal/quest/) - Quest models, repository, and verification logic
-- [`internal/config/`](internal/config/) - Configuration management
+- [`backend/http/`](backend/http/) - HTTP server, routing, and middleware
+- [`backend/quest/`](backend/quest/) - Quest models, repository, and verification logic
+- [`backend/config/`](backend/config/) - Configuration management
 
 ### Frontend (JavaScript)
 
@@ -142,7 +142,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 ├── main.go                # Application entry point
 ├── cmd/
 │   └── assetgen/          # Quest pack asset generator
-├── internal/
+├── backend/
 │   ├── config/            # Configuration management
 │   ├── http/              # HTTP server and routing
 │   └── quest/             # Quest system logic

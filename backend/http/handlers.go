@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ghmer/rego-adventure/internal/quest"
+	"github.com/ghmer/rego-adventure/backend/quest"
 
 	"github.com/gin-gonic/gin"
 )
