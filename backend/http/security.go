@@ -85,11 +85,11 @@ func isSensitiveFile(filename string) bool {
 	return false
 }
 
-// mustReadFile reads a file from the embedded FS or panics
+// mustReadFile reads a file from the sub FS or panics
 func mustReadFile(fsys fs.FS, name string) []byte {
 	data, err := fs.ReadFile(fsys, name)
 	if err != nil {
-		slog.Error("failed to read embedded file", "filename", name, "error", err)
+		slog.Error("failed to read file", "filename", name, "error", err)
 		os.Exit(1)
 	}
 	return data
