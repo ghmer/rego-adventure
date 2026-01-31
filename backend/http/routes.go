@@ -212,7 +212,7 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 			cleanPath = "index.html"
 		}
 
-		// Try to open the file from embedded FS
+		// Try to open the file from sub FS
 		file, err := subFS.Open(cleanPath)
 		if err != nil {
 			// File doesn't exist, serve index.html for SPA routing
