@@ -58,15 +58,13 @@ func (s *Server) SetupRoutes() {
 // setupQuestRoutes configures quest asset serving
 func (s *Server) setupQuestRoutes() {
 	// Serve static assets for quests
-	s.router.GET("/quests/:pack/assets/*filepath", serveQuestAssets)
+	s.router.GET("/quests/:pack/assets/:assetpath", s.serveQuestAssets)
 
 	// Serve quest pack CSS files (theme.css, custom.css, styles.css)
-	s.router.GET("/quests/:pack/theme.css", serveQuestCSS)
-	s.router.GET("/quests/:pack/custom.css", serveQuestCSS)
-	s.router.GET("/quests/:pack/styles.css", serveQuestCSS)
+	s.router.GET("/quests/:pack/:csspath", s.serveQuestCSS)
 
 	// Serve shared CSS files
-	s.router.GET("/shared/css/*filepath", serveSharedCSS)
+	s.router.GET("/shared/css/:filepath", s.serveSharedCSS)
 }
 
 // setupFrontendRoutes configures frontend and SPA routes
@@ -83,9 +81,9 @@ func (s *Server) setupFrontendRoutes() {
 }
 
 // serveQuestAssets handles serving quest asset files
-func serveQuestAssets(c *gin.Context) {
+func (s *Server) serveQuestAssets(c *gin.Context) {
 	pack := c.Param("pack")
-	requestedPath := c.Param("filepath")
+	requestedPath := c.Param("assetpath")
 
 	// Validate pack name
 	if !isValidPackName(pack) {
@@ -94,65 +92,19 @@ func serveQuestAssets(c *gin.Context) {
 		return
 	}
 
-	// Check for path traversal attempts
-	if containsPathTraversal(requestedPath) {
-		slog.Warn("security: path traversal attempt blocked", "path", requestedPath)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
+	baseDir := filepath.Join("./frontend/quests", pack, "assets")
+	validate := func(p string) bool {
+		return isAllowedExtension(p) && !isSensitiveFile(p)
 	}
 
-	// Clean the filepath to prevent traversal
-	cleanPath := filepath.Clean(requestedPath)
-
-	// Validate file extension
-	if !isAllowedExtension(cleanPath) {
-		slog.Warn("security: disallowed file extension rejected", "path", cleanPath)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	// Block sensitive files
-	if isSensitiveFile(cleanPath) {
-		slog.Warn("security: sensitive file access blocked", "path", cleanPath)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	// Construct safe path - only serve from assets subdirectory
-	safePath := filepath.Join("./frontend/quests", pack, "assets", cleanPath)
-
-	// Verify the resolved path is still within the expected directory
-	absPath, err := filepath.Abs(safePath)
-	if err != nil {
-		slog.Warn("security: failed to resolve absolute path", "error", err)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	expectedPrefix, err := filepath.Abs(filepath.Join("./frontend/quests", pack, "assets"))
-	if err != nil {
-		slog.Warn("security: failed to resolve expected prefix", "error", err)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	if !strings.HasPrefix(absPath, expectedPrefix) {
-		slog.Warn("security: path escape attempt blocked", "path", absPath)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	// Serve the file
-	c.File(absPath)
+	s.serveSafeFile(c, baseDir, requestedPath, validate, "")
 }
 
 // serveQuestCSS handles serving quest CSS files (theme.css, custom.css, styles.css)
-func serveQuestCSS(c *gin.Context) {
+func (s *Server) serveQuestCSS(c *gin.Context) {
 	pack := c.Param("pack")
-
-	// Extract the CSS filename from the request path
-	requestPath := c.Request.URL.Path
-	filename := filepath.Base(requestPath)
+	requestedPath := c.Param("csspath")
+	filename := filepath.Base(requestedPath)
 
 	// Validate pack name
 	if !isValidPackName(pack) {
@@ -161,50 +113,32 @@ func serveQuestCSS(c *gin.Context) {
 		return
 	}
 
-	// Only allow specific CSS files
-	allowedFiles := map[string]bool{
-		"theme.css":  true,
-		"custom.css": true,
-		"styles.css": true,
+	baseDir := filepath.Join("./frontend/quests", pack)
+	validate := func(p string) bool {
+		allowedFiles := map[string]bool{
+			"theme.css":  true,
+			"custom.css": true,
+			"styles.css": true,
+		}
+		return allowedFiles[p]
 	}
 
-	if !allowedFiles[filename] {
-		slog.Warn("security: disallowed CSS file rejected", "filename", filename)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	// Construct safe path for CSS file
-	safePath := filepath.Join("./frontend/quests", pack, filename)
-
-	// Verify the file exists and is within expected directory
-	absPath, err := filepath.Abs(safePath)
-	if err != nil {
-		c.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
-	expectedPrefix, err := filepath.Abs(filepath.Join("./frontend/quests", pack))
-	if err != nil {
-		c.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
-	if !strings.HasPrefix(absPath, expectedPrefix) {
-		slog.Warn("security: path escape attempt blocked", "path", absPath)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	// Set proper content type for CSS
-	c.Header("Content-Type", "text/css; charset=utf-8")
-	c.File(absPath)
+	s.serveSafeFile(c, baseDir, filename, validate, "text/css; charset=utf-8")
 }
 
 // serveSharedCSS handles serving shared CSS files from frontend/shared/css/
-func serveSharedCSS(c *gin.Context) {
+func (s *Server) serveSharedCSS(c *gin.Context) {
 	requestedPath := c.Param("filepath")
+	baseDir := "./frontend/shared/css"
+	validate := func(p string) bool {
+		return filepath.Ext(p) == ".css"
+	}
 
+	s.serveSafeFile(c, baseDir, requestedPath, validate, "text/css; charset=utf-8")
+}
+
+// serveSafeFile is a helper to serve files safely with path traversal protection and validation
+func (s *Server) serveSafeFile(c *gin.Context, baseDir string, requestedPath string, validate func(string) bool, contentType string) {
 	// Check for path traversal attempts
 	if containsPathTraversal(requestedPath) {
 		slog.Warn("security: path traversal attempt blocked", "path", requestedPath)
@@ -215,15 +149,15 @@ func serveSharedCSS(c *gin.Context) {
 	// Clean the filepath to prevent traversal
 	cleanPath := filepath.Clean(requestedPath)
 
-	// Only allow .css files
-	if filepath.Ext(cleanPath) != ".css" {
-		slog.Warn("security: non-CSS file rejected", "path", cleanPath)
+	// Validate file
+	if validate != nil && !validate(cleanPath) {
+		slog.Warn("security: file validation failed", "path", cleanPath)
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
 
-	// Construct safe path - only serve from shared/css subdirectory
-	safePath := filepath.Join("./frontend/shared/css", cleanPath)
+	// Construct safe path
+	safePath := filepath.Join(baseDir, cleanPath)
 
 	// Verify the resolved path is still within the expected directory
 	absPath, err := filepath.Abs(safePath)
@@ -233,7 +167,7 @@ func serveSharedCSS(c *gin.Context) {
 		return
 	}
 
-	expectedPrefix, err := filepath.Abs("./frontend/shared/css")
+	expectedPrefix, err := filepath.Abs(baseDir)
 	if err != nil {
 		slog.Warn("security: failed to resolve expected prefix", "error", err)
 		c.AbortWithStatus(http.StatusForbidden)
@@ -246,8 +180,12 @@ func serveSharedCSS(c *gin.Context) {
 		return
 	}
 
-	// Set proper content type for CSS
-	c.Header("Content-Type", "text/css; charset=utf-8")
+	// Set Content-Type if provided
+	if contentType != "" {
+		c.Header("Content-Type", contentType)
+	}
+
+	// Serve the file
 	c.File(absPath)
 }
 
