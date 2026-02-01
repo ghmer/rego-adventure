@@ -19,7 +19,8 @@ package quest
 // String length validation constants for quest pack data structures.
 // These constants define maximum character limits for various fields of quests.json.
 
-// Note: keep in sync with constants defined in quest-editor/app.js
+// Note: keep in sync with constants defined in docu/quest-editor/app.js
+// If you change these values, you MUST update the frontend validation constants as well.
 
 const (
 	// Pack Meta - Basic information about the quest pack

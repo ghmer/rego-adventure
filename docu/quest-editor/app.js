@@ -18,6 +18,7 @@
 // VALIDATION CONSTANTS
 // ============================================================================
 // String length validation limits - must match backend/quest/constants.go
+// If you change these values, you MUST update the backend validation constants as well.
 const VALIDATION_LIMITS = {
     // Pack Meta
     PACK_TITLE: 100,
