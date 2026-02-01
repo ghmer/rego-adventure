@@ -442,4 +442,39 @@ export class UIManager {
         
         this.updateEffectsButton(newState);
     }
+
+    /**
+     * Update UI based on authentication state
+     * @param {boolean} isAuthenticated - Whether the user is authenticated
+     * @param {boolean} authEnabled - Whether authentication is enabled in config
+     */
+    updateAuthUI(isAuthenticated, authEnabled) {
+        if (!authEnabled) {
+            this.elements.loginContainer.style.display = 'none';
+            this.elements.logoutBtn.style.display = 'none';
+            return;
+        }
+
+        if (isAuthenticated) {
+            this.elements.logoutBtn.style.display = 'inline-block';
+            this.elements.loginContainer.style.display = 'none';
+            this.elements.questPackList.style.display = 'block';
+        } else {
+            this.elements.loginContainer.classList.remove('hidden');
+            this.elements.loginContainer.style.display = 'block';
+            this.elements.questPackList.style.display = 'none';
+            this.elements.logoutBtn.style.display = 'none';
+        }
+    }
+
+    /**
+     * Update impressum footer visibility
+     * @param {boolean} show - Whether to show the impressum footer
+     */
+    updateImpressumVisibility(show) {
+        const impressumFooter = document.querySelector('.start-footer');
+        if (impressumFooter && !show) {
+            impressumFooter.style.display = 'none';
+        }
+    }
 }

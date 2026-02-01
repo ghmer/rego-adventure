@@ -57,33 +57,24 @@ async function init() {
 
         // Handle impressum footer visibility based on config
         const config = ConfigService.get();
-        const impressumFooter = document.querySelector('.start-footer');
-        if (impressumFooter && !config.show_impressum) {
-            impressumFooter.style.display = 'none';
-        }
+        uiManager.updateImpressumVisibility(config.show_impressum);
 
         // Setup event listeners early so login button works
         eventManager.setupEventListeners();
 
         // Handle authentication
-        if (AuthService.isEnabled()) {
+        const authEnabled = AuthService.isEnabled();
+        let isAuthenticated = false;
+        
+        if (authEnabled) {
             const user = await AuthService.getUser();
-            if (!user) {
-                // Show login button, hide quest pack list and logout button
-                uiManager.elements.loginContainer.classList.remove('hidden');
-                uiManager.elements.questPackList.style.display = 'none';
-                uiManager.elements.logoutBtn.style.display = 'none';
-                return; // Stop initialization until logged in
-            } else {
-                // Show logout button, hide login button
-                uiManager.elements.logoutBtn.style.display = 'inline-block';
-                uiManager.elements.loginContainer.style.display = 'none';
-                uiManager.elements.questPackList.style.display = 'block';
-            }
-        } else {
-            // Auth not enabled - hide both auth buttons
-            uiManager.elements.loginContainer.style.display = 'none';
-            uiManager.elements.logoutBtn.style.display = 'none';
+            isAuthenticated = !!user;
+        }
+        
+        uiManager.updateAuthUI(isAuthenticated, authEnabled);
+        
+        if (authEnabled && !isAuthenticated) {
+            return; // Stop initialization until logged in
         }
 
         // Load pack list

@@ -23,16 +23,27 @@ import { API } from './constants.js';
 import { AuthService } from './auth-service.js';
 
 /**
- * Get authentication headers for API requests
- * @returns {Promise<Object>} Headers object with auth token if available
+ * Helper to perform authenticated fetch requests
+ * @param {string} url - The URL to fetch
+ * @param {Object} options - Fetch options
+ * @returns {Promise<Response>} The fetch response
  */
-async function getAuthHeaders() {
+async function fetchWithAuth(url, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
     const token = await AuthService.getToken();
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
-    return headers;
+    
+    const config = {
+        ...options,
+        headers: {
+            ...headers,
+            ...options.headers
+        }
+    };
+    
+    return fetch(url, config);
 }
 
 /**
@@ -41,8 +52,7 @@ async function getAuthHeaders() {
  * @throws {Error} If the request fails
  */
 export async function fetchPacks() {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API.BASE_URL}/packs`, { headers });
+    const response = await fetchWithAuth(`${API.BASE_URL}/packs`);
     
     if (!response.ok) {
         throw new Error('Failed to fetch packs');
@@ -58,8 +68,7 @@ export async function fetchPacks() {
  * @throws {Error} If the request fails
  */
 export async function fetchPackDetails(packId) {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API.BASE_URL}/packs/${packId}`, { headers });
+    const response = await fetchWithAuth(`${API.BASE_URL}/packs/${packId}`);
     
     if (!response.ok) {
         throw new Error('Failed to fetch pack details');
@@ -76,10 +85,8 @@ export async function fetchPackDetails(packId) {
  * @throws {Error} If the request fails
  */
 export async function fetchTestPayload(packId, questId) {
-    const headers = await getAuthHeaders();
-    const response = await fetch(
-        `${API.BASE_URL}/packs/${packId}/quests/${questId}/test-payload`,
-        { headers }
+    const response = await fetchWithAuth(
+        `${API.BASE_URL}/packs/${packId}/quests/${questId}/test-payload`
     );
     
     if (!response.ok) {
@@ -98,10 +105,8 @@ export async function fetchTestPayload(packId, questId) {
  * @throws {Error} If the request fails
  */
 export async function verifySolution(packId, questId, code) {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API.BASE_URL}/verify`, {
+    const response = await fetchWithAuth(`${API.BASE_URL}/verify`, {
         method: 'POST',
-        headers: headers,
         body: JSON.stringify({ 
             pack_id: packId, 
             quest_id: questId, 
