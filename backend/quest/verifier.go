@@ -80,6 +80,9 @@ func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*
 		// Run evaluation
 		rs, err := r.Eval(ctx)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			return &QuestVerificationResult{
 				Passed: false,
 				Error:  fmt.Sprintf("Compilation/Runtime error: %v", err),
