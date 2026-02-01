@@ -58,6 +58,26 @@ type TestPayload struct {
 	Data  map[string]any `json:"data,omitempty"`
 }
 
+// TestPayloadInfo represents the simplified test payload for the frontend.
+type TestPayloadInfo struct {
+	TestID          int  `json:"test_id"`
+	Payload         any  `json:"payload"`
+	ExpectedOutcome bool `json:"expected_outcome"`
+}
+
+// GetTestPayloads returns the simplified test payloads for the quest.
+func (q *Quest) GetTestPayloads() []TestPayloadInfo {
+	payloads := make([]TestPayloadInfo, len(q.Tests))
+	for i, test := range q.Tests {
+		payloads[i] = TestPayloadInfo{
+			TestID:          test.ID,
+			Payload:         test.Payload,
+			ExpectedOutcome: test.ExpectedOutcome,
+		}
+	}
+	return payloads
+}
+
 // QuestMeta holds metadata about a quest pack.
 type QuestMeta struct {
 	Title            string `json:"title"`

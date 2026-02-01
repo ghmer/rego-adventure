@@ -92,22 +92,7 @@ func (h *Handler) GetTestPayload(c *gin.Context) {
 	}
 
 	// Extract test payload data
-	type TestPayloadInfo struct {
-		TestID          int  `json:"test_id"`
-		Payload         any  `json:"payload"`
-		ExpectedOutcome bool `json:"expected_outcome"`
-	}
-
-	testPayloads := make([]TestPayloadInfo, len(quest.Tests))
-	for i, test := range quest.Tests {
-		testPayloads[i] = TestPayloadInfo{
-			TestID:          test.ID,
-			Payload:         test.Payload,
-			ExpectedOutcome: test.ExpectedOutcome,
-		}
-	}
-
-	c.JSON(http.StatusOK, testPayloads)
+	c.JSON(http.StatusOK, quest.GetTestPayloads())
 }
 
 type VerifyRequest struct {
