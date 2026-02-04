@@ -71,6 +71,11 @@ func (r *QuestRepository) GetAllPacks() []*QuestPack {
 	return packs
 }
 
+// GetNumberOfPacks returns the number of available quest packs.
+func (r *QuestRepository) GetNumberOfPacks() int {
+	return len(r.packs)
+}
+
 // GetQuestByID returns a specific quest by its ID from a specific pack.
 func (r *QuestRepository) GetQuestByID(packID string, questID int) (*Quest, bool) {
 	pack, ok := r.packs[packID]
