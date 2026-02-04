@@ -41,7 +41,7 @@ func createValidPack() QuestPack {
 						ID:              1,
 						ExpectedOutcome: true,
 						Payload: TestPayload{
-							Input: map[string]interface{}{"foo": "bar"},
+							Input: map[string]any{"foo": "bar"},
 						},
 					},
 				},
@@ -187,7 +187,7 @@ func TestLoadPack_ValidationScenarios(t *testing.T) {
 			name: "Quest Test Payload Too Large",
 			modifyPack: func(p *QuestPack) {
 				// Create a large payload
-				largeInput := make(map[string]interface{})
+				largeInput := make(map[string]any)
 				largeString := string(make([]byte, MaxTestPayloadBytes))
 				largeInput["data"] = largeString
 				p.Quests[0].Tests[0].Payload.Input = largeInput

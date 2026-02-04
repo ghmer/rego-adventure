@@ -16,14 +16,14 @@ func TestVerifier_Verify_Success(t *testing.T) {
 				ID:              1,
 				ExpectedOutcome: true,
 				Payload: TestPayload{
-					Input: map[string]interface{}{"user": "admin"},
+					Input: map[string]any{"user": "admin"},
 				},
 			},
 			{
 				ID:              2,
 				ExpectedOutcome: false,
 				Payload: TestPayload{
-					Input: map[string]interface{}{"user": "guest"},
+					Input: map[string]any{"user": "guest"},
 				},
 			},
 		},
@@ -69,7 +69,7 @@ func TestVerifier_Verify_Failure(t *testing.T) {
 				ID:              1,
 				ExpectedOutcome: true,
 				Payload: TestPayload{
-					Input: map[string]interface{}{"user": "admin"},
+					Input: map[string]any{"user": "admin"},
 				},
 			},
 		},
@@ -136,10 +136,10 @@ func TestVerifier_Verify_WithData(t *testing.T) {
 				ID:              1,
 				ExpectedOutcome: true,
 				Payload: TestPayload{
-					Input: map[string]interface{}{"role": "admin"},
-					Data: map[string]interface{}{
-						"roles": map[string]interface{}{
-							"admin": map[string]interface{}{"level": 10},
+					Input: map[string]any{"role": "admin"},
+					Data: map[string]any{
+						"roles": map[string]any{
+							"admin": map[string]any{"level": 10},
 						},
 					},
 				},
@@ -177,7 +177,7 @@ func TestVerifier_Verify_UnsafeBuiltins(t *testing.T) {
 				ID:              1,
 				ExpectedOutcome: true,
 				Payload: TestPayload{
-					Input: map[string]interface{}{},
+					Input: map[string]any{},
 				},
 			},
 		},
