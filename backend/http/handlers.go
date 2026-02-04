@@ -132,7 +132,8 @@ func (h *Handler) VerifySolution(c *gin.Context) {
 // HealthCheck returns a simple health status response
 func (h *Handler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"status":    "ok",
-		"timestamp": time.Now().Unix(),
+		"status":      "ok",
+		"quest-packs": h.questRepo.GetNumberOfPacks(),
+		"timestamp":   time.Now().Unix(),
 	})
 }
