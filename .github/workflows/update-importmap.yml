@@ -39,7 +39,7 @@ jobs:
           cd trusted-base
           go run ./cmd/importmapgen/main.go \
             -pkgPath ../pr-head/frontend/adventure/package.json \
-            -mapPath ../pr-head/frontend/adventure/index.html
+            -indexPath ../pr-head/frontend/adventure/index.html
 
       - name: Commit and push if changed
         working-directory: pr-head
