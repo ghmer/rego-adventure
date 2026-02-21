@@ -41,9 +41,15 @@ const themeCSSTemplate = `/* ============================================
     --success-color: #16a34a;
     --error-color: #dc2626;
     --info-color: #0891b2;
+    --white: #ffffff;
     
     /* RGB for rgba() usage */
     --accent-rgb: 217, 119, 6;
+    --success-rgb: 22, 163, 74;
+    --error-rgb: 220, 38, 38;
+    --text-rgb: 44, 36, 22;
+    --surface-light-rgb: 255, 254, 249;
+    --surface-dark-rgb: 232, 228, 220;
     
     /* Typography - System font stacks */
     --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -65,7 +71,7 @@ body {
 
 /* Header */
 .game-header {
-    background-color: rgba(255, 254, 249, 0.9);
+    background-color: rgba(var(--surface-light-rgb), 0.9);
     box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.15);
     backdrop-filter: blur(5px);
     border-radius: 0;
@@ -74,7 +80,7 @@ body {
 /* Firefox < 103 fallback for backdrop-filter */
 @supports not (backdrop-filter: blur(5px)) {
     .game-header {
-        background-color: rgba(255, 254, 249, 0.98);
+        background-color: rgba(var(--surface-light-rgb), 0.98);
     }
 }
 
@@ -187,7 +193,7 @@ body {
 /* Effects Active State */
 #effects-btn.effects-active i {
     background-color: var(--accent-color);
-    color: #fff;
+    color: var(--white);
     box-shadow: 0 0 15px var(--accent-color);
     border-radius: 50% !important;
 }
@@ -244,7 +250,7 @@ body {
     font-style: normal;
     height: 200px;
     border: 1px solid rgba(var(--accent-rgb), 0.3);
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(var(--text-rgb), 0.05);
 }
 
 .lore-controls {
@@ -287,15 +293,15 @@ body {
 /* Outcome Area */
 .outcome-area {
     border: 1px solid var(--accent-color);
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(var(--text-rgb), 0.05);
 }
 
 .outcome-area.success {
-    box-shadow: 0 0 12px rgba(22, 163, 74, 0.35);
+    box-shadow: 0 0 12px rgba(var(--success-rgb), 0.35);
 }
 
 .outcome-area.failure {
-    box-shadow: 0 0 12px rgba(220, 38, 38, 0.35);
+    box-shadow: 0 0 12px rgba(var(--error-rgb), 0.35);
 }
 
 /* Test Results */
@@ -327,13 +333,13 @@ body {
 
 .action-btn:hover {
     background-color: var(--accent-color);
-    color: #fff;
+    color: var(--white);
     box-shadow: 0 0 15px var(--accent-color);
 }
 
 .action-btn.primary {
     background-color: var(--accent-color);
-    color: #fff;
+    color: var(--white);
     box-shadow: 0 0 10px var(--accent-color);
     border: none;
 }
@@ -345,7 +351,7 @@ body {
 
 .action-btn.success {
     background-color: var(--success-color);
-    color: #fff;
+    color: var(--white);
     border: none;
     box-shadow: 0 0 10px var(--success-color);
 }
@@ -358,7 +364,7 @@ body {
 
 .action-btn.danger:hover {
     background-color: var(--error-color);
-    color: #fff;
+    color: var(--white);
 }
 
 /* App Container */
@@ -369,14 +375,14 @@ body {
 
 /* Modal */
 .modal {
-    background-color: rgba(0, 0, 0, 0.9);
+    background-color: rgba(var(--text-rgb), 0.9);
     backdrop-filter: blur(5px);
 }
 
 /* Firefox < 103 fallback for backdrop-filter */
 @supports not (backdrop-filter: blur(5px)) {
     .modal {
-        background-color: rgba(0, 0, 0, 0.98);
+        background-color: rgba(var(--text-rgb), 0.98);
     }
 }
 
@@ -396,7 +402,7 @@ body {
 
 /* Manual Content */
 .manual-content {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(var(--text-rgb), 0.05);
 }
 
 .manual-content code {
@@ -405,7 +411,7 @@ body {
 }
 
 .manual-content pre {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(var(--text-rgb), 0.05);
     border: 1px solid rgba(var(--accent-rgb), 0.2);
 }
 
@@ -436,7 +442,7 @@ body {
 
 /* Result Test List */
 .result-test-list {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(var(--text-rgb), 0.05);
 }
 
 .result-test-list li {
@@ -445,12 +451,12 @@ body {
 
 /* Score Summary */
 .score-summary {
-    background: rgba(22, 163, 74, 0.1);
+    background: rgba(var(--success-rgb), 0.1);
     border-radius: 0;
 }
 
 .score-value {
-    text-shadow: 0 0 10px rgba(22, 163, 74, 0.5);
+    text-shadow: 0 0 10px rgba(var(--success-rgb), 0.5);
 }
 
 .score-possible .score-value {
@@ -460,12 +466,12 @@ body {
 /* Experience Badge */
 .experience-badge {
     background: linear-gradient(135deg, var(--success-color), var(--secondary-accent));
-    color: #fff;
+    color: var(--white);
 }
 
 /* Perfect Score */
 .perfect-score-image {
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 16px rgba(var(--text-rgb), 0.3);
     border-radius: 0;
 }
 
@@ -487,7 +493,7 @@ body {
 
 /* Tutorial Prompt */
 .tutorial-prompt-modal {
-    background-color: rgba(0, 0, 0, 0.95);
+    background-color: rgba(var(--text-rgb), 0.95);
 }
 
 .tutorial-prompt-content {
@@ -504,7 +510,7 @@ body {
 
 /* Tutorial Overlay */
 .tutorial-overlay {
-    background-color: rgba(0, 0, 0, 0.9);
+    background-color: rgba(var(--text-rgb), 0.9);
 }
 
 /* Tutorial Spotlight */
@@ -518,7 +524,7 @@ body {
 .tutorial-tooltip {
     background-color: var(--surface-dark);
     border-radius: 0;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9),
+    box-shadow: 0 10px 40px rgba(var(--text-rgb), 0.9),
                 0 0 30px rgba(var(--accent-rgb), 0.5);
 }
 
@@ -539,7 +545,7 @@ body {
 
 /* Test Case Cards */
 .test-case-card {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(var(--text-rgb), 0.05);
     border-radius: 0;
 }
 
@@ -555,13 +561,13 @@ body {
 
 .test-case-input-data,
 .test-case-data-content {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(var(--text-rgb), 0.05);
     border-radius: 0;
 }
 
 /* Test Payload */
 .test-result .test-payload pre {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(var(--text-rgb), 0.05);
 }
 
 /* Check Manual Button */
@@ -616,8 +622,8 @@ body::before {
     bottom: 0;
     right: 0;
     background: linear-gradient(
-        rgba(18, 16, 16, 0) 50%,
-        rgba(0, 0, 0, 0.25) 50%
+        rgba(var(--text-rgb), 0) 50%,
+        rgba(var(--text-rgb), 0.25) 50%
     ),
     linear-gradient(
         90deg,
@@ -650,14 +656,14 @@ body.effects-disabled {
 @supports (backdrop-filter: blur(10px)) {
     .glass-effect {
         backdrop-filter: blur(10px);
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(var(--surface-light-rgb), 0.1);
     }
 }
 
 Fallback for browsers without backdrop-filter support
 @supports not (backdrop-filter: blur(10px)) {
     .glass-effect {
-        background-color: rgba(255, 255, 255, 0.9);
+        background-color: rgba(var(--surface-light-rgb), 0.9);
     }
 }
 */
