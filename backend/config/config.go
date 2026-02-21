@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/MicahParks/keyfunc/v3"
 )
@@ -148,6 +149,16 @@ func (c *Config) validateAllowedOrigin() error {
 	return nil
 }
 
+// HTTP client with connection pooling and timeout
+var httpClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 5,
+		IdleConnTimeout:     30 * time.Second,
+	},
+}
+
 // initializeJWKS initializes the JWKS for JWT validation
 func (c *Config) initializeJWKS() error {
 	if c.Auth.DiscoveryURL == "" {
@@ -156,7 +167,7 @@ func (c *Config) initializeJWKS() error {
 	}
 
 	// Fetch OIDC configuration to find jwks_uri
-	resp, err := http.Get(c.Auth.DiscoveryURL)
+	resp, err := httpClient.Get(c.Auth.DiscoveryURL)
 	if err != nil {
 		slog.Error("failed to fetch OIDC discovery", "error", err)
 		os.Exit(1)
