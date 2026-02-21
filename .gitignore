@@ -1,3 +1,4 @@
 .DS_Store
 rego-adventure
 bin/
+frontend/quests/

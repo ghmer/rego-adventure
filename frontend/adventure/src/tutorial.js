@@ -30,6 +30,7 @@ export class TutorialSystem {
         this.spotlight = null;
         this.tooltip = null;
         this.hiddenElementsState = new Map(); // Track originally hidden elements
+        this.resizeHandler = null; // Store resize handler for cleanup
     }
 
     /**
@@ -310,6 +311,10 @@ export class TutorialSystem {
         this.isActive = true;
         this.currentStep = 0;
         
+        // Add resize listener
+        this.resizeHandler = () => this.handleResize();
+        window.addEventListener('resize', this.resizeHandler);
+        
         // Temporarily unhide elements needed for tutorial
         this.temporarilyUnhideElements();
         
@@ -583,6 +588,12 @@ export class TutorialSystem {
     endTutorial() {
         this.isActive = false;
         
+        // Remove resize event listener
+        if (this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler);
+            this.resizeHandler = null;
+        }
+        
         // Remove keyboard event listener
         if (this.handleKeyDown) {
             document.removeEventListener('keydown', this.handleKeyDown);
@@ -636,10 +647,3 @@ export class TutorialSystem {
 
 // Create singleton instance
 export const tutorial = new TutorialSystem();
-
-// Handle window resize
-window.addEventListener('resize', () => {
-    if (tutorial.isActive) {
-        tutorial.handleResize();
-    }
-});
