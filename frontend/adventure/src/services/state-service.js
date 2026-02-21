@@ -74,6 +74,23 @@ export class GameState {
      * @param {string} packId - The pack identifier
      */
     loadPackState(packId) {
+        // Try to load from batched state first
+        const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
+        
+        if (packedState) {
+            try {
+                const state = JSON.parse(packedState);
+                this.currentQuestId = state.questId || 0;
+                this.totalScore = state.totalScore || 0;
+                this.questScores = state.questScores || {};
+                this.activeQuestId = state.activeQuestId || this.currentQuestId;
+                return;
+            } catch (e) {
+                // Fall back to individual keys if parsing fails
+            }
+        }
+        
+        // Fallback: load from individual keys (for backwards compatibility)
         this.currentQuestId = parseInt(
             getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0')
         ) || 0;
@@ -119,24 +136,17 @@ export class GameState {
     savePackState() {
         if (!this.currentPackId) return;
         
-        setLocalStorage(
-            getPackKey(STORAGE_KEYS.QUEST_ID, this.currentPackId),
-            this.currentQuestId.toString()
-        );
+        // Batch all state into a single JSON object
+        const state = {
+            questId: this.currentQuestId,
+            totalScore: this.totalScore,
+            questScores: this.questScores,
+            activeQuestId: this.activeQuestId
+        };
         
         setLocalStorage(
-            getPackKey(STORAGE_KEYS.TOTAL_SCORE, this.currentPackId),
-            this.totalScore.toString()
-        );
-        
-        setLocalStorage(
-            getPackKey(STORAGE_KEYS.QUEST_SCORES, this.currentPackId),
-            JSON.stringify(this.questScores)
-        );
-        
-        setLocalStorage(
-            getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, this.currentPackId),
-            this.activeQuestId.toString()
+            getPackKey(STORAGE_KEYS.PACK_STATE, this.currentPackId),
+            JSON.stringify(state)
         );
     }
     

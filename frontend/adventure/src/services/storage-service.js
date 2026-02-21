@@ -101,6 +101,7 @@ export const STORAGE_KEYS = {
     ACTIVE_QUEST_ID: 'rego_active_quest_id',
     TOTAL_SCORE: 'rego_total_score',
     QUEST_SCORES: 'rego_quest_scores',
+    PACK_STATE: 'rego_pack_state',
     EFFECTS_ENABLED: 'rego_effects_enabled',
     TUTORIAL_COMPLETED: 'adventureTutorialCompleted'
 };
