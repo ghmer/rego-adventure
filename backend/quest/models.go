@@ -128,11 +128,13 @@ func validateNonEmpty(s string, fieldName string) error {
 	return nil
 }
 
+// Pre-compiled regex pattern for alphanumeric validation (compiled once at init)
+var alphanumericPattern = regexp.MustCompile(`^[a-zA-Z0-9\s\-_.,!?']+$`)
+
 // validateAlphanumericWithSpaces validates that a string contains only alphanumeric characters, spaces, and basic punctuation
 func validateAlphanumericWithSpaces(s string, fieldName string) error {
 	// Allow alphanumeric, spaces, hyphens, underscores, and basic punctuation
-	pattern := regexp.MustCompile(`^[a-zA-Z0-9\s\-_.,!?']+$`)
-	if !pattern.MatchString(s) {
+	if !alphanumericPattern.MatchString(s) {
 		return fmt.Errorf("%s contains invalid characters (only alphanumeric and basic punctuation allowed)", fieldName)
 	}
 	return nil
@@ -205,37 +207,15 @@ func validateQuest(quest *Quest, questIndex int) error {
 		return fmt.Errorf("%s must have at least one test case", prefix)
 	}
 
-	// Validate test payload sizes to prevent DoS
+	// Validate test payload sizes
 	for i, test := range quest.Tests {
-		// Convert payload to JSON to check size
+		// Convert entire payload to JSON to check size (single marshal per test)
 		payloadJSON, err := json.Marshal(test.Payload)
 		if err != nil {
 			return fmt.Errorf("%s test[%d] has invalid payload: %w", prefix, i, err)
 		}
 		if len(payloadJSON) > MaxTestPayloadBytes {
 			return fmt.Errorf("%s test[%d] payload exceeds maximum size of %d bytes", prefix, i, MaxTestPayloadBytes)
-		}
-
-		// Validate input field if present
-		if test.Payload.Input != nil {
-			inputJSON, err := json.Marshal(test.Payload.Input)
-			if err != nil {
-				return fmt.Errorf("%s test[%d] has invalid input: %w", prefix, i, err)
-			}
-			if len(inputJSON) > MaxTestPayloadBytes {
-				return fmt.Errorf("%s test[%d] input exceeds maximum size of %d bytes", prefix, i, MaxTestPayloadBytes)
-			}
-		}
-
-		// Validate data field if present
-		if test.Payload.Data != nil {
-			dataJSON, err := json.Marshal(test.Payload.Data)
-			if err != nil {
-				return fmt.Errorf("%s test[%d] has invalid data: %w", prefix, i, err)
-			}
-			if len(dataJSON) > MaxTestPayloadBytes {
-				return fmt.Errorf("%s test[%d] data exceeds maximum size of %d bytes", prefix, i, MaxTestPayloadBytes)
-			}
 		}
 	}
 
