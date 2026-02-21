@@ -77,15 +77,19 @@ export function getPackKey(baseKey, packId) {
 
 /**
  * Clear all grimoires for a specific pack
+ * Optimized: Filter keys first before iteration to avoid unnecessary iterations
  * @param {string} packId - The pack identifier
  */
 export function clearAllGrimoires(packId) {
     try {
-        const keys = Object.keys(localStorage);
-        keys.forEach(key => {
-            if (key.startsWith(`rego_grimoire_q`) && key.includes(`_${packId}`)) {
-                removeLocalStorage(key);
-            }
+        // Filter keys first to avoid iterating all localStorage keys
+        const keysToRemove = Object.keys(localStorage).filter(key =>
+            key.startsWith(`rego_grimoire_q`) && key.includes(`_${packId}`)
+        );
+        
+        // Only iterate through keys that need to be removed
+        keysToRemove.forEach(key => {
+            removeLocalStorage(key);
         });
     } catch (e) {
         console.error('Failed to clear grimoires:', e);
