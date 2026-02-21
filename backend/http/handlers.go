@@ -59,6 +59,7 @@ func (h *Handler) GetPacks(c *gin.Context) {
 			"genre":       p.Meta.Genre,
 		})
 	}
+	c.Header("Cache-Control", "public, max-age=300")
 	c.JSON(http.StatusOK, simplified)
 }
 
@@ -70,6 +71,8 @@ func (h *Handler) GetPack(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Quest pack not found"})
 		return
 	}
+	// Add cache headers to reduce repeated serialization overhead
+	c.Header("Cache-Control", "public, max-age=300")
 	c.JSON(http.StatusOK, pack)
 }
 
@@ -92,6 +95,7 @@ func (h *Handler) GetTestPayload(c *gin.Context) {
 	}
 
 	// Extract test payload data
+	c.Header("Cache-Control", "public, max-age=300")
 	c.JSON(http.StatusOK, quest.GetTestPayloads())
 }
 

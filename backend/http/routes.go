@@ -25,8 +25,16 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
+)
+
+// Cache for index.html to avoid repeated file reads in SPA handler
+var (
+	indexHTMLCache     []byte
+	indexHTMLCacheOnce sync.Once
+	indexHTMLCacheErr  error
 )
 
 // SetupRoutes configures all routes and middleware
@@ -190,8 +198,22 @@ func (s *Server) serveSafeFile(c *gin.Context, baseDir string, requestedPath str
 	c.File(absPath)
 }
 
+// getCachedIndexHTML returns the cached index.html content
+func getCachedIndexHTML(subFS fs.FS) []byte {
+	indexHTMLCacheOnce.Do(func() {
+		indexHTMLCache, indexHTMLCacheErr = fs.ReadFile(subFS, "index.html")
+		if indexHTMLCacheErr != nil {
+			slog.Error("failed to read index.html for cache", "error", indexHTMLCacheErr)
+		}
+	})
+	return indexHTMLCache
+}
+
 // createSPAHandler creates a handler for SPA routing
 func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
+	// Pre-load index.html into cache on first use
+	_ = getCachedIndexHTML(subFS)
+
 	return func(c *gin.Context) {
 		requestedPath := c.Request.URL.Path
 
@@ -216,8 +238,8 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 		// Try to open the file from sub FS
 		file, err := subFS.Open(cleanPath)
 		if err != nil {
-			// File doesn't exist, serve index.html for SPA routing
-			c.Data(http.StatusOK, "text/html; charset=utf-8", mustReadFile(subFS, "index.html"))
+			// File doesn't exist, serve cached index.html for SPA routing
+			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
 			return
 		}
 		defer file.Close()
@@ -225,20 +247,20 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 		// Get file info to check if it's a directory
 		stat, err := file.Stat()
 		if err != nil {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", mustReadFile(subFS, "index.html"))
+			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
 			return
 		}
 
 		// If it's a directory, serve index.html
 		if stat.IsDir() {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", mustReadFile(subFS, "index.html"))
+			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
 			return
 		}
 
 		// reuse existing handle
 		fileData, err := io.ReadAll(file)
 		if err != nil {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", mustReadFile(subFS, "index.html"))
+			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
 			return
 		}
 
