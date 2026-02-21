@@ -1,6 +1,6 @@
 # Quests Structure
 
-The `quests/<theme>/quests.json` files define the tutorial quests the player must solve with the following structure:
+The `quests/<theme>/quests.json` files define the tutorial quests the player must solve. Here's the structure:
 
 ## Top-Level Structure
 

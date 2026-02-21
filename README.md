@@ -23,12 +23,14 @@ Use the following credentials:
 
 ## Architecture
 
+The system breaks down into two main parts. A Go backend handles HTTP requests, quest loading, policy verification through OPA, and optional JWT authentication. The JavaScript frontend provides the interactive adventure interface with dynamic theming based on quest pack genre.
+
 ### Backend (Go)
 
-- **HTTP Server**: gin-gonic based REST API
-- **Quest System**: Dynamic quest pack loading from JSON files
-- **Policy Verification**: OPA integration for Rego policy evaluation against test cases
-- **Authentication**: Optional OIDC/JWT authentication with JWKS validation
+- HTTP Server: gin-gonic based REST API
+- Quest System: Dynamic quest pack loading from JSON files
+- Policy Verification: OPA integration for Rego policy evaluation against test cases
+- Authentication: Optional OIDC/JWT authentication with JWKS validation
 
 **Key Components:**
 - [`main.go`](main.go:1) - Application entry point and initialization
@@ -38,8 +40,8 @@ Use the following credentials:
 
 ### Frontend (JavaScript)
 
-- **Adventure Interface**: Single-page application for quest progression
-- **Theme System**: Dynamic styling based on quest pack genre
+- Adventure Interface: Single-page application for quest progression
+- Theme System: Dynamic styling based on quest pack genre
 
 **Structure:**
 - [`frontend/adventure/`](frontend/adventure/) - Main game interface
@@ -47,9 +49,7 @@ Use the following credentials:
 
 ## Prerequisites
 
-- Go 1.25 or higher
-- Docker (optional, for containerized deployment)
-- Kubernetes cluster (optional, for K8s deployment)
+You'll need Go 1.25 or higher. Docker is optional but useful for containerized deployment, and Kubernetes if you are going that route.
 
 ## Installation
 
@@ -119,13 +119,11 @@ See [`docker-compose.yml`](docu/deploy/docker/docker-compose.yml) for Docker Com
 Deploy using the provided manifests.
 
 Either:
-
 ```bash
 kubectl apply -k docu/deploy/k8s
 ```
 
-Or, ff you prefer to apply files individually:
-
+Or if you prefer to apply files individually:
 ```bash
 kubectl apply -f docu/deploy/k8s/configmap.yaml
 kubectl apply -f docu/deploy/k8s/deployment.yaml
@@ -174,7 +172,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | `TRUSTED_PROXIES` | No | - | Comma-separated CIDR ranges for trusted proxies |
 | `SHOW_IMPRESSUM` | No | `false` | Enable impressum/legal notice page link in footer |
 
-> **Note:** When deploying behind a proxy or load balancer (e.g., nginx, Kubernetes ingress, cloud load balancer), it's important to set `TRUSTED_PROXIES` to ensure accurate client IP detection. Without this configuration, the application will see the proxy's IP address instead of the actual client IP. Set this to the CIDR range(s) of your trusted proxy infrastructure (e.g., `TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12"`).
+> **Note:** When deploying behind a proxy or load balancer (e.g., nginx, Kubernetes ingress, cloud load balancer), it is important to set `TRUSTED_PROXIES` to ensure accurate client IP detection. Without this configuration, the application will see the proxy's IP address instead of the actual client IP. Set this to the CIDR range(s) of your trusted proxy infrastructure (e.g., `TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12"`).
 
 ### Authentication
 
@@ -198,7 +196,6 @@ The default impressum page at [`frontend/adventure/impressum.html`](frontend/adv
 **Docker Deployment:**
 
 Override the impressum file using a volume mount in your `docker-compose.yml`:
-
 ```yaml
 services:
   rego-adventure:
@@ -217,13 +214,11 @@ Create your `custom-impressum.html` file with your actual legal information, the
 **Option 1: Using a ConfigMap (Recommended)**
 
 1. Create a ConfigMap with your custom impressum content:
-
 ```bash
 kubectl create configmap impressum-html --from-file=impressum.html=./custom-impressum.html
 ```
 
 2. Update your deployment to mount the ConfigMap:
-
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -308,7 +303,6 @@ Custom quest packs can be added to the application by mounting them into the con
 **Docker:**
 
 Mount your local quest pack folder to a subdirectory within `frontend/quests`:
-
 ```bash
 docker run -v ./my-pack:/app/frontend/quests/my-pack ...
 ```
@@ -316,7 +310,6 @@ docker run -v ./my-pack:/app/frontend/quests/my-pack ...
 **Docker Compose:**
 
 Mount your local quest pack folder using the `volumes` configuration:
-
 ```yaml
 volumes:
   - ./my-pack:/app/frontend/quests/my-pack
@@ -325,7 +318,6 @@ volumes:
 **Kubernetes:**
 
 Mount a volume containing your quest pack structure to the same path:
-
 ```yaml
 volumeMounts:
   - name: my-quest-pack
@@ -344,9 +336,9 @@ A browser-based visual editor for creating and modifying quest packs. The editor
 3. Edit quest content using the visual interface
 4. Click "Save" to download the modified `quests.json` file
 
-For a more complete documentation, see [`README_EDITOR.md`](README_EDITOR.md).
+For more complete documentation, check out [`README_EDITOR.md`](README_EDITOR.md).
 
-## Deployment
+## deployment
 
 The application is designed for cloud-native deployment with:
 
@@ -354,17 +346,17 @@ The application is designed for cloud-native deployment with:
 - Non-root user execution (UID 10001)
 - Health check endpoints (`/health`)
 
-Refer to 
+Refer to:
 
 - [`Dockerfile`](Dockerfile) for container build configuration
-- [`docker-compose.yml`](docu/deploy/docker/docker-compose.yml) for docker-based setups, and
-- [`kustomization.yaml`](docu/deploy/k8s/kustomization.yaml) for Kubernetes deployments.
+- [`docker-compose.yml`](docu/deploy/docker/docker-compose.yml) for Docker-based setups, and
+- [`kustomization.yaml`](docu/deploy/k8s/kustomization.yaml) for Kubernetes deployments
 
 ### Quest Packs Deployment
 
-Locally, a quest pack must be put below the `frontend/quests` folder.
+Locally, a quest pack must go in the `frontend/quests` folder.
 
-For Kubernetes or Docker Compose deployments, they can mount the quest packs below this directory.
+For Kubernetes or Docker Compose deployments, you can mount them there too.
 
 ## License
 

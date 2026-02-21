@@ -1,61 +1,46 @@
 # Authentication Configuration Guide
 
-This document provides instructions for configuring an Identity Provider (IDP) for the Rego Adventure application, with Keycloak as the primary example.
+This document shows how to configure an Identity Provider (IDP) for the Rego Adventure application. Keycloak is used as the primary example, but the principles apply to any OIDC-compliant provider.
 
 ## Overview
 
-The Rego Adventure application implements **OIDC/OAuth2 Authorization Code Flow** for user authentication. Key characteristics:
+The Rego Adventure application implements **OIDC/OAuth2 Authorization Code Flow** for user authentication. Here's how it works:
 
 - **Optional Authentication**: Authentication can be enabled or disabled via environment variables
 - **OIDC-Compliant**: Works with any OIDC-compliant identity provider (Keycloak, Auth0, Okta, Azure AD, etc.)
 - **Stateless Backend**: JWT-based authentication with JWKS signature validation
 - **Modern Frontend**: Uses the `oidc-client-ts` library for seamless authentication flows
 
-When authentication is disabled, the application runs in open mode without requiring user login.
+When authentication is disabled, the application runs in open mode—no user login required.
 
 ## Architecture
 
 ### Authentication Flow
 
-```
-┌─────────┐                ┌──────────┐                ┌─────────┐
-│ Browser │                │ Frontend │                │ Backend │
-└────┬────┘                └────┬─────┘                └────┬────┘
-     │                          │                           │
-     │  1. Access App           │                           │
-     ├─────────────────────────>│                           │
-     │                          │                           │
-     │  2. Redirect to IDP      │                           │
-     │<─────────────────────────┤                           │
-     │                          │                           │
-     │  3. Login at IDP         │                           │
-     ├──────────────────────────┼───────────────────────────┤
-     │                          │                           │
-     │  4. Redirect with code   │                           │
-     ├─────────────────────────>│                           │
-     │                          │                           │
-     │                          │  5. Exchange code         │
-     │                          │     for tokens            │
-     │                          ├───────────────────────────┤
-     │                          │                           │
-     │                          │  6. API calls with        │
-     │                          │     Bearer token          │
-     │                          ├──────────────────────────>│
-     │                          │                           │
-     │                          │                           │  7. Validate JWT
-     │                          │                           │     - Verify signature (JWKS)
-     │                          │                           │     - Check issuer
-     │                          │                           │     - Check audience
-     │                          │                           │     - Check expiration
-     │                          │                           │
-     │                          │  8. Response              │
-     │                          │<──────────────────────────┤
-     │                          │                           │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant F as Frontend
+    participant I as IDP
+    participant Be as Backend
+
+    B->>F: 1. Access App
+    F-->>B: 2. Redirect to IDP
+    B->>I: 3. Login at IDP
+    I-->>B: 4. Redirect with code
+    B->>F: 4. Redirect with code
+    F->>Be: 5. Exchange code for tokens
+    Be->>I: 5. Exchange code for tokens
+    I-->>Be: 5. Return tokens
+    Be-->>F: 5. Return tokens
+    F->>Be: 6. API calls with Bearer token
+    Be->>Be: 7. Validate JWT (signature, issuer, audience, expiration)
+    Be-->>F: 8. Response
 ```
 
 ## Environment Variables
 
-Configure the following environment variables to enable and configure authentication:
+You'll need to set these environment variables to enable and configure authentication:
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
@@ -68,7 +53,7 @@ Configure the following environment variables to enable and configure authentica
 
 ## Keycloak Configuration
 
-This section provides general instructions for configuring Keycloak as your identity provider.
+Here's how to set up Keycloak as your identity provider.
 
 ### Create a Client
 
@@ -126,13 +111,11 @@ The audience mapper is **essential** for token validation. Without it, tokens wi
 
 ## Other Identity Providers
 
-While this guide focuses on Keycloak, the application works with any OIDC-compliant provider.
-
-(Information taken from AI - handle with care).
+This guide focuses on Keycloak, but the application works with any OIDC-compliant provider. Here's what you need to know for a few common alternatives.
 
 ### Auth0
 
-**Configuration differences:**
+Here's what differs when using Auth0:
 - **Issuer**: `https://your-tenant.auth0.com/`
 - **Discovery URL**: `https://your-tenant.auth0.com/.well-known/openid-configuration`
 - **Audience**: Configure in Auth0 API settings
@@ -148,7 +131,7 @@ While this guide focuses on Keycloak, the application works with any OIDC-compli
 
 ### Okta
 
-**Configuration differences:**
+Here's what differs when using Okta:
 - **Issuer**: `https://your-domain.okta.com/oauth2/default`
 - **Discovery URL**: `https://your-domain.okta.com/oauth2/default/.well-known/openid-configuration`
 - **Client**: Create a "Single-Page App" in Okta
@@ -163,7 +146,7 @@ While this guide focuses on Keycloak, the application works with any OIDC-compli
 
 ### Azure AD / Microsoft Entra ID
 
-**Configuration differences:**
+Here's what differs when using Azure AD:
 - **Issuer**: `https://login.microsoftonline.com/{tenant-id}/v2.0`
 - **Discovery URL**: `https://login.microsoftonline.com/{tenant-id}/v2.0/.well-known/openid-configuration`
 - **Client**: Create an "App registration" in Azure Portal
@@ -179,7 +162,7 @@ While this guide focuses on Keycloak, the application works with any OIDC-compli
 
 ### Generic OIDC Provider
 
-For any OIDC-compliant provider:
+For any OIDC-compliant provider, you'll need to do the following:
 
 1. **Create a client/application** with these settings:
    - Application type: Single Page Application (SPA) or Public Client
@@ -200,6 +183,6 @@ For any OIDC-compliant provider:
    - Audience (may be same as client ID or a separate API identifier)
 
 5. **Verify token claims**:
-   - Ensure access tokens include `aud` claim matching your `AUTH_AUDIENCE`
-   - Ensure `iss` claim matches your `AUTH_ISSUER`
+   - Make sure access tokens include `aud` claim matching your `AUTH_AUDIENCE`
+   - Make sure `iss` claim matches your `AUTH_ISSUER`
 

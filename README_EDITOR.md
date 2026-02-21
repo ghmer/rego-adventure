@@ -4,7 +4,7 @@ A browser-based tool for creating and editing quest packs for the Rego Adventure
 
 ## What It Does
 
-The quest editor loads `quests.json` files, lets you edit them, and saves them back out. It handles all the quest pack structure - metadata, UI labels, prologue/epilogue text, individual quests, and test cases.
+The quest editor loads `quests.json` files, lets you edit them, and saves them back out. It handles all the quest pack structure: metadata, UI labels, prologue/epilogue text, individual quests, and test cases.
 
 ## Gallery
 
@@ -41,7 +41,7 @@ The quest editor loads `quests.json` files, lets you edit them, and saves them b
 
 ### Quest Editor Tabs
 
-Each quest has five tabs:
+Each quest has five tabs.
 
 **Details** - Core quest configuration:
 - ID and title
@@ -79,15 +79,11 @@ The editor validates that quest IDs and test IDs are unique before saving.
 
 ## Quest Pack Structure
 
-See [`docu/quests.md`](docu/quests.md) for the complete specification of the quest pack format, including:
-- Top-level structure
-- Quest object fields
-- Test case format
-- Template behavior
+Check out [`docu/quests.md`](docu/quests.md) for the complete specification of the quest pack format. You'll find details on the top-level structure, quest object fields, test case format, and template behavior.
 
 ## Technical Details
 
-Single-Page Application (SPA).
+It's a Single-Page Application (SPA).
 
 **Dependencies:**
 - Font Awesome 7.0.1 (icons)
@@ -99,8 +95,7 @@ Single-Page Application (SPA).
 ## Creating Quest Packs
 
 **Start from existing:**
-Use the `asset generator` to create a skeleton for the new quest. 
-Load the generated `quests.json` and modify it.
+Use the `asset generator` to create a skeleton for the new quest. Load the generated `quests.json` and modify it.
 
 **Key points:**
 - Quest IDs must be unique
