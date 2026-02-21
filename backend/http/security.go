@@ -17,9 +17,6 @@
 package http
 
 import (
-	"io/fs"
-	"log/slog"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -83,16 +80,6 @@ func isSensitiveFile(filename string) bool {
 		return true
 	}
 	return false
-}
-
-// mustReadFile reads a file from the sub FS or panics
-func mustReadFile(fsys fs.FS, name string) []byte {
-	data, err := fs.ReadFile(fsys, name)
-	if err != nil {
-		slog.Error("failed to read file", "filename", name, "error", err)
-		os.Exit(1)
-	}
-	return data
 }
 
 // getContentType determines the content type based on file extension
