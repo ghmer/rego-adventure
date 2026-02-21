@@ -111,30 +111,54 @@ export class PackManager {
     }
 
     /**
+     * Preload a single asset image
+     * @param {string} src - Image source URL
+     * @returns {Promise} Promise that resolves when image loads
+     */
+    preloadImage(src) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(src);
+            img.onerror = () => resolve(null);
+            img.src = src;
+        });
+    }
+
+    /**
      * Load pack-specific assets (images, backgrounds)
+     * Preloads all assets in parallel before displaying
      * @param {string} packId - Pack identifier
      */
-    loadPackAssets(packId) {
-        // Update NPC avatar
+    async loadPackAssets(packId) {
+        const basePath = `/quests/${packId}/assets/`;
+        
+        // Preload all assets in parallel
+        await Promise.all([
+            this.preloadImage(basePath + 'npc-questgiver.png'),
+            this.preloadImage(basePath + 'hero-avatar.png'),
+            this.preloadImage(basePath + 'bg-adventure.jpg')
+        ]);
+        
+        // Update NPC avatar (now guaranteed to be loaded)
         const npcAvatar = document.querySelector('.npc-avatar');
         if (npcAvatar) {
-            npcAvatar.src = `/quests/${packId}/assets/npc-questgiver.png`;
-            npcAvatar.onerror = () => { 
+            npcAvatar.src = basePath + 'npc-questgiver.png';
+            npcAvatar.onerror = () => {
                 npcAvatar.src = 'public/assets/npc-questgiver.png';
             };
         }
 
-        // Update hero avatar
+        // Update hero avatar (now guaranteed to be loaded)
         const heroAvatar = document.querySelector('.avatar');
         if (heroAvatar) {
-            heroAvatar.src = `/quests/${packId}/assets/hero-avatar.png`;
-            heroAvatar.onerror = () => { 
+            heroAvatar.src = basePath + 'hero-avatar.png';
+            heroAvatar.onerror = () => {
                 heroAvatar.src = 'public/assets/hero-avatar.png';
             };
         }
         
-        // Update background
-        document.body.style.backgroundImage = `url('/quests/${packId}/assets/bg-adventure.jpg')`;
+        // Update background (now guaranteed to be loaded)
+        document.body.style.backgroundImage = `url('${basePath}bg-adventure.jpg')`;
     }
 
     /**
@@ -170,11 +194,27 @@ export class PackManager {
         }
         this.ui.updateQuestFooterVisibility();
 
-        // Check if resuming by looking at localStorage directly
-        const savedQuestId = parseInt(
-            getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0')
-        ) || 0;
-        const isResuming = savedQuestId > 0;
+        // Check if resuming by looking at localStorage (supports both old and new key formats)
+        let isResuming = false;
+        
+        // First check new PACK_STATE format
+        const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
+        if (packedState) {
+            try {
+                const state = JSON.parse(packedState);
+                isResuming = state.questId > 0;
+            } catch (e) {
+                // Fall back to old format
+            }
+        }
+        
+        // If not found in new format, check old individual keys
+        if (!isResuming) {
+            const savedQuestId = parseInt(
+                getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0')
+            ) || 0;
+            isResuming = savedQuestId > 0;
+        }
         
         // Set pack in state
         this.state.setCurrentPack(packId, isResuming);

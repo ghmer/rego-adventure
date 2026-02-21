@@ -122,18 +122,33 @@ export class EventManager {
     }
 
     /**
+     * Save grimoire content to localStorage
+     */
+    saveGrimoire() {
+        if (this.state.currentQuestId > 0) {
+            const questGrimoireKey = getPackKey(`rego_grimoire_q${this.state.currentQuestId}`, this.state.currentPackId);
+            setLocalStorage(questGrimoireKey, this.ui.elements.editor.value);
+        }
+    }
+
+    /**
      * Setup editor listeners
      */
     setupEditorListeners() {
         let saveTimeout;
+        
+        // Debounced save on input
         this.ui.elements.editor.addEventListener('input', () => {
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
-                if (this.state.currentQuestId > 0) {
-                    const questGrimoireKey = getPackKey(`rego_grimoire_q${this.state.currentQuestId}`, this.state.currentPackId);
-                    setLocalStorage(questGrimoireKey, this.ui.elements.editor.value);
-                }
+                this.saveGrimoire();
             }, 1500);
+        });
+        
+        // Save immediately when editor loses focus
+        this.ui.elements.editor.addEventListener('blur', () => {
+            clearTimeout(saveTimeout);
+            this.saveGrimoire();
         });
     }
 
@@ -200,6 +215,9 @@ export class EventManager {
      */
     setupVerifyListener() {
         this.ui.elements.verifyBtn.addEventListener('click', async () => {
+            // Save grimoire content before verifying
+            this.saveGrimoire();
+            
             const code = this.ui.elements.editor.value;
             if (!code.trim()) return;
 
