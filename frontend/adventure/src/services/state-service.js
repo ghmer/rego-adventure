@@ -30,6 +30,7 @@ export class GameState {
     constructor() {
         this.currentPackId = getLocalStorage(STORAGE_KEYS.PACK_ID);
         this.quests = [];
+        this.questsMap = null; // Map for O(1) quest lookup by ID
         this.prologue = [];
         this.epilogue = [];
         this.meta = null;
@@ -156,6 +157,15 @@ export class GameState {
      */
     loadPackData(packData) {
         this.quests = packData.quests;
+        
+        // Create Map for O(1) quest lookup by ID
+        this.questsMap = new Map();
+        if (packData.quests) {
+            for (const quest of packData.quests) {
+                this.questsMap.set(quest.id, quest);
+            }
+        }
+        
         this.prologue = packData.prologue;
         this.epilogue = packData.epilogue;
         this.meta = packData.meta;

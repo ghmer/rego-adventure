@@ -43,8 +43,8 @@ export class QuestManager {
             return;
         }
 
-        // Find quest in list
-        const questSummary = this.state.quests.find(q => q.id === questId);
+        // Find quest using Map for O(1) lookup
+        const questSummary = this.state.questsMap?.get(questId);
         if (!questSummary) {
             if (this.state.quests.length > 0 && questId > this.state.quests.length) {
                 // Completed all quests - show epilogue
