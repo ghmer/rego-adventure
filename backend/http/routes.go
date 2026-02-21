@@ -17,6 +17,7 @@
 package http
 
 import (
+	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -234,8 +235,12 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 			return
 		}
 
-		// Serve the requested file directly to avoid redirect loops
-		fileData := mustReadFile(subFS, cleanPath)
+		// reuse existing handle
+		fileData, err := io.ReadAll(file)
+		if err != nil {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", mustReadFile(subFS, "index.html"))
+			return
+		}
 
 		// Determine content type based on file extension
 		contentType := getContentType(cleanPath)
