@@ -23,27 +23,42 @@ import { API } from './constants.js';
 import { AuthService } from './auth-service.js';
 
 /**
- * Helper to perform authenticated fetch requests
+ * Helper to perform authenticated fetch requests with timeout support
  * @param {string} url - The URL to fetch
  * @param {Object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds (default: 30000)
  * @returns {Promise<Response>} The fetch response
  */
-async function fetchWithAuth(url, options = {}) {
+async function fetchWithAuth(url, options = {}, timeout = 30000) {
     const headers = { 'Content-Type': 'application/json' };
     const token = await AuthService.getToken();
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
     
+    // Create abort controller for timeout support
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
     const config = {
         ...options,
         headers: {
             ...headers,
             ...options.headers
-        }
+        },
+        signal: controller.signal
     };
     
-    return fetch(url, config);
+    try {
+        return await fetch(url, config);
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeout}ms`);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }
 
 /**
