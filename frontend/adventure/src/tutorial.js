@@ -486,10 +486,17 @@ export class TutorialSystem {
         const rect = element.getBoundingClientRect();
         const padding = 8;
 
-        this.spotlight.style.top = `${rect.top - padding}px`;
-        this.spotlight.style.left = `${rect.left - padding}px`;
-        this.spotlight.style.width = `${rect.width + padding * 2}px`;
-        this.spotlight.style.height = `${rect.height + padding * 2}px`;
+        // Use transform for GPU-accelerated positioning
+        const x = rect.left - padding;
+        const y = rect.top - padding;
+        const width = rect.width + padding * 2;
+        const height = rect.height + padding * 2;
+
+        this.spotlight.style.top = '0';
+        this.spotlight.style.left = '0';
+        this.spotlight.style.transform = `translate(${x}px, ${y}px)`;
+        this.spotlight.style.width = `${width}px`;
+        this.spotlight.style.height = `${height}px`;
         
         // Update overlay clip-path to cut out the highlighted area
         const clipPath = `polygon(

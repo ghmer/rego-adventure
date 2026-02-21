@@ -870,11 +870,12 @@ button[onclick*="login"]:hover {
                 inset 0 0 20px rgba(var(--accent-rgb), 0.2);
     z-index: var(--z-tutorial-spotlight);
     pointer-events: none;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: none !important;
 }
 
 .tutorial-spotlight-pulse {
     animation: spotlightPulse 1.5s ease-in-out;
+    transition: none !important;
 }
 
 /* Tutorial Tooltip */
