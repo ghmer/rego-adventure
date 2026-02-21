@@ -29,6 +29,10 @@ export class AudioManager {
         this.ui = uiManager;
         this.isMusicPlaying = false;
         this.musicRingCircumference = 0;
+        
+        // Store bound functions once to avoid memory leaks from repeated .bind() calls
+        this.boundHandleMusicEnded = this.handleMusicEnded.bind(this);
+        this.boundUpdateMusicProgress = this.updateMusicProgress.bind(this);
     }
 
     /**
@@ -80,11 +84,11 @@ export class AudioManager {
      * Setup music loop with delay
      */
     setupMusicLoop() {
-        this.ui.elements.bgMusic.removeEventListener('ended', this.handleMusicEnded.bind(this));
-        this.ui.elements.bgMusic.removeEventListener('timeupdate', this.updateMusicProgress.bind(this));
+        this.ui.elements.bgMusic.removeEventListener('ended', this.boundHandleMusicEnded);
+        this.ui.elements.bgMusic.removeEventListener('timeupdate', this.boundUpdateMusicProgress);
         
-        this.ui.elements.bgMusic.addEventListener('ended', this.handleMusicEnded.bind(this));
-        this.ui.elements.bgMusic.addEventListener('timeupdate', this.updateMusicProgress.bind(this));
+        this.ui.elements.bgMusic.addEventListener('ended', this.boundHandleMusicEnded);
+        this.ui.elements.bgMusic.addEventListener('timeupdate', this.boundUpdateMusicProgress);
     }
 
     /**
