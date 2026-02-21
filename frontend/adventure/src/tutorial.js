@@ -21,6 +21,19 @@
 
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
 
+// Debounce utility function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 export class TutorialSystem {
     constructor() {
         this.currentStep = 0;
@@ -31,6 +44,28 @@ export class TutorialSystem {
         this.tooltip = null;
         this.hiddenElementsState = new Map(); // Track originally hidden elements
         this.resizeHandler = null; // Store resize handler for cleanup
+        
+        // Cache for DOM elements to avoid repeated querySelector calls
+        this.cachedElements = new Map();
+    }
+    
+    /**
+     * Get cached element or query and cache it
+     * @param {string} selector - CSS selector
+     * @returns {Element|null} Cached element
+     */
+    getCachedElement(selector) {
+        if (!this.cachedElements.has(selector)) {
+            this.cachedElements.set(selector, document.querySelector(selector));
+        }
+        return this.cachedElements.get(selector);
+    }
+    
+    /**
+     * Clear element cache
+     */
+    clearElementCache() {
+        this.cachedElements.clear();
     }
 
     /**
@@ -311,8 +346,8 @@ export class TutorialSystem {
         this.isActive = true;
         this.currentStep = 0;
         
-        // Add resize listener
-        this.resizeHandler = () => this.handleResize();
+        // Add debounced resize listener to avoid excessive recalculations
+        this.resizeHandler = debounce(() => this.handleResize(), 100);
         window.addEventListener('resize', this.resizeHandler);
         
         // Temporarily unhide elements needed for tutorial
@@ -625,6 +660,9 @@ export class TutorialSystem {
 
         // Restore elements to their original hidden state
         this.restoreHiddenElements();
+
+        // Clear element cache to free memory
+        this.clearElementCache();
 
         // Don't automatically mark as completed
         // Only mark as completed when user checks "Don't show this again"
