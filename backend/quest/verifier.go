@@ -50,16 +50,21 @@ func NewVerifier() *Verifier {
 
 // Verify checks the user's Rego code against the provided quest's test cases.
 func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*QuestVerificationResult, error) {
-	results := []VerificationResult{}
+	// Pre-allocate results slice with capacity for all tests
+	results := make([]VerificationResult, 0, len(quest.Tests))
 	allPassed := true
 
 	// query to execute, defined in the quest
 	query := quest.Query
 
+	// Pre-compile the Rego module once before the loop to avoid recompiling
+	// the same code for every test case
+	compiledModule := rego.Module("quest.rego", regoCode)
+
 	for _, test := range quest.Tests {
 		options := []func(*rego.Rego){
 			rego.Query(query),
-			rego.Module("quest.rego", regoCode),
+			compiledModule,
 			rego.Input(test.Payload.Input),
 			rego.UnsafeBuiltins(map[string]struct{}{
 				"http.send":          {},
