@@ -125,11 +125,15 @@ export class EventManager {
      * Setup editor listeners
      */
     setupEditorListeners() {
+        let saveTimeout;
         this.ui.elements.editor.addEventListener('input', () => {
-            if (this.state.currentQuestId > 0) {
-                const questGrimoireKey = getPackKey(`rego_grimoire_q${this.state.currentQuestId}`, this.state.currentPackId);
-                setLocalStorage(questGrimoireKey, this.ui.elements.editor.value);
-            }
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                if (this.state.currentQuestId > 0) {
+                    const questGrimoireKey = getPackKey(`rego_grimoire_q${this.state.currentQuestId}`, this.state.currentPackId);
+                    setLocalStorage(questGrimoireKey, this.ui.elements.editor.value);
+                }
+            }, 1500);
         });
     }
 
