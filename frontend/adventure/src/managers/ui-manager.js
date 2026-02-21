@@ -314,21 +314,16 @@ export class UIManager {
 
     /**
      * Update quest footer visibility based on button states
-     * Optimized: Use visibility property instead of getComputedStyle to avoid forced reflow
      */
     updateQuestFooterVisibility() {
         const footer = document.querySelector('.quest-footer');
         if (!footer) return;
         
-        // Check for visible buttons using offsetParent (doesn't force reflow like getComputedStyle)
         const buttons = footer.querySelectorAll('button');
-        let hasVisibleButton = false;
-        for (const button of buttons) {
-            if (button.offsetParent !== null && button.style.display !== 'none') {
-                hasVisibleButton = true;
-                break;
-            }
-        }
+        const hasVisibleButton = Array.from(buttons).some(button => {
+            const style = window.getComputedStyle(button);
+            return style.display !== 'none';
+        });
         
         footer.style.display = hasVisibleButton ? 'flex' : 'none';
     }
