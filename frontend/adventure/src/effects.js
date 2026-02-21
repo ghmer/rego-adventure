@@ -19,10 +19,18 @@ import { TIMING, CONFETTI } from './services/constants.js';
 
 // Visual effects for the result modal
 
+// Store confetti interval reference to prevent memory leaks
+let confettiInterval = null;
+
 /**
  * Creates a confetti effect across the entire screen
  */
 export function showConfetti() {
+    // Clear any existing interval to prevent accumulation
+    if (confettiInterval) {
+        clearInterval(confettiInterval);
+    }
+    
     const duration = TIMING.CONFETTI_DURATION;
     const animationEnd = Date.now() + duration;
     const defaults = {
@@ -36,11 +44,13 @@ export function showConfetti() {
         return Math.random() * (max - min) + min;
     }
 
-    const interval = setInterval(function() {
+    confettiInterval = setInterval(function() {
         const timeLeft = animationEnd - Date.now();
 
         if (timeLeft <= 0) {
-            return clearInterval(interval);
+            clearInterval(confettiInterval);
+            confettiInterval = null;
+            return;
         }
 
         const particleCount = 50 * (timeLeft / duration);
@@ -111,5 +121,9 @@ export function triggerResultEffect(isSuccess) {
  */
 export function cleanupEffects() {
     hideDarkOverlay();
-    // Confetti cleans itself up automatically
+    // Clear confetti interval to prevent memory leaks
+    if (confettiInterval) {
+        clearInterval(confettiInterval);
+        confettiInterval = null;
+    }
 }
