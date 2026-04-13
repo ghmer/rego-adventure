@@ -1,0 +1,14 @@
+{
+  "extends": [
+    "config:recommended"
+  ],
+  "dependencyDashboard": false,
+  "packageRules": [
+    {
+      "matchDatasources": ["docker"],
+      "matchPackagePatterns": ["golang"],
+      "matchUpdateTypes": ["patch"],
+      "enabled": false
+    }
+  ]
+}
