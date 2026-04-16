@@ -1,0 +1,28 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: false
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - revive
+    - errcheck
+    - ineffassign
+    - unused
+    - gocyclo
+    - funlen
+    - lll
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
