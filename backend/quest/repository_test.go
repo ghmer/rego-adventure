@@ -8,7 +8,7 @@ import (
 func createValidPack() QuestPack {
 	return QuestPack{
 		ID: "test-pack",
-		Meta: QuestMeta{
+		Meta: MetaData{
 			Title:       "Test Pack",
 			Description: "A test pack",
 			Genre:       "test",
@@ -31,7 +31,7 @@ func createValidPack() QuestPack {
 				Title:           "Quest 1",
 				DescriptionTask: "Do something",
 				DescriptionLore: []string{"Lore"},
-				Manual: QuestManual{
+				Manual: Manual{
 					DataModel:    "{}",
 					RegoSnippet:  "package test",
 					ExternalLink: "http://example.com",

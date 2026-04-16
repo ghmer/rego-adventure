@@ -50,7 +50,10 @@ func New(cfg *config.Config, handler *Handler) *Server {
 			os.Exit(1)
 		}
 	} else {
-		r.SetTrustedProxies(nil)
+		if err := r.SetTrustedProxies(nil); err != nil {
+			slog.Error("failed to set trusted proxies to nil", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	// Disable automatic redirects that cause loops

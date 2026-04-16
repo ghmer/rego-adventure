@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+// Package main is the entry point for the Rego adventure application.
 package main
 
 import (

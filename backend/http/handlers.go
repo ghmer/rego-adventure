@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+// Package http contains HTTP server setup and routing logic.
 package http
 
 import (
@@ -27,11 +28,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Handler handles HTTP requests for quest operations.
 type Handler struct {
 	questRepo *quest.QuestRepository
 	verifier  *quest.Verifier
 }
 
+// NewHandler creates a new quest handler with the given repository and verifier.
 func NewHandler(questRepo *quest.QuestRepository, verifier *quest.Verifier) *Handler {
 	return &Handler{
 		questRepo: questRepo,
@@ -39,6 +42,7 @@ func NewHandler(questRepo *quest.QuestRepository, verifier *quest.Verifier) *Han
 	}
 }
 
+// RegisterRoutes registers all quest-related routes.
 func (h *Handler) RegisterRoutes(r gin.IRouter) {
 	r.GET("/packs", h.GetPacks)
 	r.GET("/packs/:pack_id", h.GetPack)
@@ -99,6 +103,7 @@ func (h *Handler) GetTestPayload(c *gin.Context) {
 	c.JSON(http.StatusOK, quest.GetTestPayloads())
 }
 
+// VerifyRequest contains the data needed to verify a quest solution.
 type VerifyRequest struct {
 	PackID   string `json:"pack_id"`
 	QuestID  int    `json:"quest_id"`

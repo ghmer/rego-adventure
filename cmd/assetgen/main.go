@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+// Package main generates quest pack themes with assets and metadata.
 package main
 
 import (

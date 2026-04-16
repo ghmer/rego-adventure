@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+// Package http contains HTTP server setup and routing logic.
 package http
 
 import (
@@ -147,7 +148,12 @@ func (s *Server) serveSharedCSS(c *gin.Context) {
 }
 
 // serveSafeFile is a helper to serve files safely with path traversal protection and validation
-func (s *Server) serveSafeFile(c *gin.Context, baseDir string, requestedPath string, validate func(string) bool, contentType string) {
+func (s *Server) serveSafeFile(
+	c *gin.Context,
+	baseDir string,
+	requestedPath string,
+	validate func(string) bool,
+	contentType string) {
 	// Check for path traversal attempts
 	if containsPathTraversal(requestedPath) {
 		slog.Warn("security: path traversal attempt blocked", "path", requestedPath)
@@ -242,7 +248,11 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
 			return
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				slog.Warn("failed to close file", "path", cleanPath, "error", err)
+			}
+		}()
 
 		// Get file info to check if it's a directory
 		stat, err := file.Stat()

@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+// Package quest defines data structures and constants for quest pack management.
 package quest
 
 // String length validation constants for quest pack data structures.
@@ -23,39 +24,57 @@ package quest
 // If you change these values, you MUST update the frontend validation constants as well.
 
 const (
-	// Pack Meta - Basic information about the quest pack
-	MaxPackTitle       = 100 // Maximum length for pack title
-	MaxPackDescription = 500 // Maximum length for pack description
-	MaxPackGenre       = 50  // Maximum length for pack genre
-	MaxPackObjective   = 500 // Maximum length for initial/final objectives
+	// MaxPackTitle is the maximum length for pack title.
+	MaxPackTitle = 100
+	// MaxPackDescription is the maximum length for pack description.
+	MaxPackDescription = 500
+	// MaxPackGenre is the maximum length for pack genre.
+	MaxPackGenre = 50
+	// MaxPackObjective is the maximum length for initial/final objectives.
+	MaxPackObjective = 500
 
-	// UI Labels - Customizable UI text labels
-	MaxUIGrimoireTitle        = 100  // Maximum length for grimoire title
-	MaxUIHintButton           = 100  // Maximum length for hint button text
-	MaxUIVerifyButton         = 100  // Maximum length for verify button text
-	MaxUIMessageSuccess       = 200  // Maximum length for success message
-	MaxUIMessageFailure       = 200  // Maximum length for failure message
-	MaxUIPerfectScoreMessage  = 1000 // Maximum length for perfect score message
-	MaxUIPerfectScoreButton   = 100  // Maximum length for perfect score button text
-	MaxUIBeginAdventureButton = 100  // Maximum length for begin adventure button text
+	// MaxUIGrimoireTitle is the maximum length for grimoire title.
+	MaxUIGrimoireTitle = 100
+	// MaxUIHintButton is the maximum length for hint button text.
+	MaxUIHintButton = 100
+	// MaxUIVerifyButton is the maximum length for verify button text.
+	MaxUIVerifyButton = 100
+	// MaxUIMessageSuccess is the maximum length for success message.
+	MaxUIMessageSuccess = 200
+	// MaxUIMessageFailure is the maximum length for failure message.
+	MaxUIMessageFailure = 200
+	// MaxUIPerfectScoreMessage is the maximum length for perfect score message.
+	MaxUIPerfectScoreMessage = 1000
+	// MaxUIPerfectScoreButton is the maximum length for perfect score button text.
+	MaxUIPerfectScoreButton = 100
+	// MaxUIBeginAdventureButton is the maximum length for begin adventure button text.
+	MaxUIBeginAdventureButton = 100
 
-	// Quest - Individual quest fields
-	MaxQuestTitle           = 100   // Maximum length for quest title
-	MaxQuestDescriptionTask = 1000  // Maximum length for quest task description
-	MaxQuestDescriptionLore = 2000  // Maximum length for each lore entry
-	MaxQuestHint            = 500   // Maximum length for each hint
-	MaxQuestSolution        = 5000  // Maximum length for quest solution
-	MaxQuestTemplate        = 10000 // Maximum length for quest template
+	// MaxQuestTitle is the maximum length for quest title.
+	MaxQuestTitle = 100
+	// MaxQuestDescriptionTask is the maximum length for quest task description.
+	MaxQuestDescriptionTask = 1000
+	// MaxQuestDescriptionLore is the maximum length for each lore entry.
+	MaxQuestDescriptionLore = 2000
+	// MaxQuestHint is the maximum length for each hint.
+	MaxQuestHint = 500
+	// MaxQuestSolution is the maximum length for quest solution.
+	MaxQuestSolution = 5000
+	// MaxQuestTemplate is the maximum length for quest template.
+	MaxQuestTemplate = 10000
 
-	// Manual - Quest manual/documentation fields
-	MaxManualDataModel    = 2000 // Maximum length for manual data model
-	MaxManualRegoSnippet  = 5000 // Maximum length for manual Rego snippet
-	MaxManualExternalLink = 500  // Maximum length for manual external link
+	// MaxManualDataModel is the maximum length for manual data model.
+	MaxManualDataModel = 2000
+	// MaxManualRegoSnippet is the maximum length for manual Rego snippet.
+	MaxManualRegoSnippet = 5000
+	// MaxManualExternalLink is the maximum length for manual external link.
+	MaxManualExternalLink = 500
 
-	// Narrative - Prologue and epilogue entries
-	MaxPrologueItem = 2000 // Maximum length for each prologue entry
-	MaxEpilogueItem = 2000 // Maximum length for each epilogue entry
+	// MaxPrologueItem is the maximum length for each prologue entry.
+	MaxPrologueItem = 2000
+	// MaxEpilogueItem is the maximum length for each epilogue entry.
+	MaxEpilogueItem = 2000
 
-	// Test - Test case payload limits
-	MaxTestPayloadBytes = 50000 // Maximum size in bytes for test payloads (50KB)
+	// MaxTestPayloadBytes is the maximum size in bytes for test payloads (50KB).
+	MaxTestPayloadBytes = 50000
 )

@@ -30,7 +30,7 @@ func createValidQuest() Quest {
 		Title:           "Test Quest",
 		DescriptionLore: []string{"Lore entry 1", "Lore entry 2"},
 		DescriptionTask: "This is the task description",
-		Manual: QuestManual{
+		Manual: Manual{
 			DataModel:    `{"type": "object"}`,
 			RegoSnippet:  `package test`,
 			ExternalLink: "http://example.com/docs",
@@ -62,7 +62,7 @@ func createValidQuest() Quest {
 func createValidQuestPack() QuestPack {
 	return QuestPack{
 		ID: "test-pack",
-		Meta: QuestMeta{
+		Meta: MetaData{
 			Title:            "Test Pack Title",
 			Description:      "A test quest pack description",
 			Genre:            "fantasy",
@@ -737,7 +737,7 @@ func TestGetTestPayloads_PayloadPreservation(t *testing.T) {
 func TestValidateQuestPack_MultipleValidationErrors(t *testing.T) {
 	pack := QuestPack{
 		ID: "test",
-		Meta: QuestMeta{
+		Meta: MetaData{
 			Title:       "",
 			Description: "",
 			Genre:       "",
@@ -766,7 +766,7 @@ func TestValidateQuest_OptionalFields(t *testing.T) {
 		Title:           "Test",
 		DescriptionLore: []string{"Lore"},
 		DescriptionTask: "Task",
-		Manual: QuestManual{
+		Manual: Manual{
 			DataModel:    "",
 			RegoSnippet:  "",
 			ExternalLink: "",
@@ -790,7 +790,7 @@ func TestValidateQuestPack_OptionalFields(t *testing.T) {
 	// Test that optional fields can be empty
 	pack := QuestPack{
 		ID: "test",
-		Meta: QuestMeta{
+		Meta: MetaData{
 			Title:       "Title",
 			Description: "Description",
 			Genre:       "genre",

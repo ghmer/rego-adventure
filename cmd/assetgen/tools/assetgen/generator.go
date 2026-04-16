@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+// Package assetgen handles generation of quest pack themes and assets.
 package assetgen
 
 import (
@@ -124,7 +125,11 @@ func generateAsset(dir string, asset Asset) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Printf("warning: failed to close file %s: %v\n", path, err)
+		}
+	}()
 
 	ext := filepath.Ext(asset.Filename)
 	switch ext {
@@ -155,9 +160,134 @@ func parseHexColor(s string) (color.RGBA, error) {
 	}, nil
 }
 
+// createDefaultQuests creates the default quest list
+// createQuestTest creates a test case with the given parameters.
+func createQuestTest(id int, input any, data map[string]any, expected bool) quest.TestCase {
+	return quest.TestCase{
+		ID:              id,
+		Payload:         quest.TestPayload{Input: input, Data: data},
+		ExpectedOutcome: expected,
+	}
+}
+
+// createFirstStepsQuest creates the "First Steps" tutorial quest.
+func createFirstStepsQuest() quest.Quest {
+	return quest.Quest{
+		ID:    1,
+		Title: "First Steps",
+		DescriptionLore: []string{
+			"You stand at the beginning of a new path.",
+			"The gatekeeper asks for the password.",
+		},
+		DescriptionTask: "Allow access if the password is correct.",
+		Query:           "data.play.allow",
+		Manual: quest.Manual{
+			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint: lll
+				"`input.password` | The password provided by the user |",
+			RegoSnippet: "To check if a password matches:\n```rego\n" +
+				"allow if input.password == \"secret\"\n```",
+			ExternalLink: "",
+		},
+		Hints: []string{
+			"Use the `==` operator to compare the password.",
+			"Access the password from `input.password`.",
+			"The correct password is \"secret\".",
+		},
+		Solution:      "allow if input.password == \"secret\"",
+		ApplyTemplate: true,
+		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
+		Tests: []quest.TestCase{
+			createQuestTest(101, map[string]any{"password": "wrong"}, nil, false),
+			createQuestTest(102, map[string]any{"password": "secret"}, nil, true),
+		},
+	}
+}
+
+// createInventoryQuest creates the "Inventory Check" quest.
+func createInventoryQuest() quest.Quest {
+	return quest.Quest{
+		ID:    2,
+		Title: "Inventory Check",
+		DescriptionLore: []string{
+			"The guard checks your bag.",
+			"You need a pass to enter.",
+		},
+		DescriptionTask: "Allow access if user has a 'pass' in inventory.",
+		Query:           "data.play.allow",
+		Manual: quest.Manual{
+			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint: lll
+				"`input.user.inventory` | A list of items the user is carrying |",
+			RegoSnippet: "To check if an item is in a list:\n```rego\n" +
+				"allow if \"item\" in input.list\n```\nOr using array iteration:\n" +
+				"```rego\nallow if input.list[_] == \"item\"\n```",
+		},
+		Hints: []string{
+			"Use array iteration with `[_]` to check each item in the inventory.",
+			"Access the inventory at `input.user.inventory`.",
+			"Check if any item equals \"pass\".",
+		},
+		Solution:      "allow if input.user.inventory[_] == \"pass\"",
+		ApplyTemplate: true,
+		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
+		Tests: []quest.TestCase{
+			createQuestTest(201,
+				map[string]any{"user": map[string]any{"inventory": []string{"apple"}}},
+				nil, false),
+			createQuestTest(202,
+				map[string]any{"user": map[string]any{"inventory": []string{"apple", "pass"}}},
+				nil, true),
+		},
+	}
+}
+
+// createDataLookupQuest creates the "Data Lookup" quest.
+func createDataLookupQuest() quest.Quest {
+	return quest.Quest{
+		ID:    3,
+		Title: "Data Lookup",
+		DescriptionLore: []string{
+			"You need to check the registry.",
+			"Only registered users can pass.",
+		},
+		DescriptionTask: "Allow access if user is in the registry.",
+		Query:           "data.play.allow",
+		Manual: quest.Manual{
+			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint: lll
+				"`input.user.name` | The name of the user |\n| `data.registry` | " +
+				"A list of registered users |",
+			RegoSnippet: "To check if a value exists in a data list:\n```rego\n" +
+				"allow if input.value == data.list[_]\n```",
+		},
+		Hints: []string{
+			"Compare the user's name against each entry in the registry.",
+			"Use `data.registry[_]` to iterate through the registry list.",
+			"The user name is at `input.user.name`.",
+		},
+		Solution:      "allow if input.user.name == data.registry[_]",
+		ApplyTemplate: true,
+		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
+		Tests: []quest.TestCase{
+			createQuestTest(301,
+				map[string]any{"user": map[string]any{"name": "Stranger"}},
+				map[string]any{"registry": []string{"Alice", "Bob"}}, false),
+			createQuestTest(302,
+				map[string]any{"user": map[string]any{"name": "Alice"}},
+				map[string]any{"registry": []string{"Alice", "Bob"}}, true),
+		},
+	}
+}
+
+func createDefaultQuests() []quest.Quest {
+	return []quest.Quest{
+		createFirstStepsQuest(),
+		createInventoryQuest(),
+		createDataLookupQuest(),
+	}
+}
+
 func generateQuestsJSON(dir, theme string) error {
 	pack := quest.QuestPack{
-		Meta: quest.QuestMeta{
+		Meta: quest.MetaData{
 			Title:            fmt.Sprintf("Quest Pack: %s", theme),
 			Description:      "A new adventure awaits.",
 			Genre:            theme,
@@ -182,151 +312,7 @@ func generateQuestsJSON(dir, theme string) error {
 			"You have completed the journey.",
 			"Well done.",
 		},
-		Quests: []quest.Quest{
-			{
-				ID:    1,
-				Title: "First Steps",
-				DescriptionLore: []string{
-					"You stand at the beginning of a new path.",
-					"The gatekeeper asks for the password.",
-				},
-				DescriptionTask: "Allow access if the password is correct.",
-				Query:           "data.play.allow",
-				Manual: quest.QuestManual{
-					DataModel:    "| Field | Description |\n|-------|-------------|\n| `input.password` | The password provided by the user |",
-					RegoSnippet:  "To check if a password matches:\n```rego\nallow if input.password == \"secret\"\n```",
-					ExternalLink: "",
-				},
-				Hints: []string{
-					"Use the `==` operator to compare the password.",
-					"Access the password from `input.password`.",
-					"The correct password is \"secret\".",
-				},
-				Solution:      "allow if input.password == \"secret\"",
-				ApplyTemplate: true,
-				Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
-				Tests: []quest.TestCase{
-					{
-						ID: 101,
-						Payload: quest.TestPayload{
-							Input: map[string]any{
-								"password": "wrong",
-							},
-						},
-						ExpectedOutcome: false,
-					},
-					{
-						ID: 102,
-						Payload: quest.TestPayload{
-							Input: map[string]any{
-								"password": "secret",
-							},
-						},
-						ExpectedOutcome: true,
-					},
-				},
-			},
-			{
-				ID:    2,
-				Title: "Inventory Check",
-				DescriptionLore: []string{
-					"The guard checks your bag.",
-					"You need a pass to enter.",
-				},
-				DescriptionTask: "Allow access if user has a 'pass' in inventory.",
-				Query:           "data.play.allow",
-				Manual: quest.QuestManual{
-					DataModel:    "| Field | Description |\n|-------|-------------|\n| `input.user.inventory` | A list of items the user is carrying |",
-					RegoSnippet:  "To check if an item is in a list:\n```rego\nallow if \"item\" in input.list\n```\nOr using array iteration:\n```rego\nallow if input.list[_] == \"item\"\n```",
-					ExternalLink: "",
-				},
-				Hints: []string{
-					"Use array iteration with `[_]` to check each item in the inventory.",
-					"Access the inventory at `input.user.inventory`.",
-					"Check if any item equals \"pass\".",
-				},
-				Solution:      "allow if input.user.inventory[_] == \"pass\"",
-				ApplyTemplate: true,
-				Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
-				Tests: []quest.TestCase{
-					{
-						ID: 201,
-						Payload: quest.TestPayload{
-							Input: map[string]any{
-								"user": map[string]any{
-									"inventory": []string{"apple"},
-								},
-							},
-						},
-						ExpectedOutcome: false,
-					},
-					{
-						ID: 202,
-						Payload: quest.TestPayload{
-							Input: map[string]any{
-								"user": map[string]any{
-									"inventory": []string{"apple", "pass"},
-								},
-							},
-						},
-						ExpectedOutcome: true,
-					},
-				},
-			},
-			{
-				ID:    3,
-				Title: "Data Lookup",
-				DescriptionLore: []string{
-					"You need to check the registry.",
-					"Only registered users can pass.",
-				},
-				DescriptionTask: "Allow access if user is in the registry.",
-				Query:           "data.play.allow",
-				Manual: quest.QuestManual{
-					DataModel:    "| Field | Description |\n|-------|-------------|\n| `input.user.name` | The name of the user |\n| `data.registry` | A list of registered users |",
-					RegoSnippet:  "To check if a value exists in a data list:\n```rego\nallow if input.value == data.list[_]\n```",
-					ExternalLink: "",
-				},
-				Hints: []string{
-					"Compare the user's name against each entry in the registry.",
-					"Use `data.registry[_]` to iterate through the registry list.",
-					"The user name is at `input.user.name`.",
-				},
-				Solution:      "allow if input.user.name == data.registry[_]",
-				ApplyTemplate: true,
-				Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
-				Tests: []quest.TestCase{
-					{
-						ID: 301,
-						Payload: quest.TestPayload{
-							Input: map[string]any{
-								"user": map[string]any{
-									"name": "Stranger",
-								},
-							},
-							Data: map[string]any{
-								"registry": []string{"Alice", "Bob"},
-							},
-						},
-						ExpectedOutcome: false,
-					},
-					{
-						ID: 302,
-						Payload: quest.TestPayload{
-							Input: map[string]any{
-								"user": map[string]any{
-									"name": "Alice",
-								},
-							},
-							Data: map[string]any{
-								"registry": []string{"Alice", "Bob"},
-							},
-						},
-						ExpectedOutcome: true,
-					},
-				},
-			},
-		},
+		Quests: createDefaultQuests(),
 	}
 
 	data, err := json.MarshalIndent(pack, "", "    ")

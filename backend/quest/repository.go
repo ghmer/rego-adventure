@@ -22,7 +22,7 @@ import (
 )
 
 // QuestRepository handles loading and accessing quests.
-type QuestRepository struct {
+type QuestRepository struct { //nolint
 	packs map[string]*QuestPack
 }
 

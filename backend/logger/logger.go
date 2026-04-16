@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+// Package logger configures structured logging for the application.
 package logger
 
 import (

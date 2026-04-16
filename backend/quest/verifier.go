@@ -24,8 +24,8 @@ import (
 	"github.com/open-policy-agent/opa/v1/storage/inmem"
 )
 
-// VerificationResult holds the outcome of a single test case verification.
-type VerificationResult struct {
+// TestResult holds the outcome of a single test case verification.
+type TestResult struct {
 	TestID   int  `json:"test_id"`
 	Passed   bool `json:"passed"`
 	Expected bool `json:"expected"`
@@ -33,11 +33,11 @@ type VerificationResult struct {
 	Input    any  `json:"input"`
 }
 
-// QuestVerificationResult holds the overall result of verifying a quest solution.
-type QuestVerificationResult struct {
-	Passed  bool                 `json:"passed"`
-	Error   string               `json:"error,omitempty"`
-	Results []VerificationResult `json:"results"`
+// VerificationResult holds the overall result of verifying a quest solution.
+type VerificationResult struct {
+	Passed  bool         `json:"passed"`
+	Error   string       `json:"error,omitempty"`
+	Results []TestResult `json:"results"`
 }
 
 // Verifier handles the execution of Rego policies against test cases.
@@ -48,75 +48,75 @@ func NewVerifier() *Verifier {
 	return &Verifier{}
 }
 
+// runTestCase executes a single test case and returns the result.
+func runTestCase(ctx context.Context, query string, compiledModule func(*rego.Rego),
+	test TestCase) (*TestResult, error) {
+	options := []func(*rego.Rego){
+		rego.Query(query),
+		compiledModule,
+		rego.Input(test.Payload.Input),
+		rego.UnsafeBuiltins(map[string]struct{}{
+			"http.send":          {},
+			"net.lookup_ip_addr": {},
+			"opa.runtime":        {},
+		}),
+	}
+
+	if test.Payload.Data != nil {
+		store := inmem.NewFromObject(test.Payload.Data)
+		options = append(options, rego.Store(store))
+	}
+
+	r := rego.New(options...)
+	rs, err := r.Eval(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	actual := false
+	if len(rs) > 0 && len(rs[0].Expressions) > 0 {
+		if val, ok := rs[0].Expressions[0].Value.(bool); ok {
+			actual = val
+		}
+	}
+
+	passed := actual == test.ExpectedOutcome
+	return &TestResult{
+		TestID:   test.ID,
+		Passed:   passed,
+		Expected: test.ExpectedOutcome,
+		Actual:   actual,
+		Input:    test.Payload.Input,
+	}, nil
+}
+
 // Verify checks the user's Rego code against the provided quest's test cases.
-func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*QuestVerificationResult, error) {
-	// Pre-allocate results slice with capacity for all tests
-	results := make([]VerificationResult, 0, len(quest.Tests))
+func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*VerificationResult, error) {
+	results := make([]TestResult, 0, len(quest.Tests))
 	allPassed := true
 
-	// query to execute, defined in the quest
-	query := quest.Query
-
-	// Pre-compile the Rego module once before the loop to avoid recompiling
-	// the same code for every test case
 	compiledModule := rego.Module("quest.rego", regoCode)
 
 	for _, test := range quest.Tests {
-		options := []func(*rego.Rego){
-			rego.Query(query),
-			compiledModule,
-			rego.Input(test.Payload.Input),
-			rego.UnsafeBuiltins(map[string]struct{}{
-				"http.send":          {},
-				"net.lookup_ip_addr": {},
-				"opa.runtime":        {},
-			}),
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
 		}
 
-		if test.Payload.Data != nil {
-			store := inmem.NewFromObject(test.Payload.Data)
-			options = append(options, rego.Store(store))
-		}
-
-		// Create a new Rego object for each test to ensure clean state and avoid
-		// potential state pollution, especially when tests have different data stores.
-		r := rego.New(options...)
-
-		// Run evaluation
-		rs, err := r.Eval(ctx)
+		result, err := runTestCase(ctx, quest.Query, compiledModule, test)
 		if err != nil {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			return &QuestVerificationResult{
+			return &VerificationResult{
 				Passed: false,
 				Error:  fmt.Sprintf("Compilation/Runtime error: %v", err),
 			}, nil
 		}
 
-		// Check results
-		actual := false
-		if len(rs) > 0 && len(rs[0].Expressions) > 0 {
-			if val, ok := rs[0].Expressions[0].Value.(bool); ok {
-				actual = val
-			}
-		}
-
-		passed := actual == test.ExpectedOutcome
-		if !passed {
+		if !result.Passed {
 			allPassed = false
 		}
-
-		results = append(results, VerificationResult{
-			TestID:   test.ID,
-			Passed:   passed,
-			Expected: test.ExpectedOutcome,
-			Actual:   actual,
-			Input:    test.Payload.Input,
-		})
+		results = append(results, *result)
 	}
 
-	return &QuestVerificationResult{
+	return &VerificationResult{
 		Passed:  allPassed,
 		Results: results,
 	}, nil

@@ -1,3 +1,4 @@
+// Package main generates import maps for frontend dependencies.
 package main
 
 import (

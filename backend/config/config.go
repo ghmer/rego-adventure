@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+// Package config handles application configuration loading and management.
 package config
 
 import (
@@ -172,7 +173,11 @@ func (c *Config) initializeJWKS() error {
 		slog.Error("failed to fetch OIDC discovery", "error", err)
 		os.Exit(1)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("failed to close response body", "error", err)
+		}
+	}()
 
 	var oidcConfig struct {
 		JWKSURI string `json:"jwks_uri"`
