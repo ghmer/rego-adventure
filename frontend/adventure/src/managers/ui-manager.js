@@ -320,10 +320,9 @@ export class UIManager {
         if (!footer) return;
         
         const buttons = footer.querySelectorAll('button');
-        const hasVisibleButton = Array.from(buttons).some(button => {
-            const style = window.getComputedStyle(button);
-            return style.display !== 'none';
-        });
+        const hasVisibleButton = Array.from(buttons).some(button =>
+            button.style.display !== 'none' && !button.classList.contains('hidden')
+        );
         
         footer.style.display = hasVisibleButton ? 'flex' : 'none';
     }
