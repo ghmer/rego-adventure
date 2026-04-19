@@ -108,6 +108,8 @@ function hideDarkOverlay() {
  * @param {boolean} isSuccess - Whether the result was successful
  */
 export function triggerResultEffect(isSuccess) {
+    if (document.body.classList.contains('effects-disabled')) return;
+
     if (isSuccess) {
         hideDarkOverlay();
         showConfetti();
