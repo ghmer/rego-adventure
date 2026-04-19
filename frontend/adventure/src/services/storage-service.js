@@ -27,7 +27,8 @@
  */
 export function getLocalStorage(key, defaultValue = null) {
     try {
-        return localStorage.getItem(key) || defaultValue;
+        const item = localStorage.getItem(key);
+        return item !== null ? item : defaultValue;
     } catch (e) {
         console.error('localStorage access failed:', e);
         return defaultValue;
