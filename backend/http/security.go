@@ -84,7 +84,7 @@ func isSensitiveFile(filename string) bool {
 
 // getContentType determines the content type based on file extension
 func getContentType(filename string) string {
-	ext := filepath.Ext(filename)
+	ext := strings.ToLower(filepath.Ext(filename))
 	switch ext {
 	case ".html":
 		return "text/html; charset=utf-8"
