@@ -49,7 +49,11 @@ func (r *QuestRepository) LoadPack(id string, questData []byte) error {
 	// Build quest map for fast lookup
 	pack.questMap = make(map[int]*Quest, len(pack.Quests))
 	for i := range pack.Quests {
-		pack.questMap[pack.Quests[i].ID] = &pack.Quests[i]
+		qid := pack.Quests[i].ID
+		if _, exists := pack.questMap[qid]; exists {
+			return fmt.Errorf("duplicate quest ID %d in pack %s", qid, id)
+		}
+		pack.questMap[qid] = &pack.Quests[i]
 	}
 
 	r.packs[id] = &pack
