@@ -15,9 +15,14 @@
 */
 
 // Show content after styles load: adds 'loaded' class to transition from hidden to visible
-document.addEventListener('DOMContentLoaded', () => {
+// Guard with readyState in case the event has already fired before this module executes.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        document.documentElement.classList.add('loaded');
+    });
+} else {
     document.documentElement.classList.add('loaded');
-});
+}
 
 /**
  * Main Application Entry Point
@@ -104,8 +109,3 @@ async function init() {
 
 // Start the application
 init();
-
-// Initialize quest-footer visibility on page load
-document.addEventListener('DOMContentLoaded', () => {
-    uiManager.updateQuestFooterVisibility();
-});
