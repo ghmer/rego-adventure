@@ -22,6 +22,7 @@
 import { showConfetti, triggerResultEffect, cleanupEffects } from '../effects.js';
 import { fetchTestPayload } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
+import { showToast } from '../services/toast-service.js';
 import { SCORING, DEFAULT_TEXT } from '../services/constants.js';
 
 /**
@@ -66,7 +67,7 @@ export class ModalManager {
                 handleApiError(error, 'load test payload data');
             }
         } else {
-            alert('No test data available for this quest.');
+            showToast('No test data available for this quest.', 'info');
         }
     }
 
@@ -101,16 +102,15 @@ export class ModalManager {
             this.ui.elements.resultTitle.textContent = this.state.messageSuccess || DEFAULT_TEXT.MESSAGE_SUCCESS;
             this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
             
-            // Calculate and display score
-            const pointsEarned = this.state.calculateQuestScore();
+            // Complete quest first; completeQuest() returns the points earned and
+            // saves state, so both the display and the saved value are consistent.
+            const pointsEarned = this.state.completeQuest(this.state.currentQuestId);
             const pointsPossible = SCORING.POINTS_PER_QUEST;
             
             this.ui.elements.pointsEarned.textContent = pointsEarned;
             this.ui.elements.pointsPossible.textContent = pointsPossible;
             this.ui.elements.scoreSummary.classList.remove('hidden');
             
-            // Update state with completion
-            this.state.completeQuest(this.state.currentQuestId);
             this.ui.updateScoreDisplay(this.state.totalScore);
         } else {
             this.ui.elements.resultTitle.textContent = this.state.messageFailure || DEFAULT_TEXT.MESSAGE_FAILURE;
@@ -220,14 +220,11 @@ export class ModalManager {
         window.addEventListener('click', (event) => {
             if (event.target === this.ui.elements.manualModal) {
                 this.closeManual();
-            }
-            if (event.target === this.ui.elements.testPayloadModal) {
+            } else if (event.target === this.ui.elements.testPayloadModal) {
                 this.closeTestPayload();
-            }
-            if (event.target === this.ui.elements.resultModal) {
+            } else if (event.target === this.ui.elements.resultModal) {
                 this.closeResult();
-            }
-            if (event.target === this.ui.elements.perfectScoreModal) {
+            } else if (event.target === this.ui.elements.perfectScoreModal) {
                 this.closePerfectScore();
             }
         });
