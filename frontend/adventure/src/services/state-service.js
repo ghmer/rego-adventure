@@ -261,21 +261,6 @@ export class GameState {
     }
     
     /**
-     * Navigate to a quest (handles history mode)
-     * @param {number} questId - The quest to navigate to
-     */
-    navigateToQuest(questId) {
-        // Determine if entering/exiting history mode
-        const isCompleted = this.questScores[questId] !== undefined;
-        const isActiveQuest = questId === this.activeQuestId;
-        
-        this.isHistoryMode = isCompleted && !isActiveQuest;
-        this.currentQuestId = questId;
-        
-        this.savePackState();
-    }
-    
-    /**
      * Check if can navigate to previous quest
      * @returns {boolean} True if previous quest exists
      */
