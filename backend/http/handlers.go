@@ -18,6 +18,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -119,13 +120,17 @@ func (h *Handler) VerifySolution(c *gin.Context) {
 		return
 	}
 
-	quest, found := h.questRepo.GetQuestByID(req.PackID, req.QuestID)
+	q, found := h.questRepo.GetQuestByID(req.PackID, req.QuestID)
 	if !found {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Quest not found"})
 		return
 	}
 
-	result, err := h.verifier.Verify(c.Request.Context(), quest, req.RegoCode)
+	result, err := func() (*quest.VerificationResult, error) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+		return h.verifier.Verify(ctx, q, req.RegoCode)
+	}()
 	if err != nil {
 		// Verify currently handles all errors (compilation, runtime) by returning a result with Error field set.
 		// The error return value is always nil in the current implementation.
