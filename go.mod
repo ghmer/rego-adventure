@@ -1,6 +1,6 @@
 module github.com/ghmer/rego-adventure
 
-go 1.26.2
+go 1.26.1
 
 require (
 	github.com/MicahParks/keyfunc/v3 v3.8.0
