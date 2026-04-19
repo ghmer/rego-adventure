@@ -246,13 +246,7 @@ export class EventManager {
      */
     setupNextButtonListener() {
         this.ui.elements.startAdventureBtn.addEventListener('click', () => {
-            if (this.state.currentQuestId === 0) {
-                this.state.currentQuestId = 1;
-                this.ui.elements.startAdventureBtn.textContent = "Next Quest";
-            } else {
-                this.state.currentQuestId++;
-            }
-            this.quest.loadQuest(this.state.currentQuestId);
+            this.quest.proceedToNextQuest();
             this.ui.updateQuestFooterVisibility();
         });
     }
