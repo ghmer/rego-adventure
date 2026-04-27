@@ -65,9 +65,20 @@ func StructuredLogger() gin.HandlerFunc {
 
 // SecurityHeaders adds security headers to responses
 func SecurityHeaders() gin.HandlerFunc {
-	// Content-Security-Policy restricts what resources the browser may load.
-	const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" +
-		" img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'"
+	// Content-Security-Policy scoped to what the frontend actually loads:
+	// - script-src: 'self' for ES modules; 'unsafe-inline' required for the
+	//   inline <script type="importmap"> in index.html. To harden this in the
+	//   future, move the importmap to an external file and remove 'unsafe-inline'.
+	// - style-src: cdnjs.cloudflare.com for Font Awesome.
+	// - img-src / font-src: cdnjs for Font Awesome icon fonts.
+	// - connect-src: esm.sh CDN for ES module imports declared in the importmap.
+	const csp = "default-src 'self';" +
+		" script-src 'self' 'unsafe-inline';" +
+		" style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;" +
+		" img-src 'self' data:;" +
+		" font-src 'self' https://cdnjs.cloudflare.com;" +
+		" connect-src 'self' https://esm.sh;" +
+		" frame-ancestors 'none'"
 
 	return func(c *gin.Context) {
 		c.Header("Content-Security-Policy", csp)
