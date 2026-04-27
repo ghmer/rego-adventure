@@ -82,33 +82,6 @@ func isSensitiveFile(filename string) bool {
 	return false
 }
 
-// getContentType determines the content type based on file extension
-func getContentType(filename string) string {
-	ext := strings.ToLower(filepath.Ext(filename))
-	switch ext {
-	case ".html":
-		return "text/html; charset=utf-8"
-	case ".css":
-		return "text/css; charset=utf-8"
-	case ".js":
-		return "application/javascript; charset=utf-8"
-	case ".json":
-		return "application/json; charset=utf-8"
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".svg":
-		return "image/svg+xml"
-	case ".ico":
-		return "image/x-icon"
-	case ".webp":
-		return "image/webp"
-	default:
-		return "application/octet-stream"
-	}
-}
-
 // setupCORS creates CORS middleware with the specified allowed origin
 func setupCORS(allowedOrigin string) gin.HandlerFunc {
 	return cors.New(cors.Config{
