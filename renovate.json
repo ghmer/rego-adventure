@@ -3,7 +3,20 @@
     "config:recommended"
   ],
   "dependencyDashboard": false,
+  "schedule": ["on monday"],
   "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "groupName": "npm frontend"
+    },
+    {
+      "matchManagers": ["gomod"],
+      "groupName": "go modules"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    },
     {
       "matchDatasources": ["docker"],
       "matchPackagePatterns": ["golang"],
