@@ -66,8 +66,8 @@ func (s *Server) SetupRoutes() {
 
 // setupQuestRoutes configures quest asset serving
 func (s *Server) setupQuestRoutes() {
-	// Serve static assets for quests
-	s.router.GET("/quests/:pack/assets/:assetpath", s.serveQuestAssets)
+	// Serve static assets for quests (wildcard to support subdirectory assets)
+	s.router.GET("/quests/:pack/assets/*assetpath", s.serveQuestAssets)
 
 	// Serve quest pack CSS files (theme.css, custom.css, styles.css)
 	s.router.GET("/quests/:pack/:csspath", s.serveQuestCSS)
@@ -92,7 +92,8 @@ func (s *Server) setupFrontendRoutes() {
 // serveQuestAssets handles serving quest asset files
 func (s *Server) serveQuestAssets(c *gin.Context) {
 	pack := c.Param("pack")
-	requestedPath := c.Param("assetpath")
+	// Gin wildcard params include a leading slash; strip it.
+	requestedPath := strings.TrimPrefix(c.Param("assetpath"), "/")
 
 	// Validate pack name
 	if !isValidPackName(pack) {
