@@ -27,7 +27,7 @@ linters:
       lines: 85
       statements: 75
     lll:
-      length: 125
+      line-length: 125
 
 formatters:
   enable:
