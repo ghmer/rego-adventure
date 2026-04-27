@@ -112,7 +112,7 @@ type QuestPack struct { //nolint
 
 // Security: Validation and Sanitization Functions
 
-// validateStringLength checks if a string exceeds the maximum allowed length
+// validateStringLength checks if a string exceeds the maximum allowed length.
 func validateStringLength(s string, maxLength int, fieldName string) error {
 	if len(s) > maxLength {
 		return fmt.Errorf("%s exceeds maximum length of %d characters (got %d)", fieldName, maxLength, len(s))
@@ -120,7 +120,7 @@ func validateStringLength(s string, maxLength int, fieldName string) error {
 	return nil
 }
 
-// validateNonEmpty checks if a required string field is non-empty
+// validateNonEmpty checks if a required string field is non-empty.
 func validateNonEmpty(s string, fieldName string) error {
 	if strings.TrimSpace(s) == "" {
 		return fmt.Errorf("%s cannot be empty", fieldName)
@@ -132,219 +132,173 @@ func validateNonEmpty(s string, fieldName string) error {
 var alphanumericPattern = regexp.MustCompile(`^[a-zA-Z0-9\s\-_.,!?']+$`)
 
 // validateAlphanumericWithSpaces validates that a string contains only alphanumeric characters,
-// spaces, and basic punctuation
+// spaces, and basic punctuation.
 func validateAlphanumericWithSpaces(s string, fieldName string) error {
-	// Allow alphanumeric, spaces, hyphens, underscores, and basic punctuation
 	if !alphanumericPattern.MatchString(s) {
 		return fmt.Errorf("%s contains invalid characters (only alphanumeric and basic punctuation allowed)", fieldName)
 	}
 	return nil
 }
 
-// validateQuestTitle validates the quest title
-func validateQuestTitle(quest *Quest, prefix string) error {
-	if err := validateNonEmpty(quest.Title, prefix+" title"); err != nil {
-		return err
-	}
-	return validateStringLength(quest.Title, MaxQuestTitle, prefix+" title")
-}
+// validateQuest validates a single quest's fields.
+func validateQuest(quest *Quest, questIndex int) error {
+	p := fmt.Sprintf("quest %d", questIndex)
 
-// validateQuestDescription validates the quest description fields
-func validateQuestDescription(quest *Quest, prefix string) error {
-	if err := validateNonEmpty(quest.DescriptionTask, prefix+" task"); err != nil {
+	// Title
+	if err := validateNonEmpty(quest.Title, p+" title"); err != nil {
 		return err
 	}
-	if err := validateStringLength(quest.DescriptionTask, MaxQuestDescriptionTask, prefix+" task"); err != nil {
+	if err := validateStringLength(quest.Title, MaxQuestTitle, p+" title"); err != nil {
+		return err
+	}
+
+	// Description
+	if err := validateNonEmpty(quest.DescriptionTask, p+" task"); err != nil {
+		return err
+	}
+	if err := validateStringLength(quest.DescriptionTask, MaxQuestDescriptionTask, p+" task"); err != nil {
 		return err
 	}
 	if len(quest.DescriptionLore) == 0 {
-		return fmt.Errorf("%s must have at least one lore entry", prefix)
+		return fmt.Errorf("%s must have at least one lore entry", p)
 	}
 	for i, lore := range quest.DescriptionLore {
-		if err := validateStringLength(lore, MaxQuestDescriptionLore, fmt.Sprintf("%s lore[%d]", prefix, i)); err != nil {
+		if err := validateStringLength(lore, MaxQuestDescriptionLore, fmt.Sprintf("%s lore[%d]", p, i)); err != nil {
 			return err
 		}
 	}
-	return nil
-}
 
-// validateQuestContent validates quest content fields (hints, solution, template)
-func validateQuestContent(quest *Quest, prefix string) error {
+	// Hints, solution, template
 	for i, hint := range quest.Hints {
-		if err := validateStringLength(hint, MaxQuestHint, fmt.Sprintf("%s hint[%d]", prefix, i)); err != nil {
+		if err := validateStringLength(hint, MaxQuestHint, fmt.Sprintf("%s hint[%d]", p, i)); err != nil {
 			return err
 		}
 	}
 	if quest.Solution != "" {
-		if err := validateStringLength(quest.Solution, MaxQuestSolution, prefix+" solution"); err != nil {
+		if err := validateStringLength(quest.Solution, MaxQuestSolution, p+" solution"); err != nil {
 			return err
 		}
 	}
 	if quest.Template != "" {
-		if err := validateStringLength(quest.Template, MaxQuestTemplate, prefix+" template"); err != nil {
+		if err := validateStringLength(quest.Template, MaxQuestTemplate, p+" template"); err != nil {
 			return err
 		}
 	}
-	return nil
-}
 
-// validateQuestManual validates the quest manual/documentation
-func validateQuestManual(quest *Quest, prefix string) error {
-	if err := validateStringLength(quest.Manual.DataModel, MaxManualDataModel, prefix+" manual.data_model"); err != nil {
+	// Manual
+	if err := validateStringLength(quest.Manual.DataModel, MaxManualDataModel, p+" manual.data_model"); err != nil {
 		return err
 	}
-	if err := validateStringLength(quest.Manual.RegoSnippet, MaxManualRegoSnippet,
-		prefix+" manual.rego_snippet"); err != nil {
+	if err := validateStringLength(quest.Manual.RegoSnippet, MaxManualRegoSnippet, p+" manual.rego_snippet"); err != nil {
 		return err
 	}
-	return validateStringLength(quest.Manual.ExternalLink, MaxManualExternalLink, prefix+" manual.external_link")
-}
+	if err := validateStringLength(quest.Manual.ExternalLink, MaxManualExternalLink, p+" manual.external_link"); err != nil {
+		return err
+	}
 
-// validateQuestTests validates the quest test cases
-func validateQuestTests(quest *Quest, prefix string) error {
+	// Tests
 	if len(quest.Tests) == 0 {
-		return fmt.Errorf("%s must have at least one test case", prefix)
+		return fmt.Errorf("%s must have at least one test case", p)
 	}
 	for i, test := range quest.Tests {
 		payloadJSON, err := json.Marshal(test.Payload)
 		if err != nil {
-			return fmt.Errorf("%s test[%d] has invalid payload: %w", prefix, i, err)
+			return fmt.Errorf("%s test[%d] has invalid payload: %w", p, i, err)
 		}
 		if len(payloadJSON) > MaxTestPayloadBytes {
-			return fmt.Errorf("%s test[%d] payload exceeds maximum size of %d bytes", prefix, i, MaxTestPayloadBytes)
+			return fmt.Errorf("%s test[%d] payload exceeds maximum size of %d bytes", p, i, MaxTestPayloadBytes)
 		}
 	}
+
 	return nil
 }
 
-// validateQuest validates a single quest's fields
-func validateQuest(quest *Quest, questIndex int) error {
-	prefix := fmt.Sprintf("quest %d", questIndex)
-
-	if err := validateQuestTitle(quest, prefix); err != nil {
+// validateQuestPack validates the entire quest pack structure.
+func validateQuestPack(pack *QuestPack) error {
+	// Metadata
+	if err := validateNonEmpty(pack.Meta.Title, "pack title"); err != nil {
 		return err
 	}
-	if err := validateQuestDescription(quest, prefix); err != nil {
+	if err := validateStringLength(pack.Meta.Title, MaxPackTitle, "pack title"); err != nil {
 		return err
 	}
-	if err := validateQuestContent(quest, prefix); err != nil {
+	if err := validateNonEmpty(pack.Meta.Description, "pack description"); err != nil {
 		return err
 	}
-	if err := validateQuestManual(quest, prefix); err != nil {
+	if err := validateStringLength(pack.Meta.Description, MaxPackDescription, "pack description"); err != nil {
 		return err
 	}
-	return validateQuestTests(quest, prefix)
-}
-
-// validatePackMetadata validates the quest pack metadata
-func validatePackMetadata(meta MetaData) error {
-	if err := validateNonEmpty(meta.Title, "pack title"); err != nil {
+	if err := validateNonEmpty(pack.Meta.Genre, "pack genre"); err != nil {
 		return err
 	}
-	if err := validateStringLength(meta.Title, MaxPackTitle, "pack title"); err != nil {
+	if err := validateStringLength(pack.Meta.Genre, MaxPackGenre, "pack genre"); err != nil {
 		return err
 	}
-	if err := validateNonEmpty(meta.Description, "pack description"); err != nil {
+	if err := validateAlphanumericWithSpaces(pack.Meta.Genre, "pack genre"); err != nil {
 		return err
 	}
-	if err := validateStringLength(meta.Description, MaxPackDescription, "pack description"); err != nil {
-		return err
-	}
-	if err := validateNonEmpty(meta.Genre, "pack genre"); err != nil {
-		return err
-	}
-	if err := validateStringLength(meta.Genre, MaxPackGenre, "pack genre"); err != nil {
-		return err
-	}
-	if err := validateAlphanumericWithSpaces(meta.Genre, "pack genre"); err != nil {
-		return err
-	}
-	if meta.InitialObjective != "" {
-		if err := validateStringLength(meta.InitialObjective, MaxPackObjective, "pack initial_objective"); err != nil {
+	if pack.Meta.InitialObjective != "" {
+		if err := validateStringLength(pack.Meta.InitialObjective, MaxPackObjective, "pack initial_objective"); err != nil {
 			return err
 		}
 	}
-	if meta.FinalObjective != "" {
-		if err := validateStringLength(meta.FinalObjective, MaxPackObjective, "pack final_objective"); err != nil {
+	if pack.Meta.FinalObjective != "" {
+		if err := validateStringLength(pack.Meta.FinalObjective, MaxPackObjective, "pack final_objective"); err != nil {
 			return err
 		}
 	}
-	return nil
-}
 
-// validatePackUILabels validates the UI labels section
-func validatePackUILabels(labels UILabels) error {
-	type labelDef struct {
-		value  string
-		maxLen int
-		name   string
-		empty  bool
+	// UI Labels
+	type uiLabel struct {
+		value    string
+		maxLen   int
+		name     string
+		required bool
 	}
-
-	requiredLabels := []labelDef{
-		{labels.GrimoireTitle, MaxUIGrimoireTitle, "ui_labels.grimoire_title", true},
-		{labels.HintButton, MaxUIHintButton, "ui_labels.hint_button", true},
-		{labels.VerifyButton, MaxUIVerifyButton, "ui_labels.verify_button", true},
-		{labels.MessageSuccess, MaxUIMessageSuccess, "ui_labels.message_success", false},
-		{labels.MessageFailure, MaxUIMessageFailure, "ui_labels.message_failure", false},
-		{labels.PerfectScoreMessage, MaxUIPerfectScoreMessage, "ui_labels.perfect_score_message", false},
-		{labels.PerfectScoreButtonText, MaxUIPerfectScoreButton, "ui_labels.perfect_score_button_text", false},
-		{labels.BeginAdventureButton, MaxUIBeginAdventureButton, "ui_labels.begin_adventure_button", false},
-	}
-
-	for _, label := range requiredLabels {
-		if label.empty {
-			if err := validateNonEmpty(label.value, label.name); err != nil {
+	for _, l := range []uiLabel{
+		{pack.UILabels.GrimoireTitle, MaxUIGrimoireTitle, "ui_labels.grimoire_title", true},
+		{pack.UILabels.HintButton, MaxUIHintButton, "ui_labels.hint_button", true},
+		{pack.UILabels.VerifyButton, MaxUIVerifyButton, "ui_labels.verify_button", true},
+		{pack.UILabels.MessageSuccess, MaxUIMessageSuccess, "ui_labels.message_success", false},
+		{pack.UILabels.MessageFailure, MaxUIMessageFailure, "ui_labels.message_failure", false},
+		{pack.UILabels.PerfectScoreMessage, MaxUIPerfectScoreMessage, "ui_labels.perfect_score_message", false},
+		{pack.UILabels.PerfectScoreButtonText, MaxUIPerfectScoreButton, "ui_labels.perfect_score_button_text", false},
+		{pack.UILabels.BeginAdventureButton, MaxUIBeginAdventureButton, "ui_labels.begin_adventure_button", false},
+	} {
+		if l.required {
+			if err := validateNonEmpty(l.value, l.name); err != nil {
 				return err
 			}
 		}
-		if err := validateStringLength(label.value, label.maxLen, label.name); err != nil {
+		if err := validateStringLength(l.value, l.maxLen, l.name); err != nil {
 			return err
 		}
 	}
-	return nil
-}
 
-// validatePackNarrative validates the prologue and epilogue
-func validatePackNarrative(prologue, epilogue []string) error {
-	if len(prologue) == 0 {
+	// Narrative (prologue / epilogue)
+	if len(pack.Prologue) == 0 {
 		return fmt.Errorf("pack must have at least one prologue entry")
 	}
-	for i, entry := range prologue {
+	for i, entry := range pack.Prologue {
 		if err := validateStringLength(entry, MaxPrologueItem, fmt.Sprintf("prologue[%d]", i)); err != nil {
 			return err
 		}
 	}
-
-	if len(epilogue) == 0 {
+	if len(pack.Epilogue) == 0 {
 		return fmt.Errorf("pack must have at least one epilogue entry")
 	}
-	for i, entry := range epilogue {
+	for i, entry := range pack.Epilogue {
 		if err := validateStringLength(entry, MaxEpilogueItem, fmt.Sprintf("epilogue[%d]", i)); err != nil {
 			return err
 		}
 	}
-	return nil
-}
 
-// validateQuestPack validates the entire quest pack structure
-func validateQuestPack(pack *QuestPack) error {
-	if err := validatePackMetadata(pack.Meta); err != nil {
-		return err
-	}
-	if err := validatePackUILabels(pack.UILabels); err != nil {
-		return err
-	}
-	if err := validatePackNarrative(pack.Prologue, pack.Epilogue); err != nil {
-		return err
-	}
-
+	// Quests
 	if len(pack.Quests) == 0 {
 		return fmt.Errorf("pack must have at least one quest")
 	}
-
-	for i, quest := range pack.Quests {
-		if err := validateQuest(&quest, i+1); err != nil {
+	for i := range pack.Quests {
+		if err := validateQuest(&pack.Quests[i], i+1); err != nil {
 			return err
 		}
 	}
