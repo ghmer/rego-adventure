@@ -19,10 +19,12 @@ package quest
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 )
 
 // QuestRepository handles loading and accessing quests.
 type QuestRepository struct { //nolint
+	mu    sync.RWMutex
 	packs map[string]*QuestPack
 }
 
@@ -56,18 +58,24 @@ func (r *QuestRepository) LoadPack(id string, questData []byte) error {
 		pack.questMap[qid] = &pack.Quests[i]
 	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.packs[id] = &pack
 	return nil
 }
 
 // GetPack returns a specific quest pack by its ID.
 func (r *QuestRepository) GetPack(id string) (*QuestPack, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	pack, ok := r.packs[id]
 	return pack, ok
 }
 
 // GetAllPacks returns all available quest packs.
 func (r *QuestRepository) GetAllPacks() []*QuestPack {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	packs := make([]*QuestPack, 0, len(r.packs))
 	for _, p := range r.packs {
 		packs = append(packs, p)
@@ -77,11 +85,15 @@ func (r *QuestRepository) GetAllPacks() []*QuestPack {
 
 // GetNumberOfPacks returns the number of available quest packs.
 func (r *QuestRepository) GetNumberOfPacks() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return len(r.packs)
 }
 
 // GetQuestByID returns a specific quest by its ID from a specific pack.
 func (r *QuestRepository) GetQuestByID(packID string, questID int) (*Quest, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	pack, ok := r.packs[packID]
 	if !ok {
 		return nil, false
