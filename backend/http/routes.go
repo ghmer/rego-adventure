@@ -18,7 +18,6 @@
 package http
 
 import (
-	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -204,21 +203,38 @@ func (s *Server) serveSafeFile(
 	c.File(absPath)
 }
 
-// getCachedIndexHTML returns the cached index.html content
-func getCachedIndexHTML(subFS fs.FS) []byte {
+// getCachedIndexHTML returns the cached index.html content or an error if it could not be read.
+func getCachedIndexHTML(subFS fs.FS) ([]byte, error) {
 	indexHTMLCacheOnce.Do(func() {
 		indexHTMLCache, indexHTMLCacheErr = fs.ReadFile(subFS, "index.html")
 		if indexHTMLCacheErr != nil {
 			slog.Error("failed to read index.html for cache", "error", indexHTMLCacheErr)
 		}
 	})
-	return indexHTMLCache
+	if indexHTMLCacheErr != nil {
+		return nil, indexHTMLCacheErr
+	}
+	return indexHTMLCache, nil
+}
+
+// serveIndexHTML serves the cached index.html, returning 500 if it is unavailable.
+func serveIndexHTML(c *gin.Context, subFS fs.FS) {
+	data, err := getCachedIndexHTML(subFS)
+	if err != nil {
+		slog.Error("index.html unavailable", "error", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Data(http.StatusOK, "text/html; charset=utf-8", data)
 }
 
 // createSPAHandler creates a handler for SPA routing
 func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
-	// Pre-load index.html into cache on first use
-	_ = getCachedIndexHTML(subFS)
+	// Pre-warm the index.html cache on startup; log but don't fatal — the
+	// handler itself will return 500 if the file is still missing at request time.
+	if _, err := getCachedIndexHTML(subFS); err != nil {
+		slog.Error("could not pre-warm index.html cache", "error", err)
+	}
 
 	return func(c *gin.Context) {
 		requestedPath := c.Request.URL.Path
@@ -238,14 +254,15 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 
 		// If cleanPath is empty (root path), serve index.html
 		if cleanPath == "" || cleanPath == "." {
-			cleanPath = "index.html"
+			serveIndexHTML(c, subFS)
+			return
 		}
 
 		// Try to open the file from sub FS
 		file, err := subFS.Open(cleanPath)
 		if err != nil {
-			// File doesn't exist, serve cached index.html for SPA routing
-			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
+			// File doesn't exist — serve index.html for SPA client-side routing
+			serveIndexHTML(c, subFS)
 			return
 		}
 		defer func() {
@@ -254,29 +271,19 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 			}
 		}()
 
-		// Get file info to check if it's a directory
+		// If it's a directory, serve index.html
 		stat, err := file.Stat()
 		if err != nil {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
+			slog.Warn("failed to stat file, falling back to index.html", "path", cleanPath, "error", err)
+			serveIndexHTML(c, subFS)
 			return
 		}
-
-		// If it's a directory, serve index.html
 		if stat.IsDir() {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
+			serveIndexHTML(c, subFS)
 			return
 		}
 
-		// reuse existing handle
-		fileData, err := io.ReadAll(file)
-		if err != nil {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", getCachedIndexHTML(subFS))
-			return
-		}
-
-		// Determine content type based on file extension
-		contentType := getContentType(cleanPath)
-
-		c.Data(http.StatusOK, contentType, fileData)
+		// Delegate to Gin's FileFromFS for full HTTP semantics (ETag, conditional GET, Range).
+		c.FileFromFS(cleanPath, http.FS(subFS))
 	}
 }
