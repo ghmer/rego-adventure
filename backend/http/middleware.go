@@ -67,7 +67,7 @@ func StructuredLogger() gin.HandlerFunc {
 func SecurityHeaders() gin.HandlerFunc {
 	csp := strings.Join([]string{
 		"default-src 'self'",
-		"script-src 'self' 'unsafe-inline'",
+		"script-src 'self' 'unsafe-inline' https://esm.sh",
 		"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
 		"img-src 'self' data:",
 		"font-src 'self' https://cdnjs.cloudflare.com",
