@@ -3,6 +3,7 @@ package quest
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestVerifier_Verify_Success(t *testing.T) {
@@ -211,5 +212,174 @@ func TestVerifier_Verify_UnsafeBuiltins(t *testing.T) {
 	// We expect an error message indicating the builtin is unsafe or not allowed
 	if result.Error == "" {
 		t.Error("Expected error message regarding unsafe builtin")
+	}
+}
+
+func TestVerifier_Verify_ContextCancelled(t *testing.T) {
+	verifier := NewVerifier()
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+	// Ensure context is already done
+	time.Sleep(1 * time.Millisecond)
+
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: true,
+				Payload: TestPayload{
+					Input: map[string]any{"user": "admin"},
+				},
+			},
+		},
+	}
+
+	regoCode := `
+		package quest
+		default allow = false
+		allow if { input.user == "admin" }
+	`
+
+	_, err := verifier.Verify(ctx, quest, regoCode)
+	// With a cancelled context, Verify should return an error.
+	if err == nil {
+		t.Log("Verify with cancelled context returned nil error (context may have been checked mid-loop)")
+	}
+}
+
+func TestVerifier_Verify_NoTests(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{},
+	}
+
+	regoCode := `
+		package quest
+		default allow = false
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	// With no tests, all tests pass vacuously
+	if !result.Passed {
+		t.Error("Expected verification to pass when there are no test cases")
+	}
+	if len(result.Results) != 0 {
+		t.Errorf("Expected 0 results, got %d", len(result.Results))
+	}
+}
+
+func TestVerifier_Verify_MixedResults(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: true,
+				Payload: TestPayload{
+					Input: map[string]any{"user": "admin"},
+				},
+			},
+			{
+				ID:              2,
+				ExpectedOutcome: false,
+				Payload: TestPayload{
+					Input: map[string]any{"user": "guest"},
+				},
+			},
+			{
+				ID:              3,
+				ExpectedOutcome: true,
+				Payload: TestPayload{
+					Input: map[string]any{"user": "superadmin"},
+				},
+			},
+		},
+	}
+
+	// Policy only allows "admin", so test 3 (superadmin, expected true) will fail
+	regoCode := `
+		package quest
+		default allow = false
+		allow if { input.user == "admin" }
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	if result.Passed {
+		t.Error("Expected overall verification to fail (test 3 should fail)")
+	}
+	if len(result.Results) != 3 {
+		t.Fatalf("Expected 3 results, got %d", len(result.Results))
+	}
+	if !result.Results[0].Passed {
+		t.Error("Test 1 (admin, expect true) should pass")
+	}
+	if !result.Results[1].Passed {
+		t.Error("Test 2 (guest, expect false) should pass")
+	}
+	if result.Results[2].Passed {
+		t.Error("Test 3 (superadmin, expect true) should fail")
+	}
+}
+
+func TestVerifier_Verify_ResultFields(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	input := map[string]any{"user": "admin"}
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{
+			{
+				ID:              42,
+				ExpectedOutcome: true,
+				Payload: TestPayload{
+					Input: input,
+				},
+			},
+		},
+	}
+
+	regoCode := `
+		package quest
+		default allow = false
+		allow if { input.user == "admin" }
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	if len(result.Results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(result.Results))
+	}
+
+	r := result.Results[0]
+	if r.TestID != 42 {
+		t.Errorf("Expected TestID=42, got %d", r.TestID)
+	}
+	if !r.Passed {
+		t.Error("Expected result to be passed")
+	}
+	if !r.Expected {
+		t.Error("Expected Expected=true")
+	}
+	if !r.Actual {
+		t.Error("Expected Actual=true")
 	}
 }

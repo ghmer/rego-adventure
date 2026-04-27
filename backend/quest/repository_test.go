@@ -270,3 +270,109 @@ func TestGetAllPacks(t *testing.T) {
 		t.Errorf("Expected 2 packs, got %d", len(packs))
 	}
 }
+
+func TestGetNumberOfPacks_Empty(t *testing.T) {
+	repo := NewQuestRepository()
+	if n := repo.GetNumberOfPacks(); n != 0 {
+		t.Errorf("Expected 0 packs, got %d", n)
+	}
+}
+
+func TestGetNumberOfPacks_AfterLoad(t *testing.T) {
+	repo := NewQuestRepository()
+	pack := createValidPack()
+	data, _ := json.Marshal(pack)
+
+	if err := repo.LoadPack("test-pack", data); err != nil {
+		t.Fatalf("LoadPack failed: %v", err)
+	}
+
+	if n := repo.GetNumberOfPacks(); n != 1 {
+		t.Errorf("Expected 1 pack, got %d", n)
+	}
+}
+
+func TestLoadPack_DuplicateQuestID(t *testing.T) {
+	repo := NewQuestRepository()
+	pack := createValidPack()
+
+	// Add a second quest with the same ID as the first
+	duplicate := pack.Quests[0]
+	pack.Quests = append(pack.Quests, duplicate)
+
+	data, err := json.Marshal(pack)
+	if err != nil {
+		t.Fatalf("Failed to marshal pack: %v", err)
+	}
+
+	err = repo.LoadPack("dup-pack", data)
+	if err == nil {
+		t.Error("Expected error for duplicate quest ID, got nil")
+	}
+}
+
+func TestLoadPack_OverwritesExistingPack(t *testing.T) {
+	repo := NewQuestRepository()
+	pack := createValidPack()
+	data, _ := json.Marshal(pack)
+
+	if err := repo.LoadPack("test-pack", data); err != nil {
+		t.Fatalf("First LoadPack failed: %v", err)
+	}
+
+	// Modify the pack and reload under the same ID
+	pack.Meta.Title = "Updated Title"
+	updatedData, _ := json.Marshal(pack)
+
+	if err := repo.LoadPack("test-pack", updatedData); err != nil {
+		t.Fatalf("Second LoadPack failed: %v", err)
+	}
+
+	loaded, ok := repo.GetPack("test-pack")
+	if !ok {
+		t.Fatal("GetPack returned false after reload")
+	}
+	if loaded.Meta.Title != "Updated Title" {
+		t.Errorf("Expected updated title 'Updated Title', got %q", loaded.Meta.Title)
+	}
+}
+
+func TestGetAllPacks_Empty(t *testing.T) {
+	repo := NewQuestRepository()
+	packs := repo.GetAllPacks()
+	if packs == nil {
+		t.Error("GetAllPacks should return non-nil slice for empty repository")
+	}
+	if len(packs) != 0 {
+		t.Errorf("Expected 0 packs for empty repository, got %d", len(packs))
+	}
+}
+
+func TestGetQuestByID_QuestMapLookup(t *testing.T) {
+	repo := NewQuestRepository()
+	pack := createValidPack()
+
+	// Add a second quest with a different ID
+	quest2 := pack.Quests[0]
+	quest2.ID = 2
+	quest2.Title = "Quest 2"
+	pack.Quests = append(pack.Quests, quest2)
+
+	data, _ := json.Marshal(pack)
+	if err := repo.LoadPack("multi-quest", data); err != nil {
+		t.Fatalf("LoadPack failed: %v", err)
+	}
+
+	q1, ok := repo.GetQuestByID("multi-quest", 1)
+	if !ok || q1 == nil {
+		t.Error("Expected to find quest 1")
+	}
+
+	q2, ok := repo.GetQuestByID("multi-quest", 2)
+	if !ok || q2 == nil {
+		t.Error("Expected to find quest 2")
+	}
+	if q2.Title != "Quest 2" {
+		t.Errorf("Expected title 'Quest 2', got %q", q2.Title)
+	}
+}
