@@ -65,8 +65,12 @@ func StructuredLogger() gin.HandlerFunc {
 
 // SecurityHeaders adds security headers to responses
 func SecurityHeaders() gin.HandlerFunc {
+	// Content-Security-Policy restricts what resources the browser may load.
+	const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" +
+		" img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'"
+
 	return func(c *gin.Context) {
-		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'")
+		c.Header("Content-Security-Policy", csp)
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")

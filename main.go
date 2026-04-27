@@ -52,7 +52,8 @@ func main() {
 		if entry.IsDir() {
 			packID := entry.Name()
 			jsonPath := filepath.Join(questsDir, packID, "quests.json")
-			data, err := os.ReadFile(jsonPath)
+			// jsonPath is constructed from os.ReadDir output and a fixed filename.
+			data, err := os.ReadFile(jsonPath) //nolint:gosec // G304: path derived from directory listing
 			if err != nil {
 				slog.Warn("skipping quest pack", "pack_id", packID, "error", err)
 				continue

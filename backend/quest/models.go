@@ -186,13 +186,16 @@ func validateQuest(quest *Quest, questIndex int) error {
 	}
 
 	// Manual
-	if err := validateStringLength(quest.Manual.DataModel, MaxManualDataModel, p+" manual.data_model"); err != nil {
+	if err := validateStringLength(
+		quest.Manual.DataModel, MaxManualDataModel, p+" manual.data_model"); err != nil {
 		return err
 	}
-	if err := validateStringLength(quest.Manual.RegoSnippet, MaxManualRegoSnippet, p+" manual.rego_snippet"); err != nil {
+	if err := validateStringLength(
+		quest.Manual.RegoSnippet, MaxManualRegoSnippet, p+" manual.rego_snippet"); err != nil {
 		return err
 	}
-	if err := validateStringLength(quest.Manual.ExternalLink, MaxManualExternalLink, p+" manual.external_link"); err != nil {
+	if err := validateStringLength(
+		quest.Manual.ExternalLink, MaxManualExternalLink, p+" manual.external_link"); err != nil {
 		return err
 	}
 

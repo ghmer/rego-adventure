@@ -4,11 +4,6 @@ run:
   timeout: 5m
   tests: false
 
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  
-
 linters:
   enable:
     - govet
@@ -20,9 +15,21 @@ linters:
     - gocyclo
     - funlen
     - lll
+    - gosec
+    - nilerr
+    - errorlint
+    - bodyclose
+    - noctx
+    - testifylint
+    - misspell
+  settings:
+    funlen:
+      lines: 85
+      statements: 75
+    lll:
+      length: 125
 
 formatters:
   enable:
     - gofmt
     - goimports
-

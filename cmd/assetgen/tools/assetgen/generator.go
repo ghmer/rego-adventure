@@ -54,7 +54,7 @@ func GenerateTheme(themeName, outputDir string) error {
 	assetsDir := filepath.Join(baseDir, "assets")
 
 	// Ensure assets directory exists
-	if err := os.MkdirAll(assetsDir, 0755); err != nil {
+	if err := os.MkdirAll(assetsDir, 0750); err != nil {
 		return fmt.Errorf("error creating directory: %w", err)
 	}
 
@@ -76,7 +76,7 @@ func GenerateTheme(themeName, outputDir string) error {
 
 	// Create placeholder audio file
 	audioPath := filepath.Join(assetsDir, "bg-music.m4a")
-	if err := os.WriteFile(audioPath, []byte{}, 0644); err != nil {
+	if err := os.WriteFile(audioPath, []byte{}, 0600); err != nil {
 		return fmt.Errorf("error creating placeholder audio: %w", err)
 	}
 	fmt.Printf("Generated bg-music.m4a (placeholder - replace with actual audio)\n")
@@ -121,6 +121,7 @@ func generateAsset(dir string, asset Asset) error {
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: c}, image.Point{}, draw.Src)
 
 	path := filepath.Join(dir, asset.Filename)
+	//nolint:gosec // G304: path is built from the controlled generator output dir + a fixed asset filename
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -153,9 +154,9 @@ func parseHexColor(s string) (color.RGBA, error) {
 	}
 
 	return color.RGBA{
-		R: uint8(v >> 16),
-		G: uint8(v >> 8),
-		B: uint8(v),
+		R: uint8((v >> 16) & 0xFF), //nolint:gosec // G115: explicit mask ensures no overflow
+		G: uint8((v >> 8) & 0xFF),  //nolint:gosec // G115: explicit mask ensures no overflow
+		B: uint8(v & 0xFF),         //nolint:gosec // G115: explicit mask ensures no overflow
 		A: 255,
 	}, nil
 }
@@ -320,18 +321,18 @@ func generateQuestsJSON(dir, theme string) error {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(dir, "quests.json"), data, 0644)
+	return os.WriteFile(filepath.Join(dir, "quests.json"), data, 0600)
 }
 
 func generateThemeCSS(dir string) error {
-	return os.WriteFile(filepath.Join(dir, "theme.css"), []byte(themeCSSTemplate), 0644)
+	return os.WriteFile(filepath.Join(dir, "theme.css"), []byte(themeCSSTemplate), 0600)
 }
 
 func generateCustomCSS(dir string) error {
-	return os.WriteFile(filepath.Join(dir, "custom.css"), []byte(customCSSTemplate), 0644)
+	return os.WriteFile(filepath.Join(dir, "custom.css"), []byte(customCSSTemplate), 0600)
 }
 
 func generateREADME(dir, themeName string) error {
 	readme := fmt.Sprintf(readmeTemplate, themeName)
-	return os.WriteFile(filepath.Join(dir, "README.md"), []byte(readme), 0644)
+	return os.WriteFile(filepath.Join(dir, "README.md"), []byte(readme), 0600)
 }
