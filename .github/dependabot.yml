@@ -12,6 +12,10 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
+    groups:
+      frontend-all:
+        patterns:
+          - "*"
   
   # Go dependencies
   - package-ecosystem: "gomod"
