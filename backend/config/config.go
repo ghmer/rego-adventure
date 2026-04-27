@@ -19,6 +19,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -106,8 +107,7 @@ func (c *Config) parseTrustedProxies() error {
 		// Validate CIDR format
 		_, _, err := net.ParseCIDR(proxy)
 		if err != nil {
-			slog.Error("invalid CIDR range in TRUSTED_PROXIES", "proxy", proxy, "error", err)
-			os.Exit(1)
+			return fmt.Errorf("invalid CIDR range %q in TRUSTED_PROXIES: %w", proxy, err)
 		}
 
 		c.TrustedProxies = append(c.TrustedProxies, proxy)
@@ -126,24 +126,20 @@ func (c *Config) parseTrustedProxies() error {
 func (c *Config) validateAllowedOrigin() error {
 	allowedOrigin := os.Getenv("DOMAIN")
 	if allowedOrigin == "" {
-		slog.Error("DOMAIN environment variable must be set")
-		os.Exit(1)
+		return fmt.Errorf("DOMAIN environment variable must be set")
 	}
 
 	if allowedOrigin == "*" {
-		slog.Error("DOMAIN environment variable cannot be a wildcard (*). Please specify a valid origin URL")
-		os.Exit(1)
+		return fmt.Errorf("DOMAIN environment variable cannot be a wildcard (*); please specify a valid origin URL")
 	}
 
 	parsedURL, err := url.Parse(allowedOrigin)
 	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
-		slog.Error("DOMAIN environment variable must be a valid URL with scheme and host", "domain", allowedOrigin)
-		os.Exit(1)
+		return fmt.Errorf("DOMAIN environment variable must be a valid URL with scheme and host, got %q", allowedOrigin)
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		slog.Error("DOMAIN environment variable must use http or https scheme", "scheme", parsedURL.Scheme)
-		os.Exit(1)
+		return fmt.Errorf("DOMAIN environment variable must use http or https scheme, got %q", parsedURL.Scheme)
 	}
 
 	c.AllowedOrigin = allowedOrigin
@@ -163,15 +159,13 @@ var httpClient = &http.Client{
 // initializeJWKS initializes the JWKS for JWT validation
 func (c *Config) initializeJWKS() error {
 	if c.Auth.DiscoveryURL == "" {
-		slog.Error("AUTH_DISCOVERY_URL is required when AUTH_ENABLED is true")
-		os.Exit(1)
+		return fmt.Errorf("AUTH_DISCOVERY_URL is required when AUTH_ENABLED is true")
 	}
 
 	// Fetch OIDC configuration to find jwks_uri
-	resp, err := httpClient.Get(c.Auth.DiscoveryURL)
+	resp, err := httpClient.Get(c.Auth.DiscoveryURL) //nolint:noctx
 	if err != nil {
-		slog.Error("failed to fetch OIDC discovery", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to fetch OIDC discovery document: %w", err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -183,20 +177,17 @@ func (c *Config) initializeJWKS() error {
 		JWKSURI string `json:"jwks_uri"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
-		slog.Error("failed to decode OIDC config", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to decode OIDC discovery response: %w", err)
 	}
 
 	if oidcConfig.JWKSURI == "" {
-		slog.Error("jwks_uri not found in OIDC discovery response")
-		os.Exit(1)
+		return fmt.Errorf("jwks_uri not found in OIDC discovery response")
 	}
 
 	// Initialize JWKS
 	jwks, err := keyfunc.NewDefault([]string{oidcConfig.JWKSURI})
 	if err != nil {
-		slog.Error("failed to create JWKS from resource at given URL", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create JWKS from %q: %w", oidcConfig.JWKSURI, err)
 	}
 
 	c.JWKS = jwks
