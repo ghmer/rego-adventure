@@ -29,8 +29,7 @@ func init() {
 
 func main() {
 	// 1. Read package.json
-	// pkgPath comes from a trusted CLI flag pointing to a local build file.
-	pkgContent, err := os.ReadFile(pkgPath) //nolint:gosec // G304: intentional, path is from CLI flag
+	pkgContent, err := os.ReadFile(pkgPath) // #nosec G304
 	if err != nil {
 		fmt.Printf("Error reading %s: %v\n", pkgPath, err)
 		os.Exit(1)
@@ -58,8 +57,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// indexPath comes from a trusted CLI flag pointing to a local build file.
-	indexContent, err := os.ReadFile(indexPath) //nolint:gosec // G304: intentional, path is from CLI flag
+	indexContent, err := os.ReadFile(indexPath) // #nosec G304
 	if err != nil {
 		fmt.Printf("Error reading %s: %v\n", indexPath, err)
 		os.Exit(1)
@@ -82,8 +80,7 @@ func main() {
 	newIndexContent := re.ReplaceAll(indexContent, []byte(newScriptTag))
 
 	// 5. Write index.html
-	//nolint:gosec // G703: indexPath is a CLI flag; writing back the updated content to the same file is intentional
-	if err := os.WriteFile(indexPath, newIndexContent, 0600); err != nil {
+	if err := os.WriteFile(indexPath, newIndexContent, 0600); err != nil { // #nosec G703
 		fmt.Printf("Error writing %s: %v\n", indexPath, err)
 		os.Exit(1)
 	}

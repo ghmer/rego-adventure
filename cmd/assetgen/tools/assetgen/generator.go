@@ -121,8 +121,7 @@ func generateAsset(dir string, asset Asset) error {
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: c}, image.Point{}, draw.Src)
 
 	path := filepath.Join(dir, asset.Filename)
-	//nolint:gosec // G304: path is built from the controlled generator output dir + a fixed asset filename
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304
 	if err != nil {
 		return err
 	}
