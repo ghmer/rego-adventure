@@ -23,6 +23,10 @@
 
 /* App Container */
 .app-container {
+    position: fixed;
+    top: 5vh;
+    left: 50%;
+    transform: translateX(-50%);
     width: 95%;
     max-width: 1400px;
     height: 90vh;
@@ -31,11 +35,9 @@
     gap: 1rem;
 }
 
-/* Minimized state: collapse the game board, keep the header at the top */
+/* Minimized state: collapse the game board — top stays at 5vh so header never moves */
 .app-container.minimized {
     height: auto;
-    align-self: flex-start;
-    margin-top: 2rem;
 }
 
 .app-container.minimized .game-board {
@@ -278,6 +280,11 @@
     }
     
     .app-container {
+        /* Reset fixed positioning so the body can scroll the container */
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
         height: auto;
         min-height: 100vh;
         width: 100%;
