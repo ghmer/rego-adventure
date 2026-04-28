@@ -130,7 +130,7 @@ export class ModalManager {
                 testResultDiv.classList.add(test.passed ? 'pass' : 'fail');
                 
                 testItem.querySelector('.test-text').textContent =
-                    `Test ${test.test_id}: ${test.passed ? 'Passed' : 'Failed'} (Expected: ${test.expected}, Got: ${test.actual})`;
+                    `Test ${test.test_id}: ${test.passed ? 'Passed' : 'Failed'} (Expected: ${JSON.stringify(test.expected)}, Got: ${JSON.stringify(test.actual)})`;
                 testItem.querySelector('.test-icon').textContent = icon;
                 
                 // Show payload for failed tests

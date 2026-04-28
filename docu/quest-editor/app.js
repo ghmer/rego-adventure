@@ -550,8 +550,8 @@ function createTestItem(test, questIndex, testIndex) {
     
     const expectedDiv = document.createElement('div');
     expectedDiv.className = 'test-item-expected';
-    // Security: Use textContent to safely render user-controlled expected_outcome
-    expectedDiv.textContent = `Expected: ${test.expected_outcome}`;
+    // Security: Use textContent to safely render user-controlled expected_value
+    expectedDiv.textContent = `Expected: ${JSON.stringify(test.expected_value)}`;
     
     infoDiv.appendChild(labelDiv);
     infoDiv.appendChild(expectedDiv);
@@ -682,7 +682,7 @@ function addTestItem(questIndex) {
         id: quest.tests.length + 1,
         payload: {},
         data: {},
-        expected_outcome: false
+        expected_value: false
     };
     
     currentModalTest = { questIndex, testIndex: -1, test: newTest };
@@ -710,7 +710,7 @@ function showTestModal(test) {
     document.getElementById('modal-test-id').value = test.id || '';
     document.getElementById('modal-test-payload').value = JSON.stringify(test.payload || {}, null, 2);
     document.getElementById('modal-test-data').value = JSON.stringify(test.data || {}, null, 2);
-    document.getElementById('modal-test-expected').value = String(test.expected_outcome);
+    document.getElementById('modal-test-expected').value = JSON.stringify(test.expected_value);
     
     document.getElementById('modal').classList.add('active');
 }
@@ -728,7 +728,7 @@ function saveModalTest() {
             id: parseInt(document.getElementById('modal-test-id').value) || 0,
             payload: JSON.parse(document.getElementById('modal-test-payload').value || '{}'),
             data: JSON.parse(document.getElementById('modal-test-data').value || '{}'),
-            expected_outcome: document.getElementById('modal-test-expected').value === 'true'
+            expected_value: JSON.parse(document.getElementById('modal-test-expected').value)
         };
         
         const { questIndex, testIndex } = currentModalTest;

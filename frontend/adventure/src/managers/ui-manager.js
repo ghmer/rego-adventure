@@ -262,7 +262,7 @@ export class UIManager {
             testCase.querySelector('.test-case-title').textContent = `Test Case ${index + 1}`;
             
             const expectedSpan = testCase.querySelector('.test-case-expected');
-            const expectedValue = test.expected_outcome;
+            const expectedValue = test.expected_value;
             expectedSpan.textContent = `Expected: ${expectedValue}`;
             expectedSpan.style.background = expectedValue ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)';
             expectedSpan.style.color = expectedValue ? '#4caf50' : '#f44336';

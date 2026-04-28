@@ -310,11 +310,8 @@
                     <textarea id="modal-test-data" class="form-control code-editor" rows="6"></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="modal-test-expected">Expected Outcome</label>
-                    <select id="modal-test-expected" class="form-control">
-                        <option value="true">true</option>
-                        <option value="false">false</option>
-                    </select>
+                    <label for="modal-test-expected">Expected Value (any JSON: true, false, 0, "text", [], {})</label>
+                    <input type="text" id="modal-test-expected" class="form-control" placeholder='e.g. true, 42, "granted", ["a","b"], {"read":true}'>
                 </div>
             </div>
             <div class="modal-footer">
