@@ -18,7 +18,9 @@ package quest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/open-policy-agent/opa/v1/storage/inmem"
@@ -28,8 +30,8 @@ import (
 type TestResult struct {
 	TestID   int  `json:"test_id"`
 	Passed   bool `json:"passed"`
-	Expected bool `json:"expected"`
-	Actual   bool `json:"actual"`
+	Expected any  `json:"expected"`
+	Actual   any  `json:"actual"`
 	Input    any  `json:"input"`
 }
 
@@ -46,6 +48,26 @@ type Verifier struct{}
 // NewVerifier creates a new Verifier.
 func NewVerifier() *Verifier {
 	return &Verifier{}
+}
+
+// normalizeValue round-trips v through JSON encoding to canonicalize its type
+// representation. This converts OPA-specific types (e.g. json.Number) to standard
+// Go types (float64, string, bool, []any, map[string]any) so that
+// reflect.DeepEqual compares them reliably against values decoded from
+// the quests.json expected_value field.
+func normalizeValue(v any) (any, error) {
+	if v == nil {
+		return nil, nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("normalizeValue marshal: %w", err)
+	}
+	var out any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, fmt.Errorf("normalizeValue unmarshal: %w", err)
+	}
+	return out, nil
 }
 
 // runTestCase executes a single test case and returns the result.
@@ -73,18 +95,26 @@ func runTestCase(ctx context.Context, query string, compiledModule func(*rego.Re
 		return nil, err
 	}
 
-	actual := false
+	var rawActual any
 	if len(rs) > 0 && len(rs[0].Expressions) > 0 {
-		if val, ok := rs[0].Expressions[0].Value.(bool); ok {
-			actual = val
-		}
+		rawActual = rs[0].Expressions[0].Value
 	}
 
-	passed := actual == test.ExpectedOutcome
+	actual, err := normalizeValue(rawActual)
+	if err != nil {
+		return nil, fmt.Errorf("failed to normalize actual value: %w", err)
+	}
+
+	expected, err := normalizeValue(test.ExpectedOutcome)
+	if err != nil {
+		return nil, fmt.Errorf("failed to normalize expected value: %w", err)
+	}
+
+	passed := reflect.DeepEqual(actual, expected)
 	return &TestResult{
 		TestID:   test.ID,
 		Passed:   passed,
-		Expected: test.ExpectedOutcome,
+		Expected: expected,
 		Actual:   actual,
 		Input:    test.Payload.Input,
 	}, nil

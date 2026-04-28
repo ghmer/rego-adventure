@@ -18,6 +18,7 @@ package quest
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -679,7 +680,7 @@ func TestGetTestPayloads_Valid(t *testing.T) {
 		if payload.TestID != quest.Tests[i].ID {
 			t.Errorf("Expected test ID %d, got %d", quest.Tests[i].ID, payload.TestID)
 		}
-		if payload.ExpectedOutcome != quest.Tests[i].ExpectedOutcome {
+		if !reflect.DeepEqual(payload.ExpectedOutcome, quest.Tests[i].ExpectedOutcome) {
 			t.Errorf("Expected outcome %v, got %v", quest.Tests[i].ExpectedOutcome, payload.ExpectedOutcome)
 		}
 	}

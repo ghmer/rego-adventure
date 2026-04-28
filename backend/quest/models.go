@@ -49,7 +49,7 @@ type Quest struct {
 type TestCase struct {
 	ID              int         `json:"id"`
 	Payload         TestPayload `json:"payload"`
-	ExpectedOutcome bool        `json:"expected_outcome"`
+	ExpectedOutcome any         `json:"expected_value"`
 }
 
 // TestPayload represents the payload structure with input and data
@@ -60,9 +60,9 @@ type TestPayload struct {
 
 // TestPayloadInfo represents the simplified test payload for the frontend.
 type TestPayloadInfo struct {
-	TestID          int  `json:"test_id"`
-	Payload         any  `json:"payload"`
-	ExpectedOutcome bool `json:"expected_outcome"`
+	TestID          int `json:"test_id"`
+	Payload         any `json:"payload"`
+	ExpectedOutcome any `json:"expected_value"`
 }
 
 // GetTestPayloads returns the simplified test payloads for the quest.

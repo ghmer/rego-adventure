@@ -2,6 +2,7 @@ package quest
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -376,10 +377,181 @@ func TestVerifier_Verify_ResultFields(t *testing.T) {
 	if !r.Passed {
 		t.Error("Expected result to be passed")
 	}
-	if !r.Expected {
-		t.Error("Expected Expected=true")
+	if !reflect.DeepEqual(r.Expected, true) {
+		t.Errorf("Expected Expected=true, got %v", r.Expected)
 	}
-	if !r.Actual {
-		t.Error("Expected Actual=true")
+	if !reflect.DeepEqual(r.Actual, true) {
+		t.Errorf("Expected Actual=true, got %v", r.Actual)
+	}
+}
+
+func TestVerifier_Verify_StringResult(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.access_status",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: "granted",
+				Payload:         TestPayload{Input: map[string]any{"role": "admin"}},
+			},
+			{
+				ID:              2,
+				ExpectedOutcome: "denied",
+				Payload:         TestPayload{Input: map[string]any{"role": "intern"}},
+			},
+		},
+	}
+
+	regoCode := `
+		package quest
+		import rego.v1
+		default access_status := "denied"
+		access_status := "granted" if input.role == "admin"
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+	if !result.Passed {
+		t.Errorf("Expected verification to pass, error: %s", result.Error)
+	}
+	if !reflect.DeepEqual(result.Results[0].Actual, "granted") {
+		t.Errorf("Expected actual=\"granted\", got %v", result.Results[0].Actual)
+	}
+	if !reflect.DeepEqual(result.Results[1].Actual, "denied") {
+		t.Errorf("Expected actual=\"denied\", got %v", result.Results[1].Actual)
+	}
+}
+
+func TestVerifier_Verify_NumberResult(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.issue_count",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: float64(0),
+				Payload:         TestPayload{Input: map[string]any{"token": "abc", "suspended": false}},
+			},
+			{
+				ID:              2,
+				ExpectedOutcome: float64(2),
+				Payload:         TestPayload{Input: map[string]any{"suspended": true}},
+			},
+		},
+	}
+
+	regoCode := `
+		package quest
+		import rego.v1
+		issues contains "missing_token" if not input.token
+		issues contains "account_suspended" if input.suspended == true
+		issue_count := count(issues)
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+	if !result.Passed {
+		t.Errorf("Expected verification to pass, error: %s", result.Error)
+	}
+	if !reflect.DeepEqual(result.Results[0].Actual, float64(0)) {
+		t.Errorf("Expected actual=0, got %v (%T)", result.Results[0].Actual, result.Results[0].Actual)
+	}
+	if !reflect.DeepEqual(result.Results[1].Actual, float64(2)) {
+		t.Errorf("Expected actual=2, got %v (%T)", result.Results[1].Actual, result.Results[1].Actual)
+	}
+}
+
+func TestVerifier_Verify_ArrayResult(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.violations",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: []any{},
+				Payload:         TestPayload{Input: map[string]any{"mfa_enabled": true, "cert_expired": false}},
+			},
+			{
+				// OPA returns sets as lexicographically sorted arrays
+				ID:              2,
+				ExpectedOutcome: []any{"expired_cert", "no_mfa"},
+				Payload:         TestPayload{Input: map[string]any{"mfa_enabled": false, "cert_expired": true}},
+			},
+		},
+	}
+
+	regoCode := `
+		package quest
+		import rego.v1
+		violations contains "no_mfa" if not input.mfa_enabled
+		violations contains "expired_cert" if input.cert_expired == true
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+	if !result.Passed {
+		t.Errorf("Expected verification to pass, error: %s", result.Error)
+		for i, r := range result.Results {
+			t.Logf("Test %d: passed=%v expected=%v actual=%v", r.TestID, r.Passed, r.Expected, r.Actual)
+			_ = i
+		}
+	}
+}
+
+func TestVerifier_Verify_ObjectResult(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.permissions",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: map[string]any{"delete": true, "read": true, "write": true},
+				Payload:         TestPayload{Input: map[string]any{"role": "admin"}},
+			},
+			{
+				ID:              2,
+				ExpectedOutcome: map[string]any{"delete": false, "read": true, "write": true},
+				Payload:         TestPayload{Input: map[string]any{"role": "editor"}},
+			},
+			{
+				ID:              3,
+				ExpectedOutcome: map[string]any{"delete": false, "read": false, "write": false},
+				Payload:         TestPayload{Input: map[string]any{"role": "intern"}},
+			},
+		},
+	}
+
+	regoCode := `
+		package quest
+		import rego.v1
+		default permissions := {"delete": false, "read": false, "write": false}
+		permissions := {"delete": true, "read": true, "write": true} if input.role == "admin"
+		permissions := {"delete": false, "read": true, "write": true} if input.role == "editor"
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+	if !result.Passed {
+		t.Errorf("Expected verification to pass, error: %s", result.Error)
+		for _, r := range result.Results {
+			t.Logf("Test %d: passed=%v expected=%v actual=%v", r.TestID, r.Passed, r.Expected, r.Actual)
+		}
 	}
 }
