@@ -56,6 +56,7 @@ export class EventManager {
         this.setupNextButtonListener();
         this.setupRestartListeners();
         this.setupHomeListener();
+        this.setupMinimizeListener();
         this.modal.setupModalClickOutside();
     }
 
@@ -307,6 +308,32 @@ export class EventManager {
     setupHomeListener() {
         this.ui.elements.homeBtn.addEventListener('click', () => {
             this.pack.returnHome();
+        });
+    }
+
+    /**
+     * Setup minimize/restore button listener
+     */
+    setupMinimizeListener() {
+        if (!this.ui.elements.minimizeBtn) return;
+
+        this.ui.elements.minimizeBtn.addEventListener('click', () => {
+            const container = this.ui.elements.gameInterface;
+            const btn = this.ui.elements.minimizeBtn;
+            const icon = btn.querySelector('i');
+            const isMinimized = container.classList.toggle('minimized');
+
+            if (isMinimized) {
+                icon.classList.replace('fa-minus', 'fa-expand');
+                btn.setAttribute('aria-label', 'Restore interface');
+                btn.setAttribute('aria-pressed', 'true');
+                btn.title = 'Restore the interface';
+            } else {
+                icon.classList.replace('fa-expand', 'fa-minus');
+                btn.setAttribute('aria-label', 'Minimize interface');
+                btn.setAttribute('aria-pressed', 'false');
+                btn.title = 'Minimize the interface to reveal the background';
+            }
         });
     }
 }

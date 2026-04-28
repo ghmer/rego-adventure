@@ -31,6 +31,17 @@
     gap: 1rem;
 }
 
+/* Minimized state: collapse the game board, keep the header at the top */
+.app-container.minimized {
+    height: auto;
+    align-self: flex-start;
+    margin-top: 2rem;
+}
+
+.app-container.minimized .game-board {
+    display: none;
+}
+
 /* Game Header */
 .game-header {
     display: flex;
@@ -58,6 +69,7 @@
 
 /* Header Icon Buttons */
 #restart-btn,
+#minimize-btn,
 #home-btn,
 #logout-btn {
     padding: 0;
@@ -67,6 +79,7 @@
 }
 
 #restart-btn:hover,
+#minimize-btn:hover,
 #home-btn:hover,
 #logout-btn:hover {
     background-color: transparent;
@@ -74,6 +87,7 @@
 }
 
 #restart-btn i,
+#minimize-btn i,
 #home-btn i,
 #logout-btn i {
     width: var(--icon-size);

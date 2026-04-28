@@ -223,6 +223,12 @@ export class TutorialSystem {
                 position: 'top'
             },
             {
+                element: '#minimize-btn',
+                title: 'Minimize Interface',
+                description: 'Click here to hide the editor and quest panes, revealing the background. Click again to restore the full interface.',
+                position: 'bottom'
+            },
+            {
                 element: '#music-btn',
                 title: 'Music Control',
                 description: 'Toggle background music on or off. Immerse yourself in the adventure!',

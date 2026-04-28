@@ -65,6 +65,7 @@ export class UIManager {
             // Navigation buttons
             startAdventureBtn: document.getElementById('start-adventure'),
             restartBtn: document.getElementById('restart-btn'),
+            minimizeBtn: document.getElementById('minimize-btn'),
             homeBtn: document.getElementById('home-btn'),
             questBackBtn: document.getElementById('quest-back-btn'),
             questForwardBtn: document.getElementById('quest-forward-btn'),
