@@ -44,7 +44,7 @@ Each element in the `quests` array is a `quest` specification with the following
   - `id`: Numeric test identifier
   - `payload`: Object reflecting the `input` data received by Rego
   - `data`: (Optional) Object containing external data accessible via `data.*` in Rego policies
-  - `expected_outcome`: Boolean result that the policy must return
+  - `expected_value`: any result that the policy must return
 
 ## String Length Validation Limits
 
@@ -95,4 +95,3 @@ All text fields in the quest JSON structure are validated against maximum length
 - `test.payload`: 50KB maximum (JSON serialized size)
 - `test.payload.input`: 50KB maximum (JSON serialized size)
 - `test.payload.data`: 50KB maximum (JSON serialized size)
-

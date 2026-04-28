@@ -8,14 +8,9 @@ The quest editor loads `quests.json` files, lets you edit them, and saves them b
 
 ## Gallery
 
-<p align="center">
-  <a href="/docu/images/screenshot_editor_1.jpg"><img src="docu/images/screenshot_editor_1.jpg" alt="Screenshot 1" width="400"></a>
-  <a href="docu/images/screenshot_editor_2.jpg"><img src="docu/images/screenshot_editor_2.jpg" alt="Screenshot 2" width="400"></a>
-</p>
-<p align="center">
-  <a href="docu/images/screenshot_editor_3.jpg"><img src="docu/images/screenshot_editor_3.jpg" alt="Screenshot 3" width="400"></a>
-  <a href="docu/images/screenshot_editor_4.jpg"><img src="docu/images/screenshot_editor_4.jpg" alt="Screenshot 4" width="400"></a>
-</p>
+[![Screenshot 1](docu/images/screenshot_editor_1.jpg)](docu/images/screenshot_editor_1.jpg) [![Screenshot 2](docu/images/screenshot_editor_2.jpg)](docu/images/screenshot_editor_2.jpg)
+
+[![Screenshot 3](docu/images/screenshot_editor_3.jpg)](docu/images/screenshot_editor_3.jpg) [![Screenshot 4](docu/images/screenshot_editor_4.jpg)](docu/images/screenshot_editor_4.jpg)
 
 ## Getting Started
 
@@ -29,12 +24,14 @@ The quest editor loads `quests.json` files, lets you edit them, and saves them b
 ### Sidebar Navigation
 
 **Global Settings:**
+
 - Meta Info - title, description, genre, objectives
 - UI Labels - button text, messages, theme-specific labels
 - Prologue - intro story elements (array of text blocks)
 - Epilogue - ending story elements (array of text blocks)
 
 **Quests:**
+
 - List of all quests in the pack
 - Click to edit a specific quest
 - Add new quests with the + button
@@ -44,6 +41,7 @@ The quest editor loads `quests.json` files, lets you edit them, and saves them b
 Each quest has five tabs.
 
 **Details** - Core quest configuration:
+
 - ID and title
 - Query path (e.g., `data.play.allow`)
 - Task description
@@ -55,25 +53,28 @@ Each quest has five tabs.
 **Hints** - Ordered hints for players (array of text)
 
 **Manual** - Reference documentation:
+
 - Data model description
 - Rego snippet/examples
 - External link (optional)
 
 **Tests** - Test cases with:
+
 - Test ID
 - Payload (input data)
 - Data (external data context)
-- Expected outcome (true/false)
+- Expected value (any Rego result: boolean, string, number, array, or object)
 
 ## Working with Test Cases
 
 Test cases validate quest solutions. Click "Add Test" to create one, "Edit" to modify it.
 
 Each test needs:
+
 - Unique ID within the quest
 - Payload object (becomes `input` in Rego)
 - Data object (becomes `data` in Rego, optional)
-- Expected outcome boolean
+- Expected value (any JSON value the query must return — boolean, string, number, array, or object)
 
 The editor validates that quest IDs and test IDs are unique before saving.
 
@@ -86,9 +87,11 @@ Check out [`docu/quests.md`](docu/quests.md) for the complete specification of t
 It's a Single-Page Application (SPA).
 
 **Dependencies:**
+
 - Font Awesome 7.0.1 (icons)
 
 **Browser Requirements:**
+
 - Modern browser with ES6 support
 - File API for loading/saving
 
@@ -98,6 +101,7 @@ It's a Single-Page Application (SPA).
 Use the `asset generator` to create a skeleton for the new quest. Load the generated `quests.json` and modify it.
 
 **Key points:**
+
 - Quest IDs must be unique
 - Test IDs must be unique within each quest
 - Use `apply_template: true` to replace editor content
@@ -106,11 +110,13 @@ Use the `asset generator` to create a skeleton for the new quest. Load the gener
 
 **UI Labels:**
 Customize button text and messages to match your theme. Examples:
+
 - Fantasy: "Ancient Scrolls", "Consult the Oracle"
 - Cyberpunk: "ICE Protocol Editor", "Query NetWatch"
 - Noir: "Case Files", "Call Veronica"
 
 **Test Coverage:**
+
 - Minimum 2-3 tests per quest
 - At least one passing case
 - At least one failing case
@@ -119,26 +125,31 @@ Customize button text and messages to match your theme. Examples:
 ## Tips
 
 **Organizing quests:**
+
 - Use sequential IDs (1, 2, 3...)
 - Keep titles short and clear
 - Put easier quests first
 
 **Writing tests:**
+
 - Start simple, add complexity
 - Test boundary conditions
 - Include both positive and negative cases
 
 **Templates:**
+
 - Use for "fix this code" quests or to reset to a "clean state"
 - Include helpful comments
 - Mark broken sections clearly
 
 **Hints:**
+
 - Hint 1: General approach
 - Hint 2: Specific function/syntax
 - Hint 3: Near-complete solution
 
 **Manual sections:**
+
 - Data model: List available fields
 - Rego snippet: Show syntax examples
 - External link: OPA docs or relevant resources
