@@ -13,6 +13,7 @@ This project is an open source educational platform for learning Policy-Based Ac
 This project is licensed under the **Apache License 2.0**.
 
 This means:
+
 - You are free to use, modify, and distribute this software
 - You must include the original copyright notice and license in any distribution
 - You must state any significant changes made to the files
@@ -29,6 +30,7 @@ This project may include third-party libraries and components, each governed by 
 - **Gin Web Framework** - MIT License
 
 For a complete list of dependencies and their licenses, please refer to:
+
 - Go dependencies: [`go.mod`](go.mod)
 - Frontend assets: Individual component directories under [`frontend/`](frontend/)
 

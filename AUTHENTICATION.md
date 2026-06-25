@@ -42,14 +42,14 @@ sequenceDiagram
 
 You'll need to set these environment variables to enable and configure authentication:
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `AUTH_ENABLED` | Yes | Enable/disable authentication | `true` or `false` |
-| `AUTH_ISSUER` | When enabled | OIDC issuer URL (must match token `iss` claim) | `https://keycloak.example.com/realms/myrealm` |
-| `AUTH_DISCOVERY_URL` | When enabled | OIDC discovery endpoint URL | `https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration` |
-| `AUTH_CLIENT_ID` | When enabled | OAuth2 client identifier | `rego-adventure` |
-| `AUTH_AUDIENCE` | When enabled | Expected audience in JWT tokens | `rego-adventure` |
-| `DOMAIN` | Yes | Application domain (used for CORS) | `https://adventure.example.com` |
+| Variable             | Required     | Description                                    | Example                                                                        |
+| -------------------- | ------------ | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| `AUTH_ENABLED`       | Yes          | Enable/disable authentication                  | `true` or `false`                                                              |
+| `AUTH_ISSUER`        | When enabled | OIDC issuer URL (must match token `iss` claim) | `https://keycloak.example.com/realms/myrealm`                                  |
+| `AUTH_DISCOVERY_URL` | When enabled | OIDC discovery endpoint URL                    | `https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration` |
+| `AUTH_CLIENT_ID`     | When enabled | OAuth2 client identifier                       | `rego-adventure`                                                               |
+| `AUTH_AUDIENCE`      | When enabled | Expected audience in JWT tokens                | `rego-adventure`                                                               |
+| `DOMAIN`             | Yes          | Application domain (used for CORS)             | `https://adventure.example.com`                                                |
 
 ## Keycloak Configuration
 
@@ -79,18 +79,24 @@ Here's how to set up Keycloak as your identity provider.
    **Login settings:**
    - **Root URL**: `https://adventure.example.com` (your domain)
    - **Home URL**: `https://adventure.example.com`
-   - **Valid redirect URIs**: 
-     ```
+   - **Valid redirect URIs**:
+
+     ```text
      https://adventure.example.com/callback
      ```
-   - **Valid post logout redirect URIs**: 
-     ```
+
+   - **Valid post logout redirect URIs**:
+
+     ```text
      https://adventure.example.com/
      ```
-   - **Web origins**: 
-     ```
+
+   - **Web origins**:
+
+     ```text
      https://adventure.example.com
      ```
+
    - Click **"Save"**
 
 ### Configure Audience Mapper
@@ -116,12 +122,14 @@ This guide focuses on Keycloak, but the application works with any OIDC-complian
 ### Auth0
 
 Here's what differs when using Auth0:
+
 - **Issuer**: `https://your-tenant.auth0.com/`
 - **Discovery URL**: `https://your-tenant.auth0.com/.well-known/openid-configuration`
 - **Audience**: Configure in Auth0 API settings
 - **Client**: Create a "Single Page Application" in Auth0
 
 **Auth0-specific steps:**
+
 1. Create an Application (type: Single Page Application)
 2. Configure Allowed Callback URLs: `https://adventure.example.com/callback`
 3. Configure Allowed Logout URLs: `https://adventure.example.com/`
@@ -132,11 +140,13 @@ Here's what differs when using Auth0:
 ### Okta
 
 Here's what differs when using Okta:
+
 - **Issuer**: `https://your-domain.okta.com/oauth2/default`
 - **Discovery URL**: `https://your-domain.okta.com/oauth2/default/.well-known/openid-configuration`
 - **Client**: Create a "Single-Page App" in Okta
 
 **Okta-specific steps:**
+
 1. Create an Application (type: Single-Page App)
 2. Configure Sign-in redirect URIs: `https://adventure.example.com/callback`
 3. Configure Sign-out redirect URIs: `https://adventure.example.com/`
@@ -147,11 +157,13 @@ Here's what differs when using Okta:
 ### Azure AD / Microsoft Entra ID
 
 Here's what differs when using Azure AD:
+
 - **Issuer**: `https://login.microsoftonline.com/{tenant-id}/v2.0`
 - **Discovery URL**: `https://login.microsoftonline.com/{tenant-id}/v2.0/.well-known/openid-configuration`
 - **Client**: Create an "App registration" in Azure Portal
 
 **Azure AD-specific steps:**
+
 1. Register an application in Azure Portal
 2. Configure Redirect URIs (type: Single-page application): `https://adventure.example.com/callback`
 3. Configure Logout URL: `https://adventure.example.com/`
@@ -185,4 +197,3 @@ For any OIDC-compliant provider, you'll need to do the following:
 5. **Verify token claims**:
    - Make sure access tokens include `aud` claim matching your `AUTH_AUDIENCE`
    - Make sure `iss` claim matches your `AUTH_ISSUER`
-
