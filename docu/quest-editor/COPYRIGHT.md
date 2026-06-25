@@ -13,6 +13,7 @@ This is a standalone web-based editor for creating and editing quest JSON files 
 This project is licensed under the **Apache License 2.0**.
 
 This means:
+
 - You are free to use, modify, and distribute this software
 - You must include the original copyright notice and license in any distribution
 - You must state any significant changes made to the files
@@ -26,11 +27,12 @@ For complete licensing terms and conditions, please refer to the [`LICENSE`](LIC
 This project includes third-party libraries and components, each governed by their respective licenses:
 
 - **Font Awesome** - Font Awesome Free License (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
-  - Used via CDN: https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css
+  - Used via CDN: <https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css>
 
 ## Usage
 
 The Quest Editor is a client-side web application consisting of:
+
 - [`index.html`](index.html) - Main HTML structure
 - [`app.js`](app.js) - JavaScript application logic
 - [`styles.css`](styles.css) - CSS styling
