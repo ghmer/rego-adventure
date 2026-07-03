@@ -212,7 +212,9 @@ export class QuestManager {
         };
         
         this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.perfectScoreMessage);
-        this.ui.elements.perfectScoreModal.classList.remove('hidden');
+        if (!this.ui.elements.perfectScoreModal.open) {
+            this.ui.elements.perfectScoreModal.showModal();
+        }
         this.ui.elements.closePerfectScoreBtn.focus();
     }
 

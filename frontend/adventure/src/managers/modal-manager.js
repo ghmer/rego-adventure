@@ -32,6 +32,62 @@ export class ModalManager {
     constructor(state, uiManager) {
         this.state = state;
         this.ui = uiManager;
+
+        this.setupDialogHandlers();
+    }
+
+    /**
+     * Show dialog safely without throwing if already open
+     * @param {HTMLDialogElement} dialog - Dialog element
+     */
+    openDialog(dialog) {
+        if (!dialog?.open) {
+            dialog.showModal();
+        }
+    }
+
+    /**
+     * Close dialog safely without throwing if already closed
+     * @param {HTMLDialogElement} dialog - Dialog element
+     */
+    closeDialog(dialog) {
+        if (dialog?.open) {
+            dialog.close();
+        }
+    }
+
+    /**
+     * Setup native dialog event handlers
+     */
+    setupDialogHandlers() {
+        const dismissibleDialogs = [
+            this.ui.elements.manualModal,
+            this.ui.elements.testPayloadModal,
+            this.ui.elements.resultModal,
+            this.ui.elements.perfectScoreModal
+        ];
+
+        dismissibleDialogs.forEach(dialog => {
+            if (!dialog) {
+                return;
+            }
+
+            dialog.addEventListener('click', (event) => {
+                if (event.target === dialog) {
+                    this.closeDialog(dialog);
+                }
+            });
+        });
+
+        // Ensure visual effects are removed for all close paths (button, ESC, backdrop).
+        this.ui.elements.resultModal.addEventListener('close', () => {
+            cleanupEffects();
+        });
+
+        // Keep restart confirmation explicit (buttons only).
+        this.ui.elements.restartModal.addEventListener('cancel', (event) => {
+            event.preventDefault();
+        });
     }
 
     /**
@@ -40,7 +96,7 @@ export class ModalManager {
     showManual() {
         if (this.state.currentQuest) {
             this.ui.renderManual(this.state.currentQuest.manual);
-            this.ui.elements.manualModal.classList.remove('hidden');
+            this.openDialog(this.ui.elements.manualModal);
             this.ui.elements.closeManualBtn.focus();
         }
     }
@@ -49,8 +105,7 @@ export class ModalManager {
      * Close manual modal
      */
     closeManual() {
-        this.ui.elements.manualModal.classList.add('hidden');
-        this.ui.elements.checkManualBtn.focus();
+        this.closeDialog(this.ui.elements.manualModal);
     }
 
     /**
@@ -61,7 +116,7 @@ export class ModalManager {
             try {
                 const testPayloads = await fetchTestPayload(this.state.currentPackId, this.state.currentQuestId);
                 this.ui.renderTestPayload(testPayloads);
-                this.ui.elements.testPayloadModal.classList.remove('hidden');
+                this.openDialog(this.ui.elements.testPayloadModal);
                 this.ui.elements.closeTestPayloadBtn.focus();
             } catch (error) {
                 handleApiError(error, 'load test payload data');
@@ -75,8 +130,7 @@ export class ModalManager {
      * Close test payload modal
      */
     closeTestPayload() {
-        this.ui.elements.testPayloadModal.classList.add('hidden');
-        this.ui.elements.checkTestPayloadBtn.focus();
+        this.closeDialog(this.ui.elements.testPayloadModal);
     }
 
     /**
@@ -157,7 +211,7 @@ export class ModalManager {
         triggerResultEffect(isSuccess);
         
         // Show modal
-        this.ui.elements.resultModal.classList.remove('hidden');
+        this.openDialog(this.ui.elements.resultModal);
         if (isSuccess) {
             this.ui.elements.nextQuestBtn.focus();
         } else {
@@ -169,9 +223,7 @@ export class ModalManager {
      * Close result modal
      */
     closeResult() {
-        cleanupEffects();
-        this.ui.elements.resultModal.classList.add('hidden');
-        this.ui.elements.verifyBtn.focus();
+        this.closeDialog(this.ui.elements.resultModal);
     }
 
     /**
@@ -184,7 +236,7 @@ export class ModalManager {
         };
         
         this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.perfectScoreMessage);
-        this.ui.elements.perfectScoreModal.classList.remove('hidden');
+        this.openDialog(this.ui.elements.perfectScoreModal);
         this.ui.elements.closePerfectScoreBtn.focus();
         
         showConfetti();
@@ -194,14 +246,14 @@ export class ModalManager {
      * Close perfect score modal
      */
     closePerfectScore() {
-        this.ui.elements.perfectScoreModal.classList.add('hidden');
+        this.closeDialog(this.ui.elements.perfectScoreModal);
     }
 
     /**
      * Show restart confirmation modal
      */
     showRestartConfirmation() {
-        this.ui.elements.restartModal.classList.remove('hidden');
+        this.openDialog(this.ui.elements.restartModal);
         this.ui.elements.cancelRestartBtn.focus();
     }
 
@@ -209,24 +261,6 @@ export class ModalManager {
      * Close restart modal (cancel)
      */
     closeRestartConfirmation() {
-        this.ui.elements.restartModal.classList.add('hidden');
-        this.ui.elements.restartBtn.focus();
-    }
-
-    /**
-     * Setup modal click-outside handlers
-     */
-    setupModalClickOutside() {
-        window.addEventListener('click', (event) => {
-            if (event.target === this.ui.elements.manualModal) {
-                this.closeManual();
-            } else if (event.target === this.ui.elements.testPayloadModal) {
-                this.closeTestPayload();
-            } else if (event.target === this.ui.elements.resultModal) {
-                this.closeResult();
-            } else if (event.target === this.ui.elements.perfectScoreModal) {
-                this.closePerfectScore();
-            }
-        });
+        this.closeDialog(this.ui.elements.restartModal);
     }
 }

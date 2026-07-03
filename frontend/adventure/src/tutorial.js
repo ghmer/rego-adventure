@@ -21,19 +21,6 @@
 
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
 
-// Debounce utility function
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
 export class TutorialSystem {
     constructor() {
         this.currentStep = 0;
@@ -42,8 +29,8 @@ export class TutorialSystem {
         this.overlay = null;
         this.spotlight = null;
         this.tooltip = null;
-        this.hiddenElementsState = new Map(); // Track originally hidden elements
-        this.resizeHandler = null; // Store resize handler for cleanup
+        this.hiddenElementsState = new Set(); // Track selectors hidden by tutorial
+        this.resizeObserver = null;
         
         // Cache for DOM elements to avoid repeated querySelector calls
         this.cachedElements = new Map();
@@ -91,11 +78,9 @@ export class TutorialSystem {
         }
 
         // Create modal
-        const modal = document.createElement('div');
+        const modal = document.createElement('dialog');
         modal.className = 'tutorial-prompt-modal';
-        modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-labelledby', 'tutorial-prompt-title');
-        modal.setAttribute('aria-modal', 'true');
         modal.innerHTML = `
             <div class="tutorial-prompt-content surface-bg">
                 <h2 id="tutorial-prompt-title">Welcome, Adventurer!</h2>
@@ -112,6 +97,7 @@ export class TutorialSystem {
         `;
 
         document.body.appendChild(modal);
+        modal.showModal();
 
         // Event listeners
         const acceptBtn = modal.querySelector('#tutorial-accept-btn');
@@ -122,6 +108,7 @@ export class TutorialSystem {
             if (dontShowCheckbox.checked) {
                 this.markCompleted();
             }
+            modal.close();
             modal.remove();
             this.startTutorial();
         });
@@ -130,16 +117,14 @@ export class TutorialSystem {
             if (dontShowCheckbox.checked) {
                 this.markCompleted();
             }
+            modal.close();
             modal.remove();
         });
 
-        // Keyboard support for modal
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                declineBtn.click();
-            }
-        };
-        modal.addEventListener('keydown', handleKeyDown);
+        modal.addEventListener('cancel', (event) => {
+            event.preventDefault();
+            declineBtn.click();
+        });
 
         // Focus on accept button
         setTimeout(() => acceptBtn.focus(), 100);
@@ -297,15 +282,14 @@ export class TutorialSystem {
                                 element.style.display === 'none';
                 
                 if (isHidden) {
-                    // Store original state
-                    this.hiddenElementsState.set(selector, {
-                        display: element.style.display,
-                        hasHiddenClass: element.classList.contains('hidden')
-                    });
+                    if (element.classList.contains('hidden')) {
+                        this.hiddenElementsState.add(selector);
+                    }
                     
                     // Temporarily show the element
                     element.classList.remove('hidden');
                     if (element.style.display === 'none') {
+                        element.dataset.tutorialRestoreDisplay = 'none';
                         element.style.display = '';
                     }
                 }
@@ -315,12 +299,7 @@ export class TutorialSystem {
         // Also ensure the editor pane parent is visible
         const editorPane = document.querySelector('#editor-pane');
         if (editorPane && editorPane.classList.contains('hidden')) {
-            if (!this.hiddenElementsState.has('#editor-pane')) {
-                this.hiddenElementsState.set('#editor-pane', {
-                    display: editorPane.style.display,
-                    hasHiddenClass: true
-                });
-            }
+            this.hiddenElementsState.add('#editor-pane');
             editorPane.classList.remove('hidden');
         }
     }
@@ -329,19 +308,20 @@ export class TutorialSystem {
      * Restore elements to their original hidden state and clear the state map
      */
     restoreHiddenElements() {
-        this.hiddenElementsState.forEach((state, selector) => {
+        this.hiddenElementsState.forEach((selector) => {
             const element = document.querySelector(selector);
             if (element) {
-                if (state.hasHiddenClass) {
-                    element.classList.add('hidden');
-                }
-                if (state.display === 'none') {
-                    element.style.display = 'none';
-                }
+                element.classList.add('hidden');
             }
         });
+
+        const restoredDisplayElements = document.querySelectorAll('[data-tutorial-restore-display="none"]');
+        restoredDisplayElements.forEach((element) => {
+            element.style.display = 'none';
+            delete element.dataset.tutorialRestoreDisplay;
+        });
         
-        // Clear the state map
+        // Clear the tracked state
         this.hiddenElementsState.clear();
     }
 
@@ -352,9 +332,8 @@ export class TutorialSystem {
         this.isActive = true;
         this.currentStep = 0;
         
-        // Add debounced resize listener to avoid excessive recalculations
-        this.resizeHandler = debounce(() => this.handleResize(), 100);
-        window.addEventListener('resize', this.resizeHandler);
+        this.resizeObserver = new ResizeObserver(() => this.handleResize());
+        this.resizeObserver.observe(document.documentElement);
         
         // Temporarily unhide elements needed for tutorial
         this.temporarilyUnhideElements();
@@ -629,10 +608,9 @@ export class TutorialSystem {
     endTutorial() {
         this.isActive = false;
         
-        // Remove resize event listener
-        if (this.resizeHandler) {
-            window.removeEventListener('resize', this.resizeHandler);
-            this.resizeHandler = null;
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
         }
         
         // Remove keyboard event listener

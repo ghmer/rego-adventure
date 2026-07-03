@@ -57,7 +57,6 @@ export class EventManager {
         this.setupRestartListeners();
         this.setupHomeListener();
         this.setupMinimizeListener();
-        this.modal.setupModalClickOutside();
     }
 
     /**

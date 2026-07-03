@@ -386,21 +386,19 @@ button[onclick*="login"]:hover {
    ============================================ */
 
 .modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: var(--z-modal);
+    border: none;
+    padding: 0;
+    margin: auto;
+    background: transparent;
+    color: inherit;
+    width: 90%;
+    max-width: 800px;
+    overflow: visible;
 }
 
 /* backdrop-filter support for modals */
 @supports (backdrop-filter: blur(8px)) {
-    .modal {
+    .modal::backdrop {
         backdrop-filter: blur(8px);
         background-color: rgba(0, 0, 0, 0.7);
     }
@@ -408,13 +406,17 @@ button[onclick*="login"]:hover {
 
 /* Fallback for browsers without backdrop-filter support */
 @supports not (backdrop-filter: blur(8px)) {
-    .modal {
+    .modal::backdrop {
         background-color: rgba(0, 0, 0, 0.9);
     }
 }
 
+.modal::backdrop {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
 .modal-content {
-    width: 90%;
+    width: 100%;
     max-width: 800px;
     text-align: left;
     background-color: var(--surface-light);
@@ -788,17 +790,21 @@ button[onclick*="login"]:hover {
 
 /* Tutorial Prompt Modal */
 .tutorial-prompt-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.85);
+    border: none;
+    padding: 0;
+    margin: auto;
+    width: min(90vw, 500px);
+    max-width: 500px;
+    background: transparent;
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: var(--z-tutorial-prompt);
     animation: fadeIn 0.3s ease;
+}
+
+.tutorial-prompt-modal::backdrop {
+    background-color: rgba(0, 0, 0, 0.85);
 }
 
 .tutorial-prompt-content {
