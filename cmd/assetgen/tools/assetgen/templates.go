@@ -514,7 +514,7 @@ body {
 }
 
 /* Tutorial Spotlight */
-.tutorial-spotlight {
+.tutorial-spotlight-highlight {
     border-radius: 0;
     box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.8),
                 inset 0 0 30px rgba(var(--accent-rgb), 0.3);
@@ -574,18 +574,6 @@ body {
 #check-manual-btn,
 #check-test-payload-btn {
     border-radius: 0;
-}
-
-/* Animations Override */
-@keyframes spotlightPulse {
-    0%, 100% {
-        box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.8),
-                    inset 0 0 30px rgba(var(--accent-rgb), 0.3);
-    }
-    50% {
-        box-shadow: 0 0 60px rgba(var(--accent-rgb), 1),
-                    inset 0 0 50px rgba(var(--accent-rgb), 0.5);
-    }
 }
 
 /* Mobile Overrides */
