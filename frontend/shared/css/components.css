@@ -415,6 +415,15 @@ button[onclick*="login"]:hover {
     background-color: rgba(0, 0, 0, 0.8);
 }
 
+dialog#result-modal[open] {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: var(--z-modal);
+}
+
 .modal-content {
     width: 100%;
     max-width: 800px;

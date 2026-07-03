@@ -39,10 +39,15 @@ export class ModalManager {
     /**
      * Show dialog safely without throwing if already open
      * @param {HTMLDialogElement} dialog - Dialog element
+     * @param {boolean} modal - Whether to open as a modal dialog
      */
-    openDialog(dialog) {
+    openDialog(dialog, modal = true) {
         if (!dialog?.open) {
-            dialog.showModal();
+            if (modal) {
+                dialog.showModal();
+            } else {
+                dialog.show();
+            }
         }
     }
 
@@ -211,7 +216,7 @@ export class ModalManager {
         triggerResultEffect(isSuccess);
         
         // Show modal
-        this.openDialog(this.ui.elements.resultModal);
+        this.openDialog(this.ui.elements.resultModal, false);
         if (isSuccess) {
             this.ui.elements.nextQuestBtn.focus();
         } else {

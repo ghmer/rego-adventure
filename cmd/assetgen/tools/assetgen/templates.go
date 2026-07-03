@@ -504,8 +504,13 @@ body {
 }
 
 .tutorial-prompt-content h2 {
+    color: var(--accent-color);
     text-transform: uppercase;
     letter-spacing: 2px;
+}
+
+.tutorial-prompt-content p {
+    color: var(--text-color);
 }
 
 /* Tutorial Overlay */
@@ -518,6 +523,15 @@ body {
     border-radius: 0;
     box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.8),
                 inset 0 0 30px rgba(var(--accent-rgb), 0.3);
+}
+
+dialog#result-modal[open] {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: var(--z-modal);
 }
 
 /* Tutorial Tooltip */

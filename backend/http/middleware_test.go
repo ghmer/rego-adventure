@@ -69,7 +69,7 @@ func TestSecurityHeaders_CSPIsPresent(t *testing.T) {
 	}
 
 	// Verify key directives are present
-	for _, directive := range []string{"default-src", "script-src", "style-src", "frame-ancestors"} {
+	for _, directive := range []string{"default-src", "script-src", "worker-src", "style-src", "frame-ancestors"} {
 		if !strings.Contains(csp, directive) {
 			t.Errorf("CSP missing directive %q", directive)
 		}
