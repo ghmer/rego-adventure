@@ -331,6 +331,7 @@ export class TutorialSystem {
     startTutorial() {
         this.isActive = true;
         this.currentStep = 0;
+        document.body.classList.add('tutorial-active');
         
         this.resizeObserver = new ResizeObserver(() => this.handleResize());
         this.resizeObserver.observe(document.documentElement);
@@ -358,6 +359,7 @@ export class TutorialSystem {
         this.spotlight = document.createElement('div');
         this.spotlight.className = 'tutorial-spotlight';
         this.spotlight.setAttribute('aria-hidden', 'true');
+        this.spotlight.classList.add('tutorial-spotlight-highlight');
         document.body.appendChild(this.spotlight);
 
         // Create tooltip
@@ -430,6 +432,13 @@ export class TutorialSystem {
         const step = this.tutorialSteps[stepIndex];
         const element = document.querySelector(step.element);
 
+        this.tutorialSteps.forEach((tutorialStep) => {
+            const previousElement = document.querySelector(tutorialStep.element);
+            if (previousElement) {
+                delete previousElement.dataset.tutorialHighlighted;
+            }
+        });
+
         if (!element) {
             console.warn(`Tutorial element not found: ${step.element}, skipping to next step`);
             // Skip to next step if element not found
@@ -460,6 +469,7 @@ export class TutorialSystem {
         // Ensure highlighted element is not interactive during tutorial
         // Only the tutorial controls should be clickable
         element.style.pointerEvents = 'none';
+        element.dataset.tutorialHighlighted = 'true';
 
         // Update tooltip content
         this.tooltip.querySelector('.tutorial-tooltip-title').textContent = step.title;
@@ -485,13 +495,8 @@ export class TutorialSystem {
         // Position tooltip
         this.positionTooltip(element, step.position);
 
-        // Scroll element into view if needed
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-        // Add highlight animation
-        this.spotlight.classList.remove('tutorial-spotlight-pulse');
-        void this.spotlight.offsetWidth; // Force reflow
-        this.spotlight.classList.add('tutorial-spotlight-pulse');
+        // Use immediate scroll to avoid spotlight/scroll animation drift.
+        element.scrollIntoView({ behavior: 'auto', block: 'center' });
 
         // Focus on the tooltip for screen readers
         setTimeout(() => {
@@ -624,8 +629,11 @@ export class TutorialSystem {
             const element = document.querySelector(step.element);
             if (element) {
                 element.style.pointerEvents = '';
+                delete element.dataset.tutorialHighlighted;
             }
         });
+
+        document.body.classList.remove('tutorial-active');
         
         if (this.overlay) {
             this.overlay.remove();
@@ -633,6 +641,7 @@ export class TutorialSystem {
         }
         
         if (this.spotlight) {
+            this.spotlight.classList.remove('tutorial-spotlight-highlight');
             this.spotlight.remove();
             this.spotlight = null;
         }

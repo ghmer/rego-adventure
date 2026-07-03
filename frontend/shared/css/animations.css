@@ -78,14 +78,3 @@
         transform: translateY(0);
     }
 }
-
-@keyframes spotlightPulse {
-    0%, 100% {
-        box-shadow: 0 0 30px rgba(230, 237, 243, 0.6),
-                    inset 0 0 20px rgba(230, 237, 243, 0.2);
-    }
-    50% {
-        box-shadow: 0 0 50px rgba(230, 237, 243, 0.9),
-                    inset 0 0 30px rgba(230, 237, 243, 0.4);
-    }
-}

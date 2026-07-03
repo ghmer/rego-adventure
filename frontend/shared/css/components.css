@@ -872,15 +872,18 @@ button[onclick*="login"]:hover {
     position: fixed;
     border: 3px solid var(--accent-color);
     border-radius: var(--radius-lg);
-    box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.6),
-                inset 0 0 20px rgba(var(--accent-rgb), 0.2);
     z-index: var(--z-tutorial-spotlight);
     pointer-events: none;
     transition: none !important;
 }
 
-.tutorial-spotlight-pulse {
-    animation: spotlightPulse 1.5s ease-in-out;
+.tutorial-spotlight-highlight {
+    box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.6),
+                inset 0 0 20px rgba(var(--accent-rgb), 0.2);
+}
+
+body.tutorial-active [data-tutorial-highlighted="true"] {
+    animation: none !important;
     transition: none !important;
 }
 
