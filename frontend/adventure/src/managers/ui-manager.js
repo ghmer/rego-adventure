@@ -255,13 +255,14 @@ export class UIManager {
 
     /**
      * Validate an external link and return a safe URL, or null if the
-     * value is not a well-formed http(s) URL (blocks javascript:/data: etc.)
+     * value is not an absolute http(s) URL (blocks javascript:/data: and
+     * relative values, matching the backend pack validation)
      * @param {string} value - Raw external link from quest pack data
      * @returns {string|null} Absolute http(s) URL or null
      */
     getSafeExternalUrl(value) {
         try {
-            const url = new URL(value, window.location.origin);
+            const url = new URL(value);
             if (url.protocol === 'https:' || url.protocol === 'http:') {
                 return url.href;
             }
