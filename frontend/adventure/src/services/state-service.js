@@ -23,6 +23,21 @@ import { getLocalStorage, setLocalStorage, getPackKey, STORAGE_KEYS } from './st
 import { SCORING, DEFAULT_TEXT } from './constants.js';
 
 /**
+ * Maps label accessor keys to the pack's snake_case ui_labels key and
+ * the matching DEFAULT_TEXT fallback key
+ */
+const LABEL_KEYS = {
+    grimoireTitle: { ui: 'grimoire_title', fallback: 'GRIMOIRE_TITLE' },
+    hintButton: { ui: 'hint_button', fallback: 'HINT_BUTTON' },
+    verifyButton: { ui: 'verify_button', fallback: 'VERIFY_BUTTON' },
+    messageSuccess: { ui: 'message_success', fallback: 'MESSAGE_SUCCESS' },
+    messageFailure: { ui: 'message_failure', fallback: 'MESSAGE_FAILURE' },
+    perfectScoreMessage: { ui: 'perfect_score_message', fallback: 'PERFECT_SCORE_MESSAGE' },
+    perfectScoreButtonText: { ui: 'perfect_score_button_text', fallback: 'PERFECT_SCORE_BUTTON' },
+    beginAdventureButton: { ui: 'begin_adventure_button', fallback: 'BEGIN_ADVENTURE' }
+};
+
+/**
  * Game State Manager
  * Handles all game state operations with automatic persistence
  */
@@ -48,16 +63,8 @@ export class GameState {
         this.isHistoryMode = false;
         this.activeQuestId = 0;
 
-        // UI Labels (loaded from pack metadata)
+        // UI Labels (loaded from pack metadata; accessed via label())
         this.uiLabels = {};
-        this.grimoireTitle = '';
-        this.hintButton = '';
-        this.verifyButton = '';
-        this.messageSuccess = '';
-        this.messageFailure = '';
-        this.perfectScoreMessage = '';
-        this.perfectScoreButtonText = '';
-        this.beginAdventureButton = '';
 
         // Load pack-specific data if pack is set
         if (this.currentPackId) {
@@ -138,7 +145,7 @@ export class GameState {
      */
     loadPackData(packData) {
         this.quests = packData.quests;
-        
+
         // Create Map for O(1) quest lookup by ID
         this.questsMap = new Map();
         if (packData.quests) {
@@ -146,21 +153,23 @@ export class GameState {
                 this.questsMap.set(quest.id, quest);
             }
         }
-        
+
         this.prologue = packData.prologue;
         this.epilogue = packData.epilogue;
         this.meta = packData.meta;
-        
-        // Load UI labels with fallbacks
+
         this.uiLabels = packData.ui_labels || {};
-        this.grimoireTitle = this.uiLabels.grimoire_title || DEFAULT_TEXT.GRIMOIRE_TITLE;
-        this.hintButton = this.uiLabels.hint_button || DEFAULT_TEXT.HINT_BUTTON;
-        this.verifyButton = this.uiLabels.verify_button || DEFAULT_TEXT.VERIFY_BUTTON;
-        this.messageSuccess = this.uiLabels.message_success || DEFAULT_TEXT.MESSAGE_SUCCESS;
-        this.messageFailure = this.uiLabels.message_failure || DEFAULT_TEXT.MESSAGE_FAILURE;
-        this.perfectScoreMessage = this.uiLabels.perfect_score_message || DEFAULT_TEXT.PERFECT_SCORE_MESSAGE;
-        this.perfectScoreButtonText = this.uiLabels.perfect_score_button_text || DEFAULT_TEXT.PERFECT_SCORE_BUTTON;
-        this.beginAdventureButton = this.uiLabels.begin_adventure_button || DEFAULT_TEXT.BEGIN_ADVENTURE;
+    }
+
+    /**
+     * Get a UI label from the pack metadata, falling back to the
+     * application default when the pack does not define it
+     * @param {string} key - Label key (see LABEL_KEYS)
+     * @returns {string} The label text
+     */
+    label(key) {
+        const keys = LABEL_KEYS[key];
+        return this.uiLabels[keys.ui] || DEFAULT_TEXT[keys.fallback];
     }
     
     /**

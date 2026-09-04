@@ -60,6 +60,7 @@ export class UIManager {
             // Editor
             editor: document.getElementById('rego-editor'),
             verifyBtn: document.getElementById('verify-btn'),
+            verifyBtnLabel: document.querySelector('#verify-btn [data-label]'),
             editorPane: document.getElementById('editor-pane'),
             
             // Navigation buttons
@@ -287,8 +288,7 @@ export class UIManager {
             const expectedSpan = testCase.querySelector('.test-case-expected');
             const expectedValue = test.expected_value;
             expectedSpan.textContent = `Expected: ${expectedValue}`;
-            expectedSpan.style.background = expectedValue ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)';
-            expectedSpan.style.color = expectedValue ? '#4caf50' : '#f44336';
+            expectedSpan.classList.add(expectedValue ? 'expected-true' : 'expected-false');
             
             testCase.querySelector('.test-case-input-data').textContent =
                 JSON.stringify(test.payload.input, null, 2);

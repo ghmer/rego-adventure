@@ -23,7 +23,7 @@ import { showConfetti, triggerResultEffect, cleanupEffects } from '../effects.js
 import { fetchTestPayload } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
-import { SCORING, DEFAULT_TEXT } from '../services/constants.js';
+import { SCORING } from '../services/constants.js';
 
 /**
  * Manages modal dialogs
@@ -160,7 +160,7 @@ export class ModalManager {
             this.ui.elements.resultMessage.textContent = result.error;
             this.ui.elements.scoreSummary.classList.add('hidden');
         } else if (isSuccess) {
-            this.ui.elements.resultTitle.textContent = this.state.messageSuccess || DEFAULT_TEXT.MESSAGE_SUCCESS;
+            this.ui.elements.resultTitle.textContent = this.state.label('messageSuccess');
             this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
 
             const pointsPossible = SCORING.POINTS_PER_QUEST;
@@ -171,7 +171,7 @@ export class ModalManager {
 
             this.ui.updateScoreDisplay(this.state.totalScore);
         } else {
-            this.ui.elements.resultTitle.textContent = this.state.messageFailure || DEFAULT_TEXT.MESSAGE_FAILURE;
+            this.ui.elements.resultTitle.textContent = this.state.label('messageFailure');
             this.ui.elements.resultMessage.textContent = "Some tests did not pass. Review the results below.";
             this.ui.elements.scoreSummary.classList.add('hidden');
         }
@@ -237,7 +237,7 @@ export class ModalManager {
             this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/icon-success.png`;
         };
         
-        this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.perfectScoreMessage);
+        this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.label('perfectScoreMessage'));
         this.openDialog(this.ui.elements.perfectScoreModal);
         this.ui.elements.closePerfectScoreBtn.focus();
         

@@ -23,7 +23,6 @@ import { verifySolution } from '../services/api-service.js';
 import { setLocalStorage, getPackKey, clearAllGrimoires, removeLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { AuthService } from '../services/auth-service.js';
 import { handleApiError } from '../services/error-service.js';
-import { DEFAULT_TEXT } from '../services/constants.js';
 
 /**
  * Manages all event listeners
@@ -229,8 +228,7 @@ export class EventManager {
             if (!code.trim()) return;
 
             this.ui.elements.verifyBtn.disabled = true;
-            this.ui.elements.verifyBtn.textContent = "Casting...";
-            
+
             try {
                 const result = await verifySolution(this.state.currentPackId, this.state.currentQuestId, code);
 
@@ -249,7 +247,6 @@ export class EventManager {
                 handleApiError(e, 'verify solution');
             } finally {
                 this.ui.elements.verifyBtn.disabled = false;
-                this.ui.elements.verifyBtn.textContent = this.state.verifyButton || DEFAULT_TEXT.VERIFY_BUTTON;
             }
         });
     }

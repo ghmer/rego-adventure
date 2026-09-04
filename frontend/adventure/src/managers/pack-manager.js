@@ -59,9 +59,9 @@ export class PackManager {
             this.state.loadPackData(data);
             
             // Update UI with pack-specific labels
-            this.ui.updateGrimoireTitle(this.state.grimoireTitle);
-            this.ui.elements.verifyBtn.textContent = this.state.verifyButton;
-            this.ui.updateHintButtonText(null, 0, this.state.hintButton);
+            this.ui.updateGrimoireTitle(this.state.label('grimoireTitle'));
+            this.ui.elements.verifyBtnLabel.textContent = this.state.label('verifyButton');
+            this.ui.updateHintButtonText(null, 0, this.state.label('hintButton'));
             
             // Update page titles
             const adventureTitle = this.state.meta?.title || DEFAULT_TEXT.ADVENTURE_TITLE;

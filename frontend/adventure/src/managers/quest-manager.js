@@ -65,7 +65,7 @@ export class QuestManager {
         // Reset UI
         this.ui.resetQuestUI();
         this.ui.updateQuestFooterVisibility();
-        this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.hintButton);
+        this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.label('hintButton'));
         
         // Render lore
         this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
@@ -129,7 +129,7 @@ export class QuestManager {
 
         // Show Start Adventure button
         this.ui.elements.startAdventureBtn.classList.remove('hidden');
-        this.ui.elements.startAdventureBtn.textContent = this.state.beginAdventureButton || DEFAULT_TEXT.BEGIN_ADVENTURE;
+        this.ui.elements.startAdventureBtn.textContent = this.state.label('beginAdventureButton');
         
         // Move start adventure button to quest footer
         const footer = document.querySelector('.quest-footer');
@@ -190,7 +190,7 @@ export class QuestManager {
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (!perfectScoreBtn) return;
 
-        perfectScoreBtn.textContent = this.state.perfectScoreButtonText || DEFAULT_TEXT.PERFECT_SCORE_BUTTON;
+        perfectScoreBtn.textContent = this.state.label('perfectScoreButtonText');
         perfectScoreBtn.classList.remove('hidden');
 
         this.ui.updateQuestFooterVisibility();
@@ -302,7 +302,7 @@ export class QuestManager {
             this.ui.elements.hintsList.appendChild(hintItem);
             
             this.state.currentQuestHintsUsed++;
-            this.ui.updateHintButtonText(this.state.currentQuest, currentHintsCount + 1, this.state.hintButton);
+            this.ui.updateHintButtonText(this.state.currentQuest, currentHintsCount + 1, this.state.label('hintButton'));
         } else if (this.state.currentQuest.solution) {
             // Show solution
             const template = document.getElementById('hint-solution-template');
