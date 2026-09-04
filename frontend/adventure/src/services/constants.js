@@ -43,7 +43,6 @@ export const SCORING = {
  * Timing and animation constants (in milliseconds)
  */
 export const TIMING = {
-    MUSIC_LOOP_DELAY: 10000,        // 10 seconds between music loops
     FADE_DURATION: 250,              // Audio fade in/out duration
     TUTORIAL_FOCUS_DELAY: 100,       // Delay before focusing tutorial elements
     TUTORIAL_SHOW_DELAY: 250,        // Delay before showing tutorial after quest load
@@ -64,8 +63,7 @@ export const UI = {
  * Audio settings
  */
 export const AUDIO = {
-    DEFAULT_VOLUME: 0.5,             // Default background music volume (0-1)
-    FADE_TARGET_VOLUME: 0            // Target volume when fading out
+    DEFAULT_VOLUME: 0.5              // Default background music volume (0-1)
 };
 
 /**

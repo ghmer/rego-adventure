@@ -16,7 +16,12 @@
 
 /**
  * Audio Manager
- * Handles background music playback and controls
+ * Handles background music playback and controls.
+ *
+ * Music plays once per toggle: when the track ends, the button returns
+ * to its off state and the user can start it again. Volume is handled
+ * through a Web Audio GainNode for click-free ramps; the AudioContext
+ * is created lazily on the first user-initiated play (autoplay policy).
  */
 
 import { AUDIO, TIMING } from '../services/constants.js';
@@ -29,7 +34,9 @@ export class AudioManager {
         this.ui = uiManager;
         this.isMusicPlaying = false;
         this.musicRingCircumference = 0;
-        
+        this.audioCtx = null;
+        this.gainNode = null;
+
         // Store bound functions once to avoid memory leaks from repeated .bind() calls
         this.boundHandleMusicEnded = this.handleMusicEnded.bind(this);
         this.boundUpdateMusicProgress = this.updateMusicProgress.bind(this);
@@ -41,12 +48,74 @@ export class AudioManager {
      */
     setupMusic(packId) {
         this.ui.elements.bgMusic.src = `/quests/${packId}/assets/bg-music.m4a`;
-        this.ui.elements.bgMusic.volume = AUDIO.DEFAULT_VOLUME;
+        // The element feeds the gain node; loudness is controlled there
+        this.ui.elements.bgMusic.volume = 1;
         this.isMusicPlaying = false;
         this.ui.elements.bgMusic.pause();
         this.updateMusicButton();
-        this.setupMusicLoop();
+        this.setupMusicListeners();
         this.initMusicProgress();
+        this.setGain(AUDIO.DEFAULT_VOLUME);
+    }
+
+    /**
+     * Create the AudioContext graph lazily on the first user-initiated
+     * play. createMediaElementSource can only be called once per element,
+     * and the context must be created/resumed inside a user gesture.
+     * @returns {boolean} True when the gain node is available
+     */
+    ensureAudioGraph() {
+        if (this.gainNode) {
+            if (this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+            }
+            return true;
+        }
+
+        try {
+            this.audioCtx = new AudioContext();
+            const source = this.audioCtx.createMediaElementSource(this.ui.elements.bgMusic);
+            this.gainNode = this.audioCtx.createGain();
+            this.gainNode.gain.value = AUDIO.DEFAULT_VOLUME;
+            source.connect(this.gainNode);
+            this.gainNode.connect(this.audioCtx.destination);
+            return true;
+        } catch (e) {
+            // No Web Audio support: fall back to plain element playback
+            console.warn('Web Audio unavailable, using element volume:', e);
+            this.audioCtx = null;
+            this.gainNode = null;
+            this.ui.elements.bgMusic.volume = AUDIO.DEFAULT_VOLUME;
+            return false;
+        }
+    }
+
+    /**
+     * Set the gain node value immediately
+     * @param {number} value - Gain value (0-1); no-op without a graph
+     */
+    setGain(value) {
+        if (this.gainNode) {
+            this.gainNode.gain.value = value;
+        }
+    }
+
+    /**
+     * Ramp the gain node to a target value, replacing any scheduled ramp
+     * @param {number} targetValue - Target gain (0-1); no-op without a graph
+     * @param {number} duration - Ramp duration in ms
+     * @returns {Promise} Resolves when the ramp is scheduled
+     */
+    rampGain(targetValue, duration) {
+        if (!this.gainNode) return Promise.resolve();
+
+        const gain = this.gainNode.gain;
+        const startTime = this.audioCtx.currentTime;
+
+        gain.cancelScheduledValues(startTime);
+        gain.setValueAtTime(gain.value, startTime);
+        gain.linearRampToValueAtTime(targetValue, startTime + duration / 1000);
+        return Promise.resolve();
     }
 
     /**
@@ -54,13 +123,13 @@ export class AudioManager {
      */
     initMusicProgress() {
         if (!this.ui.elements.musicProgressRing) return;
-        
+
         const radius = this.ui.elements.musicProgressRing.r.baseVal.value;
         const circumference = radius * 2 * Math.PI;
-        
+
         this.ui.elements.musicProgressRing.style.strokeDasharray = `${circumference} ${circumference}`;
         this.ui.elements.musicProgressRing.style.strokeDashoffset = circumference;
-        
+
         this.musicRingCircumference = circumference;
     }
 
@@ -69,10 +138,10 @@ export class AudioManager {
      */
     updateMusicProgress() {
         if (!this.ui.elements.musicProgressRing || !this.musicRingCircumference) return;
-        
+
         const duration = this.ui.elements.bgMusic.duration;
         const currentTime = this.ui.elements.bgMusic.currentTime;
-        
+
         if (duration > 0) {
             const progress = currentTime / duration;
             const offset = this.musicRingCircumference - (progress * this.musicRingCircumference);
@@ -81,95 +150,49 @@ export class AudioManager {
     }
 
     /**
-     * Setup music loop with delay
+     * Setup music event listeners
      */
-    setupMusicLoop() {
+    setupMusicListeners() {
         this.ui.elements.bgMusic.removeEventListener('ended', this.boundHandleMusicEnded);
         this.ui.elements.bgMusic.removeEventListener('timeupdate', this.boundUpdateMusicProgress);
-        
+
         this.ui.elements.bgMusic.addEventListener('ended', this.boundHandleMusicEnded);
         this.ui.elements.bgMusic.addEventListener('timeupdate', this.boundUpdateMusicProgress);
     }
 
     /**
-     * Handle music ended event
+     * Handle music ended event: the track plays once per toggle, so the
+     * ring returns to its initial state and the button to its off state
      */
     handleMusicEnded() {
-        // Ensure ring is full when song ends
-        if (this.ui.elements.musicProgressRing) {
-            this.ui.elements.musicProgressRing.style.strokeDashoffset = 0;
-        }
+        // Reset ring to its initial (empty) state
+        this.initMusicProgress();
 
         if (this.isMusicPlaying) {
-            const originalVolume = this.ui.elements.bgMusic.volume;
-            
-            // Fade out to eliminate click sound
-            this.fadeVolume(AUDIO.FADE_TARGET_VOLUME, TIMING.FADE_DURATION).then(() => {
-                // Wait before replaying
-                setTimeout(() => {
-                    if (this.isMusicPlaying) {
-                        // Reset ring before playing
-                        if (this.ui.elements.musicProgressRing && this.musicRingCircumference) {
-                            this.ui.elements.musicProgressRing.style.strokeDashoffset = this.musicRingCircumference;
-                        }
-                        
-                        // Reset position while volume is at 0
-                        this.ui.elements.bgMusic.currentTime = 0;
-                        this.ui.elements.bgMusic.play().then(() => {
-                            // Fade in after playback starts
-                            this.fadeVolume(originalVolume, TIMING.FADE_DURATION);
-                        }).catch(e => {
-                            console.error("Audio replay failed:", e);
-                            this.isMusicPlaying = false;
-                            this.updateMusicButton();
-                        });
-                    }
-                }, TIMING.MUSIC_LOOP_DELAY);
-            });
+            this.isMusicPlaying = false;
+            this.updateMusicButton();
         }
     }
 
     /**
-     * Smoothly fade audio volume using requestAnimationFrame for smooth animation
-     * @param {number} targetVolume - Target volume (0-1)
-     * @param {number} duration - Fade duration in ms
-     * @returns {Promise} Resolves when fade is complete (when progress reaches 1)
-     */
-    fadeVolume(targetVolume, duration) {
-        return new Promise((resolve) => {
-            const startVolume = this.ui.elements.bgMusic.volume;
-            const volumeChange = targetVolume - startVolume;
-            const startTime = performance.now();
-            
-            const updateVolume = () => {
-                const elapsed = performance.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                
-                this.ui.elements.bgMusic.volume = startVolume + (volumeChange * progress);
-                
-                if (progress < 1) {
-                    requestAnimationFrame(updateVolume);
-                } else {
-                    resolve();
-                }
-            };
-            
-            requestAnimationFrame(updateVolume);
-        });
-    }
-
-    /**
-     * Toggle music playback
+     * Toggle music playback (pause/resume keeps the current position)
      */
     toggleMusic() {
         this.isMusicPlaying = !this.isMusicPlaying;
         if (this.isMusicPlaying) {
-            this.ui.elements.bgMusic.play().catch(e => {
+            // AudioContext creation/resume must happen inside a user gesture
+            this.ensureAudioGraph();
+            this.setGain(0);
+            this.ui.elements.bgMusic.play().then(() => {
+                // Short ramp in to avoid the playback start/resume click
+                this.rampGain(AUDIO.DEFAULT_VOLUME, TIMING.FADE_DURATION);
+            }).catch(e => {
                 console.error("Audio play failed:", e);
                 this.isMusicPlaying = false;
             });
         } else {
             this.ui.elements.bgMusic.pause();
+            this.setGain(AUDIO.DEFAULT_VOLUME);
         }
         this.updateMusicButton();
     }
