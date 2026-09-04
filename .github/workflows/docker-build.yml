@@ -16,6 +16,8 @@ concurrency:
 jobs:
   frontend-lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     name: Lint frontend
     steps:
       - name: Checkout repository
@@ -26,12 +28,14 @@ jobs:
         with:
           node-version: '26.7.0'
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      # Ephemeral, pinned toolchain: installed on the runner only
+      # (--no-save leaves package.json untouched), never committed.
+      - name: Install pinned eslint toolchain
+        run: npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0
         working-directory: frontend/adventure
 
       - name: Run eslint
-        run: npm run lint
+        run: npx eslint src
         working-directory: frontend/adventure
 
   build-and-push:
