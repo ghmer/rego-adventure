@@ -59,9 +59,6 @@ body {
     --z-base: 1;
     --z-overlay: 100;
     --z-modal: 1000;
-    --z-tutorial-overlay: 1500;
-    --z-tutorial-spotlight: 1600;
-    --z-tutorial-tooltip: 1700;
     --z-tutorial-prompt: 2000;
     
     /* Transitions */
