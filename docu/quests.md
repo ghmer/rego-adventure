@@ -92,6 +92,4 @@ All text fields in the quest JSON structure are validated against maximum length
 
 ### Test Payload Limits
 
-- `test.payload`: 50KB maximum (JSON serialized size)
-- `test.payload.input`: 50KB maximum (JSON serialized size)
-- `test.payload.data`: 50KB maximum (JSON serialized size)
+- `test.payload`: 50KB maximum (total JSON serialized size; enforced server-side during quest pack validation and in the quest editor HTML forms)

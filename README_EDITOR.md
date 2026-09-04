@@ -160,4 +160,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## Copyright
 
-Copyrigh 2025 Mario Enrico Ragucci - see [COPYRIGHT.md](COPYRIGHT.md) for details.
+Copyright 2025 Mario Enrico Ragucci - see [COPYRIGHT.md](COPYRIGHT.md) for details.
