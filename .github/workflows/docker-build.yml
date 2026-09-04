@@ -14,8 +14,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  frontend-lint:
+    runs-on: ubuntu-latest
+    name: Lint frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26.7.0'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: frontend/adventure
+
+      - name: Run eslint
+        run: npm run lint
+        working-directory: frontend/adventure
+
   build-and-push:
     runs-on: ubuntu-latest
+    needs: frontend-lint
     name: Build and push image (linux/amd64, linux/arm64)
     steps:
       - name: Checkout repository
