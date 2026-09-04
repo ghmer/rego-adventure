@@ -29,17 +29,24 @@ import { AuthService } from './auth-service.js';
  * @param {number} timeout - Timeout in milliseconds (default: 30000)
  * @returns {Promise<Response>} The fetch response
  */
-async function fetchWithAuth(url, options = {}, timeout = 30000) {
+/**
+ * Helper to perform a fetch request with timeout support
+ * @param {string} url - The URL to fetch
+ * @param {Object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds
+ * @returns {Promise<Response>} The fetch response
+ */
+async function performFetch(url, options, timeout) {
     const headers = { 'Content-Type': 'application/json' };
     const token = await AuthService.getToken();
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     // Create abort controller for timeout support
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
+
     const config = {
         ...options,
         headers: {
@@ -48,7 +55,7 @@ async function fetchWithAuth(url, options = {}, timeout = 30000) {
         },
         signal: controller.signal
     };
-    
+
     try {
         return await fetch(url, config);
     } catch (error) {
@@ -59,6 +66,22 @@ async function fetchWithAuth(url, options = {}, timeout = 30000) {
     } finally {
         clearTimeout(timeoutId);
     }
+}
+
+/**
+ * Helper to perform authenticated fetch requests with timeout support.
+ * On a 401 response the token is renewed once and the request retried.
+ * @param {string} url - The URL to fetch
+ * @param {Object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds (default: 30000)
+ * @returns {Promise<Response>} The fetch response
+ */
+async function fetchWithAuth(url, options = {}, timeout = 30000) {
+    let response = await performFetch(url, options, timeout);
+    if (response.status === 401 && (await AuthService.renewToken())) {
+        response = await performFetch(url, options, timeout);
+    }
+    return response;
 }
 
 /**
