@@ -73,62 +73,48 @@ export class GameState {
     /**
      * Load state for a specific pack from localStorage
      * @param {string} packId - The pack identifier
+     * @returns {Object|null} The loaded batched state, or null when no
+     * valid saved state exists
      */
     loadPackState(packId) {
-        // Try to load from batched state first
         const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
-        
-        if (packedState) {
-            try {
-                const state = JSON.parse(packedState);
-                this.currentQuestId = state.questId || 0;
-                this.totalScore = state.totalScore || 0;
-                this.questScores = state.questScores || {};
-                this.activeQuestId = state.activeQuestId || this.currentQuestId;
-                return;
-            } catch (e) {
-                // Fall back to individual keys if parsing fails
-            }
+        if (!packedState) return null;
+
+        try {
+            const state = JSON.parse(packedState);
+            this.currentQuestId = state.questId || 0;
+            this.totalScore = state.totalScore || 0;
+            this.questScores = state.questScores || {};
+            this.activeQuestId = state.activeQuestId || this.currentQuestId;
+            return state;
+        } catch (e) {
+            console.warn(`Ignoring corrupt saved state for pack "${packId}":`, e);
+            return null;
         }
-        
-        // Fallback: load from individual keys (for backwards compatibility)
-        this.currentQuestId = parseInt(
-            getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0')
-        ) || 0;
-        
-        this.totalScore = parseInt(
-            getLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, packId), '0')
-        ) || 0;
-        
-        this.questScores = JSON.parse(
-            getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, packId), '{}')
-        );
-        
-        this.activeQuestId = parseInt(
-            getLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, packId), '0')
-        ) || this.currentQuestId;
     }
-    
+
     /**
      * Set the current pack and initialize its state
      * @param {string} packId - The pack identifier
-     * @param {boolean} isResuming - Whether resuming an existing adventure
+     * @returns {Object|null} The loaded batched state when resuming an
+     * adventure, or null when starting fresh (state was reset)
      */
-    setCurrentPack(packId, isResuming = false) {
+    setCurrentPack(packId) {
         this.currentPackId = packId;
         setLocalStorage(STORAGE_KEYS.PACK_ID, packId);
-        
-        if (!isResuming) {
+
+        const loaded = this.loadPackState(packId);
+        if (!loaded || !loaded.questId) {
             // Starting new adventure - reset everything
             this.currentQuestId = 0;
             this.activeQuestId = 0;
             this.totalScore = 0;
             this.questScores = {};
             this.savePackState();
-        } else {
-            // Resuming - load saved state
-            this.loadPackState(packId);
+            return null;
         }
+
+        return loaded;
     }
     
     /**

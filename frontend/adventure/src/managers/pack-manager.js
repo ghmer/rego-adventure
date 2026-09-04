@@ -23,7 +23,6 @@ import { fetchPacks, fetchPackDetails } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { DEFAULT_TEXT, TIMING } from '../services/constants.js';
 import { tutorial } from '../tutorial.js';
-import { getLocalStorage, getPackKey, STORAGE_KEYS } from '../services/storage-service.js';
 
 /**
  * Manages quest packs and theming
@@ -195,30 +194,10 @@ export class PackManager {
         }
         this.ui.updateQuestFooterVisibility();
 
-        // Check if resuming by looking at localStorage (supports both old and new key formats)
-        let isResuming = false;
-        
-        // First check new PACK_STATE format
-        const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
-        if (packedState) {
-            try {
-                const state = JSON.parse(packedState);
-                isResuming = state.questId > 0;
-            } catch (e) {
-                // Fall back to old format
-            }
-        }
-        
-        // If not found in new format, check old individual keys
-        if (!isResuming) {
-            const savedQuestId = parseInt(
-                getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0')
-            ) || 0;
-            isResuming = savedQuestId > 0;
-        }
-        
-        // Set pack in state
-        this.state.setCurrentPack(packId, isResuming);
+        // Set pack in state; the returned loaded state tells us whether
+        // there is saved progress to resume
+        const loaded = this.state.setCurrentPack(packId);
+        const isResuming = loaded !== null;
 
         // Load pack details (errors are shown via handleApiError in loadPack)
         await this.loadPack(packId);

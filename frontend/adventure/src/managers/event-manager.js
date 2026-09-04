@@ -275,10 +275,11 @@ export class EventManager {
         // Clear all grimoires for this adventure
         clearAllGrimoires(this.state.currentPackId);
         
-        // Clear storage - remove pack-specific scores
+        // Clear storage - remove pack-specific scores and legacy keys
         removeLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, this.state.currentPackId));
         removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, this.state.currentPackId));
         removeLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, this.state.currentPackId));
+        removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, this.state.currentPackId));
         
         // Reset state
         this.state.resetProgress();

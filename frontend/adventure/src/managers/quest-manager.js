@@ -19,7 +19,7 @@
  * Handles quest loading, navigation, and state management
  */
 
-import { getLocalStorage, setLocalStorage, getPackKey, STORAGE_KEYS } from '../services/storage-service.js';
+import { getLocalStorage, getPackKey } from '../services/storage-service.js';
 import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
 
 /**
@@ -39,7 +39,7 @@ export class QuestManager {
         // Handle Prologue
         if (questId === 0) {
             this.showPrologue();
-            setLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, this.state.currentPackId), 0);
+            this.state.setCurrentQuest(0);
             return;
         }
 
@@ -49,7 +49,7 @@ export class QuestManager {
             if (this.state.quests.length > 0 && questId > this.state.quests.length) {
                 // Completed all quests - show epilogue
                 this.showEpilogue();
-                setLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, this.state.currentPackId), questId);
+                this.state.setCurrentQuest(questId);
                 return;
             }
             console.error(`Quest ${questId} not found`);
@@ -284,8 +284,7 @@ export class QuestManager {
         }
         
         this.state.activeQuestId = this.state.currentQuestId;
-        setLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, this.state.currentPackId), this.state.activeQuestId);
-        
+
         this.loadQuest(this.state.currentQuestId);
     }
 
