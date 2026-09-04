@@ -19,13 +19,7 @@
  * Simple, lightweight toast notification system
  */
 
-// Error level constants (defined locally to avoid circular dependency)
-const ErrorLevel = {
-    INFO: 'info',
-    WARNING: 'warning',
-    ERROR: 'error',
-    CRITICAL: 'critical'
-};
+import { ErrorLevel } from './constants.js';
 
 // Toast configuration
 const TOAST_DURATION = {

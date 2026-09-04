@@ -21,16 +21,7 @@
 
 import { showToast } from './toast-service.js';
 import { ApiError } from './api-service.js';
-
-/**
- * Error severity levels
- */
-export const ErrorLevel = {
-    INFO: 'info',
-    WARNING: 'warning',
-    ERROR: 'error',
-    CRITICAL: 'critical'
-};
+import { ErrorLevel } from './constants.js';
 
 /**
  * Display an error message to the user
@@ -70,50 +61,4 @@ export function handleApiError(error, context) {
     }
 
     showError(`Failed to ${context}. ${hint}`, ErrorLevel.ERROR);
-}
-
-/**
- * Handle storage errors
- * @param {Error} error - The error object
- * @param {string} operation - The storage operation that failed
- */
-export function handleStorageError(error, operation) {
-    console.error(`Storage Error during ${operation}:`, error);
-    
-    // Storage errors are usually not critical to user experience
-    // Log but don't show alert
-    console.warn(`localStorage ${operation} failed. Some progress may not be saved.`);
-}
-
-/**
- * Wrap an async function with error handling
- * @param {Function} fn - The async function to wrap
- * @param {string} context - Context for error messages
- * @returns {Function} Wrapped function with error handling
- */
-export function withErrorHandling(fn, context) {
-    return async (...args) => {
-        try {
-            return await fn(...args);
-        } catch (error) {
-            handleApiError(error, context);
-            throw error; // Re-throw so caller can handle if needed
-        }
-    };
-}
-
-/**
- * Log an informational message
- * @param {string} message - The message to log
- */
-export function logInfo(message) {
-    console.info('[INFO]', message);
-}
-
-/**
- * Log a warning message
- * @param {string} message - The warning message
- */
-export function logWarning(message) {
-    console.warn('[WARNING]', message);
 }

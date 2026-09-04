@@ -37,19 +37,17 @@ export class GameState {
         this.currentQuestId = 0;
         this.currentQuest = null;
         this.currentLoreIndex = 0;
-        this.isMusicPlaying = false;
-        
+
         // Scoring
         this.totalScore = 0;
         this.questScores = {};
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
-        
+
         // Navigation
-        this.questHistory = [];
         this.isHistoryMode = false;
         this.activeQuestId = 0;
-        
+
         // UI Labels (loaded from pack metadata)
         this.uiLabels = {};
         this.grimoireTitle = '';
@@ -60,10 +58,7 @@ export class GameState {
         this.perfectScoreMessage = '';
         this.perfectScoreButtonText = '';
         this.beginAdventureButton = '';
-        
-        // Music progress ring
-        this.musicRingCircumference = 0;
-        
+
         // Load pack-specific data if pack is set
         if (this.currentPackId) {
             this.loadPackState(this.currentPackId);
@@ -275,9 +270,8 @@ export class GameState {
         this.questScores = {};
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
-        this.questHistory = [];
         this.isHistoryMode = false;
-        
+
         this.savePackState();
     }
 }
