@@ -185,6 +185,7 @@ export class PackManager {
     /**
      * Start an adventure (new or resume)
      * @param {string} packId - Pack identifier
+     * @throws {Error} If the pack details fail to load
      */
     async startAdventure(packId) {
         // Hide perfect score button when starting new adventure
@@ -218,27 +219,20 @@ export class PackManager {
         
         // Set pack in state
         this.state.setCurrentPack(packId, isResuming);
-        
-        // Load pack details
-        try {
-            await this.loadPack(packId);
-        } catch (error) {
-            // Error already shown via handleApiError in loadPack
-            return false;
-        }
-        
+
+        // Load pack details (errors are shown via handleApiError in loadPack)
+        await this.loadPack(packId);
+
         // Show game interface
         this.ui.showScreen('game');
         this.ui.updateScoreDisplay(this.state.totalScore);
-        
+
         // Show tutorial prompt when entering an adventure (not when resuming)
         if (!isResuming) {
             setTimeout(() => {
                 tutorial.showTutorialPrompt();
             }, TIMING.TUTORIAL_SHOW_DELAY);
         }
-        
-        return isResuming;
     }
 
     /**

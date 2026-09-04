@@ -85,14 +85,18 @@ async function init() {
         // Load pack list
         const packs = await packManager.loadPackList();
         uiManager.renderPackList(packs, async (packId) => {
-            const isResuming = await packManager.startAdventure(packId);
-            questManager.loadQuest(state.currentQuestId);
+            try {
+                await packManager.startAdventure(packId);
+                questManager.loadQuest(state.currentQuestId);
+            } catch (e) {
+                console.error("Failed to start adventure:", e);
+            }
         });
-        
+
         // If we have a saved pack and quest, try to resume
         if (state.currentPackId && state.currentQuestId >= 0) {
             try {
-                const isResuming = await packManager.startAdventure(state.currentPackId);
+                await packManager.startAdventure(state.currentPackId);
                 questManager.loadQuest(state.currentQuestId);
             } catch (e) {
                 console.error("Failed to resume:", e);
