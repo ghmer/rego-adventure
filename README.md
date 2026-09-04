@@ -47,7 +47,7 @@ The system breaks down into two main parts. A Go backend handles HTTP requests, 
 
 ## Prerequisites
 
-You'll need Go 1.25 or higher. Docker is optional but useful for containerized deployment, and Kubernetes if you are going that route.
+You'll need Go 1.27 or higher. Docker is optional but useful for containerized deployment, and Kubernetes if you are going that route.
 
 ## Installation
 
@@ -145,19 +145,26 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 .
 ├── main.go                # Application entry point
 ├── cmd/
-│   └── assetgen/          # Quest pack asset generator
+│   ├── assetgen/          # Quest pack asset generator
+│   ├── importmapgen/      # Quest editor import map generator
+│   └── solutionverifier/  # Quest pack solution verifier
 ├── backend/
 │   ├── config/            # Configuration management
 │   ├── http/              # HTTP server and routing
+│   ├── logger/            # Logging setup
 │   └── quest/             # Quest system logic
 ├── frontend/
 │   ├── adventure/         # Main game interface
 │   ├── quests/            # Quest packs (JSON + assets)
 │   └── shared/            # Shared CSS, fonts, and resources
 ├── docu/
-│   └── deploy/            # Deployment configurations
-│       ├── docker/        # Docker Compose
-│       └── k8s/           # Kubernetes manifests
+│   ├── deploy/            # Deployment configurations
+│   │   ├── docker/        # Docker Compose
+│   │   └── k8s/           # Kubernetes manifests
+│   ├── images/            # Documentation images
+│   ├── quest-editor/      # Browser-based quest editor
+│   ├── utilities/         # Documentation utilities
+│   └── quests.md          # Quest pack format documentation
 ├── Dockerfile             # Multi-stage container build
 └── go.mod                 # Go dependencies
 ```

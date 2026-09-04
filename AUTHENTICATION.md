@@ -29,14 +29,15 @@ sequenceDiagram
     B->>I: 3. Login at IDP
     I-->>B: 4. Redirect with code
     B->>F: 4. Redirect with code
-    F->>Be: 5. Exchange code for tokens
-    Be->>I: 5. Exchange code for tokens
-    I-->>Be: 5. Return tokens
-    Be-->>F: 5. Return tokens
+    F->>I: 5. Exchange code for tokens (PKCE, via oidc-client-ts)
+    I-->>F: 5. Return tokens
     F->>Be: 6. API calls with Bearer token
+    Be->>I: 7. Fetch JWKS (via OIDC discovery)
     Be->>Be: 7. Validate JWT (signature, issuer, audience, expiration)
     Be-->>F: 8. Response
 ```
+
+Note: the backend never exchanges the authorization code. The code-for-token exchange happens directly between the frontend SPA and the IDP in the browser. The backend only receives and validates Bearer JWTs on API calls.
 
 ## Environment Variables
 
@@ -44,7 +45,7 @@ You'll need to set these environment variables to enable and configure authentic
 
 | Variable             | Required     | Description                                    | Example                                                                        |
 | -------------------- | ------------ | ---------------------------------------------- | ------------------------------------------------------------------------------ |
-| `AUTH_ENABLED`       | Yes          | Enable/disable authentication                  | `true` or `false`                                                              |
+| `AUTH_ENABLED`       | No (default `false`) | Enable/disable authentication                  | `true` or `false`                                                              |
 | `AUTH_ISSUER`        | When enabled | OIDC issuer URL (must match token `iss` claim) | `https://keycloak.example.com/realms/myrealm`                                  |
 | `AUTH_DISCOVERY_URL` | When enabled | OIDC discovery endpoint URL                    | `https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration` |
 | `AUTH_CLIENT_ID`     | When enabled | OAuth2 client identifier                       | `rego-adventure`                                                               |
