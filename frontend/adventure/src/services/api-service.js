@@ -23,12 +23,26 @@ import { API } from './constants.js';
 import { AuthService } from './auth-service.js';
 
 /**
- * Helper to perform authenticated fetch requests with timeout support
- * @param {string} url - The URL to fetch
- * @param {Object} options - Fetch options
- * @param {number} timeout - Timeout in milliseconds (default: 30000)
- * @returns {Promise<Response>} The fetch response
+ * Error thrown by API calls, carrying the HTTP status and response body
+ * so error handling can branch on data instead of message-sniffing.
+ * A status of 0 means the request never got a response
+ * (network failure or timeout).
  */
+export class ApiError extends Error {
+    /**
+     * @param {string} message - Human-readable error message
+     * @param {number} status - HTTP status code, or 0 for network/timeout errors
+     * @param {string} body - Raw response body, when available
+     * @param {Object} [options] - Additional error options (e.g. { cause })
+     */
+    constructor(message, status = 0, body = '', options = {}) {
+        super(message, options);
+        this.name = 'ApiError';
+        this.status = status;
+        this.body = body;
+    }
+}
+
 /**
  * Helper to perform a fetch request with timeout support
  * @param {string} url - The URL to fetch
@@ -37,34 +51,29 @@ import { AuthService } from './auth-service.js';
  * @returns {Promise<Response>} The fetch response
  */
 async function performFetch(url, options, timeout) {
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = { ...options.headers };
+    // Only declare a JSON content type when a body is actually sent
+    if (options.body) {
+        headers['Content-Type'] = 'application/json';
+    }
     const token = await AuthService.getToken();
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // Create abort controller for timeout support
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
     const config = {
         ...options,
-        headers: {
-            ...headers,
-            ...options.headers
-        },
-        signal: controller.signal
+        headers,
+        signal: AbortSignal.timeout(timeout)
     };
 
     try {
         return await fetch(url, config);
     } catch (error) {
-        if (error.name === 'AbortError') {
-            throw new Error(`Request timeout after ${timeout}ms`);
+        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+            throw new ApiError(`Request timeout after ${timeout}ms`, 0, '', { cause: error });
         }
-        throw error;
-    } finally {
-        clearTimeout(timeoutId);
+        throw new ApiError(`Network error: ${error.message}`, 0, '', { cause: error });
     }
 }
 
@@ -75,6 +84,7 @@ async function performFetch(url, options, timeout) {
  * @param {Object} options - Fetch options
  * @param {number} timeout - Timeout in milliseconds (default: 30000)
  * @returns {Promise<Response>} The fetch response
+ * @throws {ApiError} On network failure or timeout
  */
 async function fetchWithAuth(url, options = {}, timeout = 30000) {
     let response = await performFetch(url, options, timeout);
@@ -85,17 +95,31 @@ async function fetchWithAuth(url, options = {}, timeout = 30000) {
 }
 
 /**
+ * Ensure a response is successful, otherwise throw an ApiError that
+ * preserves the HTTP status and response body.
+ * @param {Response} response - The fetch response
+ * @param {string} message - Error message to use when the response failed
+ * @throws {ApiError} If the response is not ok
+ */
+async function ensureOk(response, message) {
+    if (response.ok) return;
+    let body = '';
+    try {
+        body = await response.text();
+    } catch (e) {
+        // body stays empty
+    }
+    throw new ApiError(message, response.status, body);
+}
+
+/**
  * Fetch all available quest packs
  * @returns {Promise<Array>} Array of quest pack summaries
- * @throws {Error} If the request fails
+ * @throws {ApiError} If the request fails
  */
 export async function fetchPacks() {
     const response = await fetchWithAuth(`${API.BASE_URL}/packs`);
-    
-    if (!response.ok) {
-        throw new Error('Failed to fetch packs');
-    }
-    
+    await ensureOk(response, 'Failed to fetch packs');
     return await response.json();
 }
 
@@ -103,15 +127,11 @@ export async function fetchPacks() {
  * Fetch detailed information for a specific quest pack
  * @param {string} packId - The pack identifier
  * @returns {Promise<Object>} Quest pack details including quests, prologue, epilogue, and metadata
- * @throws {Error} If the request fails
+ * @throws {ApiError} If the request fails
  */
 export async function fetchPackDetails(packId) {
     const response = await fetchWithAuth(`${API.BASE_URL}/packs/${packId}`);
-    
-    if (!response.ok) {
-        throw new Error('Failed to fetch pack details');
-    }
-    
+    await ensureOk(response, 'Failed to fetch pack details');
     return await response.json();
 }
 
@@ -120,17 +140,13 @@ export async function fetchPackDetails(packId) {
  * @param {string} packId - The pack identifier
  * @param {number} questId - The quest identifier
  * @returns {Promise<Array>} Array of test payloads with expected outcomes
- * @throws {Error} If the request fails
+ * @throws {ApiError} If the request fails
  */
 export async function fetchTestPayload(packId, questId) {
     const response = await fetchWithAuth(
         `${API.BASE_URL}/packs/${packId}/quests/${questId}/test-payload`
     );
-    
-    if (!response.ok) {
-        throw new Error('Failed to fetch test payload');
-    }
-    
+    await ensureOk(response, 'Failed to fetch test payload');
     return await response.json();
 }
 
@@ -140,21 +156,17 @@ export async function fetchTestPayload(packId, questId) {
  * @param {number} questId - The quest identifier
  * @param {string} code - The Rego code to verify
  * @returns {Promise<Object>} Verification result with pass/fail status and test results
- * @throws {Error} If the request fails
+ * @throws {ApiError} If the request fails
  */
 export async function verifySolution(packId, questId, code) {
     const response = await fetchWithAuth(`${API.BASE_URL}/verify`, {
         method: 'POST',
-        body: JSON.stringify({ 
-            pack_id: packId, 
-            quest_id: questId, 
-            rego_code: code 
+        body: JSON.stringify({
+            pack_id: packId,
+            quest_id: questId,
+            rego_code: code
         })
     });
-    
-    if (!response.ok) {
-        throw new Error('Verification failed');
-    }
-    
+    await ensureOk(response, 'Verification failed');
     return await response.json();
 }

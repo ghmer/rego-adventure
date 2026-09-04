@@ -20,6 +20,7 @@
  */
 
 import { showToast } from './toast-service.js';
+import { ApiError } from './api-service.js';
 
 /**
  * Error severity levels
@@ -49,20 +50,26 @@ export function showError(message, level = ErrorLevel.ERROR) {
 }
 
 /**
- * Handle API errors with user-friendly messages
- * @param {Error} error - The error object
+ * Handle API errors with user-friendly messages, branching on the
+ * error's data (status code) instead of matching message strings
+ * @param {Error} error - The error object (ApiError from api-service)
  * @param {string} context - Context about what operation failed
  */
 export function handleApiError(error, context) {
     console.error(`API Error in ${context}:`, error);
-    
-    const userMessage = `Failed to ${context}. ${
-        error.message.includes('fetch') 
-            ? 'Please check if the server is running.' 
-            : 'Please try again.'
-    }`;
-    
-    showError(userMessage, ErrorLevel.ERROR);
+
+    let hint = 'Please try again.';
+    if (error instanceof ApiError) {
+        if (error.status === 401) {
+            hint = 'Your session has expired. Please log in again.';
+        } else if (error.status === 0) {
+            hint = 'Please check if the server is running.';
+        } else if (error.status >= 500) {
+            hint = 'The server encountered an error. Please try again later.';
+        }
+    }
+
+    showError(`Failed to ${context}. ${hint}`, ErrorLevel.ERROR);
 }
 
 /**
