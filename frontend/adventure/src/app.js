@@ -57,7 +57,16 @@ async function init() {
         uiManager.initEffectsState();
         
         // Load Config and Init Auth
-        await ConfigService.load();
+        // A config failure must not silently disable authentication;
+        // surface a clear error and stop initialization.
+        try {
+            await ConfigService.load();
+        } catch (error) {
+            console.error('Configuration could not be loaded:', error);
+            uiManager.elements.questPackList.innerHTML =
+                '<p>Configuration could not be loaded. Is the backend running? Authentication state is unknown.</p>';
+            return;
+        }
         await AuthService.init();
 
         // Handle impressum footer visibility based on config
@@ -85,14 +94,18 @@ async function init() {
         // Load pack list
         const packs = await packManager.loadPackList();
         uiManager.renderPackList(packs, async (packId) => {
-            const isResuming = await packManager.startAdventure(packId);
-            questManager.loadQuest(state.currentQuestId);
+            try {
+                await packManager.startAdventure(packId);
+                questManager.loadQuest(state.currentQuestId);
+            } catch (e) {
+                console.error("Failed to start adventure:", e);
+            }
         });
-        
+
         // If we have a saved pack and quest, try to resume
         if (state.currentPackId && state.currentQuestId >= 0) {
             try {
-                const isResuming = await packManager.startAdventure(state.currentPackId);
+                await packManager.startAdventure(state.currentPackId);
                 questManager.loadQuest(state.currentQuestId);
             } catch (e) {
                 console.error("Failed to resume:", e);

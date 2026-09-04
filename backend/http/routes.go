@@ -40,7 +40,7 @@ var (
 // SetupRoutes configures all routes and middleware
 func (s *Server) SetupRoutes() {
 	// Apply middleware
-	s.router.Use(SecurityHeaders())
+	s.router.Use(SecurityHeaders(s.config))
 	s.router.Use(BodySizeLimit())
 	s.router.Use(setupCORS(s.config.AllowedOrigin))
 

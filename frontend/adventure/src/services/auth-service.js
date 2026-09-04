@@ -61,12 +61,31 @@ export const AuthService = {
         }
     },
 
+    /**
+     * Attempt a silent token renewal via the UserManager.
+     * @returns {Promise<boolean>} True if a fresh, unexpired token was obtained
+     */
+    async renewToken() {
+        if (!userManager) return false;
+        try {
+            const user = await userManager.signinSilent();
+            return Boolean(user?.access_token && !user.expired);
+        } catch (e) {
+            console.warn('Silent token renewal failed:', e);
+            return false;
+        }
+    },
+
     async getToken() {
         const config = ConfigService.get();
         if (!config || !config.enabled) return null;
 
         const user = await this.getUser();
-        if (user) return user.access_token;
+        if (user && !user.expired) return user.access_token;
+        if (user && (await this.renewToken())) {
+            const renewed = await this.getUser();
+            if (renewed) return renewed.access_token;
+        }
         return null;
     },
 
@@ -75,21 +94,12 @@ export const AuthService = {
     },
     
     async logout() {
-         if (userManager) {
-             // Clear only OIDC-related tokens from storage
-             // Do NOT use localStorage.clear()
-             // as this would delete user progression data
-             
-             // Remove OIDC user data from storage
-             const oidcStorageKey = `oidc.user:${userManager.settings.authority}:${userManager.settings.client_id}`;
-             localStorage.removeItem(oidcStorageKey);
-             
-             // Clear all sessionStorage
-             sessionStorage.clear();
-             
-             // Perform the signout redirect
-             await userManager.signoutRedirect();
-         }
+        if (userManager) {
+            // The UserManager owns its storage and handles cleanup during signout;
+            // manual key removal or sessionStorage.clear() would break in-flight
+            // signout handling and delete unrelated session data.
+            await userManager.signoutRedirect();
+        }
     },
 
     isEnabled() {

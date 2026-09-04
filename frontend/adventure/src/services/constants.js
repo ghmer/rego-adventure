@@ -20,6 +20,16 @@
  */
 
 /**
+ * Error severity levels shared by toast and error services
+ */
+export const ErrorLevel = {
+    INFO: 'info',
+    WARNING: 'warning',
+    ERROR: 'error',
+    CRITICAL: 'critical'
+};
+
+/**
  * Scoring system constants
  */
 export const SCORING = {

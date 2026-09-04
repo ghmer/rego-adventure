@@ -23,7 +23,6 @@ import { verifySolution } from '../services/api-service.js';
 import { setLocalStorage, getPackKey, clearAllGrimoires, removeLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { AuthService } from '../services/auth-service.js';
 import { handleApiError } from '../services/error-service.js';
-import { DEFAULT_TEXT } from '../services/constants.js';
 
 /**
  * Manages all event listeners
@@ -205,6 +204,13 @@ export class EventManager {
      * Setup perfect score modal listeners
      */
     setupPerfectScoreListeners() {
+        const perfectScoreBtn = document.getElementById('perfect-score-btn');
+        if (perfectScoreBtn) {
+            perfectScoreBtn.addEventListener('click', () => {
+                this.modal.showPerfectScore();
+            });
+        }
+
         this.ui.elements.closePerfectScoreBtn.addEventListener('click', () => {
             this.modal.closePerfectScore();
         });
@@ -222,21 +228,25 @@ export class EventManager {
             if (!code.trim()) return;
 
             this.ui.elements.verifyBtn.disabled = true;
-            this.ui.elements.verifyBtn.textContent = "Casting...";
-            
+
             try {
                 const result = await verifySolution(this.state.currentPackId, this.state.currentQuestId, code);
-                this.modal.showResult(result);
-                
-                // Update navigation buttons after quest completion
+
                 if (!result.error && result.passed) {
+                    // Award points here, in the flow that owns the state
+                    // transition; the modal only renders the outcome
+                    const pointsEarned = this.state.completeQuest(this.state.currentQuestId);
+                    this.modal.showResult(result, pointsEarned);
+
+                    // Update navigation buttons after quest completion
                     this.quest.updateQuestNavigationButtons();
+                } else {
+                    this.modal.showResult(result);
                 }
             } catch (e) {
                 handleApiError(e, 'verify solution');
             } finally {
                 this.ui.elements.verifyBtn.disabled = false;
-                this.ui.elements.verifyBtn.textContent = this.state.verifyButton || DEFAULT_TEXT.VERIFY_BUTTON;
             }
         });
     }
@@ -275,10 +285,11 @@ export class EventManager {
         // Clear all grimoires for this adventure
         clearAllGrimoires(this.state.currentPackId);
         
-        // Clear storage - remove pack-specific scores
+        // Clear storage - remove pack-specific scores and legacy keys
         removeLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, this.state.currentPackId));
         removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, this.state.currentPackId));
         removeLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, this.state.currentPackId));
+        removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, this.state.currentPackId));
         
         // Reset state
         this.state.resetProgress();
@@ -290,7 +301,7 @@ export class EventManager {
         // Hide perfect score button if it exists
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (perfectScoreBtn) {
-            perfectScoreBtn.style.display = 'none';
+            perfectScoreBtn.classList.add('hidden');
         }
         
         // Update score display

@@ -23,7 +23,7 @@ import { showConfetti, triggerResultEffect, cleanupEffects } from '../effects.js
 import { fetchTestPayload } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
-import { SCORING, DEFAULT_TEXT } from '../services/constants.js';
+import { SCORING } from '../services/constants.js';
 
 /**
  * Manages modal dialogs
@@ -141,38 +141,37 @@ export class ModalManager {
     /**
      * Show result modal with test results
      * @param {Object} result - Verification result from API
+     * @param {number|null} [pointsEarned=null] - Points earned on success
+     * (computed and persisted by the caller that owns the state transition)
      */
-    showResult(result) {
+    showResult(result, pointsEarned = null) {
         this.ui.elements.resultTestList.innerHTML = '';
-        
+
         const isSuccess = !result.error && result.passed;
-        
+
         // Set icon
         const iconPath = `/quests/${this.state.currentPackId}/assets/${isSuccess ? 'icon-success.png' : 'icon-failure.png'}`;
         this.ui.elements.resultIcon.src = iconPath;
         this.ui.elements.resultIcon.alt = isSuccess ? 'Success - Quest completed' : 'Failure - Quest not completed';
-        
+
         // Set title and message
         if (result.error) {
             this.ui.elements.resultTitle.textContent = "Error";
             this.ui.elements.resultMessage.textContent = result.error;
             this.ui.elements.scoreSummary.classList.add('hidden');
         } else if (isSuccess) {
-            this.ui.elements.resultTitle.textContent = this.state.messageSuccess || DEFAULT_TEXT.MESSAGE_SUCCESS;
+            this.ui.elements.resultTitle.textContent = this.state.label('messageSuccess');
             this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
-            
-            // Complete quest first; completeQuest() returns the points earned and
-            // saves state, so both the display and the saved value are consistent.
-            const pointsEarned = this.state.completeQuest(this.state.currentQuestId);
+
             const pointsPossible = SCORING.POINTS_PER_QUEST;
-            
+
             this.ui.elements.pointsEarned.textContent = pointsEarned;
             this.ui.elements.pointsPossible.textContent = pointsPossible;
             this.ui.elements.scoreSummary.classList.remove('hidden');
-            
+
             this.ui.updateScoreDisplay(this.state.totalScore);
         } else {
-            this.ui.elements.resultTitle.textContent = this.state.messageFailure || DEFAULT_TEXT.MESSAGE_FAILURE;
+            this.ui.elements.resultTitle.textContent = this.state.label('messageFailure');
             this.ui.elements.resultMessage.textContent = "Some tests did not pass. Review the results below.";
             this.ui.elements.scoreSummary.classList.add('hidden');
         }
@@ -195,10 +194,8 @@ export class ModalManager {
                 // Show payload for failed tests
                 const payloadDiv = testItem.querySelector('.test-payload');
                 if (!test.passed && test.input) {
-                    payloadDiv.style.display = 'block';
+                    payloadDiv.classList.add('visible');
                     payloadDiv.querySelector('pre').textContent = JSON.stringify(test.input, null, 2);
-                } else {
-                    payloadDiv.style.display = 'none';
                 }
                 
                 this.ui.elements.resultTestList.appendChild(testItem);
@@ -240,7 +237,7 @@ export class ModalManager {
             this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/icon-success.png`;
         };
         
-        this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.perfectScoreMessage);
+        this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.label('perfectScoreMessage'));
         this.openDialog(this.ui.elements.perfectScoreModal);
         this.ui.elements.closePerfectScoreBtn.focus();
         

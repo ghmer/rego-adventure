@@ -60,6 +60,7 @@ export class UIManager {
             // Editor
             editor: document.getElementById('rego-editor'),
             verifyBtn: document.getElementById('verify-btn'),
+            verifyBtnLabel: document.querySelector('#verify-btn [data-label]'),
             editorPane: document.getElementById('editor-pane'),
             
             // Navigation buttons
@@ -242,11 +243,34 @@ export class UIManager {
         }
         
         if (manual.external_link && manual.external_link.trim() !== '') {
-            const linkSection = clone.querySelector('[data-section="external-link"]');
-            const link = linkSection.querySelector('a');
-            link.href = manual.external_link;
-            this.elements.manualContent.appendChild(linkSection);
+            const safeUrl = this.getSafeExternalUrl(manual.external_link);
+            if (safeUrl) {
+                const linkSection = clone.querySelector('[data-section="external-link"]');
+                const link = linkSection.querySelector('a');
+                link.href = safeUrl;
+                this.elements.manualContent.appendChild(linkSection);
+            }
         }
+    }
+
+    /**
+     * Validate an external link and return a safe URL, or null if the
+     * value is not an absolute http(s) URL (blocks javascript:/data: and
+     * relative values, matching the backend pack validation)
+     * @param {string} value - Raw external link from quest pack data
+     * @returns {string|null} Absolute http(s) URL or null
+     */
+    getSafeExternalUrl(value) {
+        try {
+            const url = new URL(value);
+            if (url.protocol === 'https:' || url.protocol === 'http:') {
+                return url.href;
+            }
+        } catch (e) {
+            // fall through
+        }
+        console.warn('Rejected unsafe manual external link:', value);
+        return null;
     }
 
     /**
@@ -265,8 +289,7 @@ export class UIManager {
             const expectedSpan = testCase.querySelector('.test-case-expected');
             const expectedValue = test.expected_value;
             expectedSpan.textContent = `Expected: ${expectedValue}`;
-            expectedSpan.style.background = expectedValue ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)';
-            expectedSpan.style.color = expectedValue ? '#4caf50' : '#f44336';
+            expectedSpan.classList.add(expectedValue ? 'expected-true' : 'expected-false');
             
             testCase.querySelector('.test-case-input-data').textContent =
                 JSON.stringify(test.payload.input, null, 2);
@@ -314,18 +337,20 @@ export class UIManager {
     }
 
     /**
-     * Update quest footer visibility based on button states
+     * Update quest footer visibility based on button states.
+     * Element visibility is managed exclusively via the `hidden` class;
+     * the footer's flex layout comes from CSS when visible.
      */
     updateQuestFooterVisibility() {
         const footer = document.querySelector('.quest-footer');
         if (!footer) return;
-        
+
         const buttons = footer.querySelectorAll('button');
         const hasVisibleButton = Array.from(buttons).some(button =>
-            button.style.display !== 'none' && !button.classList.contains('hidden')
+            !button.classList.contains('hidden')
         );
-        
-        footer.style.display = hasVisibleButton ? 'flex' : 'none';
+
+        footer.classList.toggle('hidden', !hasVisibleButton);
     }
 
     /**
@@ -350,7 +375,7 @@ export class UIManager {
         this.elements.startAdventureBtn.classList.add('hidden');
         this.elements.hintsList.classList.add('hidden');
         this.elements.hintsList.innerHTML = '';
-        this.elements.hintBtn.style.display = 'inline-block';
+        this.elements.hintBtn.classList.remove('hidden');
         this.elements.editorPane.classList.remove('hidden');
         this.elements.editor.disabled = false;
         this.elements.verifyBtn.disabled = false;
@@ -450,20 +475,19 @@ export class UIManager {
      */
     updateAuthUI(isAuthenticated, authEnabled) {
         if (!authEnabled) {
-            this.elements.loginContainer.style.display = 'none';
-            this.elements.logoutBtn.style.display = 'none';
+            this.elements.loginContainer.classList.add('hidden');
+            this.elements.logoutBtn.classList.add('hidden');
             return;
         }
 
         if (isAuthenticated) {
-            this.elements.logoutBtn.style.display = 'inline-block';
-            this.elements.loginContainer.style.display = 'none';
-            this.elements.questPackList.style.display = 'block';
+            this.elements.logoutBtn.classList.remove('hidden');
+            this.elements.loginContainer.classList.add('hidden');
+            this.elements.questPackList.classList.remove('hidden');
         } else {
             this.elements.loginContainer.classList.remove('hidden');
-            this.elements.loginContainer.style.display = 'block';
-            this.elements.questPackList.style.display = 'none';
-            this.elements.logoutBtn.style.display = 'none';
+            this.elements.questPackList.classList.add('hidden');
+            this.elements.logoutBtn.classList.add('hidden');
         }
     }
 
@@ -473,8 +497,8 @@ export class UIManager {
      */
     updateImpressumVisibility(show) {
         const impressumFooter = document.querySelector('.start-footer');
-        if (impressumFooter && !show) {
-            impressumFooter.style.display = 'none';
+        if (impressumFooter) {
+            impressumFooter.classList.toggle('hidden', !show);
         }
     }
 }

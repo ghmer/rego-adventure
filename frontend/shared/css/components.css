@@ -691,6 +691,16 @@ dialog#result-modal[open] {
     color: var(--accent-color);
 }
 
+.test-case-expected.expected-true {
+    background: rgba(76, 175, 80, 0.3);
+    color: #4caf50;
+}
+
+.test-case-expected.expected-false {
+    background: rgba(244, 67, 54, 0.3);
+    color: #f44336;
+}
+
 .test-case-input,
 .test-case-data {
     margin-bottom: 0.75em;

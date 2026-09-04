@@ -23,13 +23,15 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/ghmer/rego-adventure/backend/config"
 )
 
 // ==================== SecurityHeaders Tests ====================
 
 func TestSecurityHeaders_AreSet(t *testing.T) {
 	router := gin.New()
-	router.Use(SecurityHeaders())
+	router.Use(SecurityHeaders(nil))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -54,7 +56,7 @@ func TestSecurityHeaders_AreSet(t *testing.T) {
 
 func TestSecurityHeaders_CSPIsPresent(t *testing.T) {
 	router := gin.New()
-	router.Use(SecurityHeaders())
+	router.Use(SecurityHeaders(nil))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -78,7 +80,7 @@ func TestSecurityHeaders_CSPIsPresent(t *testing.T) {
 
 func TestSecurityHeaders_CSPFrameAncestorsNone(t *testing.T) {
 	router := gin.New()
-	router.Use(SecurityHeaders())
+	router.Use(SecurityHeaders(nil))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -90,6 +92,55 @@ func TestSecurityHeaders_CSPFrameAncestorsNone(t *testing.T) {
 	csp := w.Header().Get("Content-Security-Policy")
 	if !strings.Contains(csp, "frame-ancestors 'none'") {
 		t.Errorf("CSP should contain \"frame-ancestors 'none'\", got: %s", csp)
+	}
+}
+
+func TestSecurityHeaders_CSPAddsIssuerOriginWhenAuthEnabled(t *testing.T) {
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			Enabled:      true,
+			Issuer:       "https://id.example.com/realms/demo",
+			DiscoveryURL: "https://id.example.com/realms/demo/.well-known/openid-configuration",
+		},
+	}
+
+	router := gin.New()
+	router.Use(SecurityHeaders(cfg))
+	router.GET("/test", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	router.ServeHTTP(w, req)
+
+	csp := w.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "connect-src 'self' https://esm.sh https://id.example.com") {
+		t.Errorf("CSP should allow the configured OIDC issuer origin in connect-src, got: %s", csp)
+	}
+}
+
+func TestSecurityHeaders_CSPSkipsInvalidIssuer(t *testing.T) {
+	cfg := &config.Config{
+		Auth: config.AuthConfig{
+			Enabled: true,
+			Issuer:  "javascript:alert(1)",
+		},
+	}
+
+	router := gin.New()
+	router.Use(SecurityHeaders(cfg))
+	router.GET("/test", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	router.ServeHTTP(w, req)
+
+	csp := w.Header().Get("Content-Security-Policy")
+	if strings.Contains(csp, "javascript:") {
+		t.Errorf("CSP must not include non-http(s) issuer origins, got: %s", csp)
 	}
 }
 

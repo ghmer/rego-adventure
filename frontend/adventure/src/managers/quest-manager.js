@@ -19,7 +19,7 @@
  * Handles quest loading, navigation, and state management
  */
 
-import { getLocalStorage, setLocalStorage, getPackKey, STORAGE_KEYS } from '../services/storage-service.js';
+import { getLocalStorage, getPackKey } from '../services/storage-service.js';
 import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
 
 /**
@@ -39,7 +39,7 @@ export class QuestManager {
         // Handle Prologue
         if (questId === 0) {
             this.showPrologue();
-            setLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, this.state.currentPackId), 0);
+            this.state.setCurrentQuest(0);
             return;
         }
 
@@ -49,7 +49,7 @@ export class QuestManager {
             if (this.state.quests.length > 0 && questId > this.state.quests.length) {
                 // Completed all quests - show epilogue
                 this.showEpilogue();
-                setLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, this.state.currentPackId), questId);
+                this.state.setCurrentQuest(questId);
                 return;
             }
             console.error(`Quest ${questId} not found`);
@@ -65,7 +65,7 @@ export class QuestManager {
         // Reset UI
         this.ui.resetQuestUI();
         this.ui.updateQuestFooterVisibility();
-        this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.hintButton);
+        this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.label('hintButton'));
         
         // Render lore
         this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
@@ -129,7 +129,7 @@ export class QuestManager {
 
         // Show Start Adventure button
         this.ui.elements.startAdventureBtn.classList.remove('hidden');
-        this.ui.elements.startAdventureBtn.textContent = this.state.beginAdventureButton || DEFAULT_TEXT.BEGIN_ADVENTURE;
+        this.ui.elements.startAdventureBtn.textContent = this.state.label('beginAdventureButton');
         
         // Move start adventure button to quest footer
         const footer = document.querySelector('.quest-footer');
@@ -183,39 +183,17 @@ export class QuestManager {
     }
 
     /**
-     * Show perfect score button
+     * Show perfect score button (visibility only; the click handler is
+     * wired once in EventManager and opens ModalManager.showPerfectScore)
      */
     showPerfectScoreButton() {
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (!perfectScoreBtn) return;
-        
-        perfectScoreBtn.textContent = this.state.perfectScoreButtonText || DEFAULT_TEXT.PERFECT_SCORE_BUTTON;
-        perfectScoreBtn.style.display = 'inline-block';
-        
-        if (!perfectScoreBtn.hasAttribute('data-handler-attached')) {
-            perfectScoreBtn.addEventListener('click', () => {
-                this.showPerfectScoreModal();
-            });
-            perfectScoreBtn.setAttribute('data-handler-attached', 'true');
-        }
-        
-        this.ui.updateQuestFooterVisibility();
-    }
 
-    /**
-     * Show perfect score modal
-     */
-    showPerfectScoreModal() {
-        this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/perfect_score.png`;
-        this.ui.elements.perfectScoreImage.onerror = () => {
-            this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/icon-success.png`;
-        };
-        
-        this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.perfectScoreMessage);
-        if (!this.ui.elements.perfectScoreModal.open) {
-            this.ui.elements.perfectScoreModal.showModal();
-        }
-        this.ui.elements.closePerfectScoreBtn.focus();
+        perfectScoreBtn.textContent = this.state.label('perfectScoreButtonText');
+        perfectScoreBtn.classList.remove('hidden');
+
+        this.ui.updateQuestFooterVisibility();
     }
 
     /**
@@ -223,17 +201,17 @@ export class QuestManager {
      */
     updateQuestNavigationButtons() {
         if (!this.ui.elements.questBackBtn || !this.ui.elements.questForwardBtn) return;
-        
+
         // Hide navigation for prologue or epilogue
         if (this.state.currentQuestId === 0 || this.state.currentQuestId > this.state.quests.length) {
-            this.ui.elements.questBackBtn.style.display = 'none';
-            this.ui.elements.questForwardBtn.style.display = 'none';
+            this.ui.elements.questBackBtn.classList.add('hidden');
+            this.ui.elements.questForwardBtn.classList.add('hidden');
             return;
         }
-        
+
         // Show buttons for actual quests
-        this.ui.elements.questBackBtn.style.display = 'inline-block';
-        this.ui.elements.questForwardBtn.style.display = 'inline-block';
+        this.ui.elements.questBackBtn.classList.remove('hidden');
+        this.ui.elements.questForwardBtn.classList.remove('hidden');
         
         // Enable/disable based on availability
         this.ui.elements.questBackBtn.disabled = !this.state.canNavigateBack();
@@ -284,8 +262,7 @@ export class QuestManager {
         }
         
         this.state.activeQuestId = this.state.currentQuestId;
-        setLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, this.state.currentPackId), this.state.activeQuestId);
-        
+
         this.loadQuest(this.state.currentQuestId);
     }
 
@@ -325,7 +302,7 @@ export class QuestManager {
             this.ui.elements.hintsList.appendChild(hintItem);
             
             this.state.currentQuestHintsUsed++;
-            this.ui.updateHintButtonText(this.state.currentQuest, currentHintsCount + 1, this.state.hintButton);
+            this.ui.updateHintButtonText(this.state.currentQuest, currentHintsCount + 1, this.state.label('hintButton'));
         } else if (this.state.currentQuest.solution) {
             // Show solution
             const template = document.getElementById('hint-solution-template');
@@ -334,7 +311,7 @@ export class QuestManager {
             this.ui.elements.hintsList.appendChild(solutionItem);
             
             this.state.currentQuestSolutionViewed = true;
-            this.ui.elements.hintBtn.style.display = 'none';
+            this.ui.elements.hintBtn.classList.add('hidden');
             this.ui.updateQuestFooterVisibility();
         }
     }

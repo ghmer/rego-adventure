@@ -23,7 +23,6 @@ import { fetchPacks, fetchPackDetails } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { DEFAULT_TEXT, TIMING } from '../services/constants.js';
 import { tutorial } from '../tutorial.js';
-import { getLocalStorage, getPackKey, STORAGE_KEYS } from '../services/storage-service.js';
 
 /**
  * Manages quest packs and theming
@@ -60,9 +59,9 @@ export class PackManager {
             this.state.loadPackData(data);
             
             // Update UI with pack-specific labels
-            this.ui.updateGrimoireTitle(this.state.grimoireTitle);
-            this.ui.elements.verifyBtn.textContent = this.state.verifyButton;
-            this.ui.updateHintButtonText(null, 0, this.state.hintButton);
+            this.ui.updateGrimoireTitle(this.state.label('grimoireTitle'));
+            this.ui.elements.verifyBtnLabel.textContent = this.state.label('verifyButton');
+            this.ui.updateHintButtonText(null, 0, this.state.label('hintButton'));
             
             // Update page titles
             const adventureTitle = this.state.meta?.title || DEFAULT_TEXT.ADVENTURE_TITLE;
@@ -185,60 +184,34 @@ export class PackManager {
     /**
      * Start an adventure (new or resume)
      * @param {string} packId - Pack identifier
+     * @throws {Error} If the pack details fail to load
      */
     async startAdventure(packId) {
         // Hide perfect score button when starting new adventure
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (perfectScoreBtn) {
-            perfectScoreBtn.style.display = 'none';
+            perfectScoreBtn.classList.add('hidden');
         }
         this.ui.updateQuestFooterVisibility();
 
-        // Check if resuming by looking at localStorage (supports both old and new key formats)
-        let isResuming = false;
-        
-        // First check new PACK_STATE format
-        const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
-        if (packedState) {
-            try {
-                const state = JSON.parse(packedState);
-                isResuming = state.questId > 0;
-            } catch (e) {
-                // Fall back to old format
-            }
-        }
-        
-        // If not found in new format, check old individual keys
-        if (!isResuming) {
-            const savedQuestId = parseInt(
-                getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0')
-            ) || 0;
-            isResuming = savedQuestId > 0;
-        }
-        
-        // Set pack in state
-        this.state.setCurrentPack(packId, isResuming);
-        
-        // Load pack details
-        try {
-            await this.loadPack(packId);
-        } catch (error) {
-            // Error already shown via handleApiError in loadPack
-            return false;
-        }
-        
+        // Set pack in state; the returned loaded state tells us whether
+        // there is saved progress to resume
+        const loaded = this.state.setCurrentPack(packId);
+        const isResuming = loaded !== null;
+
+        // Load pack details (errors are shown via handleApiError in loadPack)
+        await this.loadPack(packId);
+
         // Show game interface
         this.ui.showScreen('game');
         this.ui.updateScoreDisplay(this.state.totalScore);
-        
+
         // Show tutorial prompt when entering an adventure (not when resuming)
         if (!isResuming) {
             setTimeout(() => {
                 tutorial.showTutorialPrompt();
             }, TIMING.TUTORIAL_SHOW_DELAY);
         }
-        
-        return isResuming;
     }
 
     /**
@@ -248,7 +221,7 @@ export class PackManager {
         // Hide perfect score button
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (perfectScoreBtn) {
-            perfectScoreBtn.style.display = 'none';
+            perfectScoreBtn.classList.add('hidden');
         }
         this.ui.updateQuestFooterVisibility();
 

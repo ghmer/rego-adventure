@@ -78,17 +78,20 @@ export function getPackKey(baseKey, packId) {
 
 /**
  * Clear all grimoires for a specific pack
- * Optimized: Filter keys first before iteration to avoid unnecessary iterations
+ * Matches only keys of the exact format `rego_grimoire_q<questId>_<packId>`
+ * so pack ids that are substrings of other pack ids (e.g. "1" vs "11")
+ * cannot over-delete.
  * @param {string} packId - The pack identifier
  */
 export function clearAllGrimoires(packId) {
     try {
-        // Filter keys first to avoid iterating all localStorage keys
-        const keysToRemove = Object.keys(localStorage).filter(key =>
-            key.startsWith(`rego_grimoire_q`) && key.includes(`_${packId}`)
-        );
-        
-        // Only iterate through keys that need to be removed
+        const suffix = `_${packId}`;
+        const keysToRemove = Object.keys(localStorage).filter(key => {
+            if (!key.endsWith(suffix)) return false;
+            const prefix = key.slice(0, -suffix.length);
+            return /^rego_grimoire_q\d+$/.test(prefix);
+        });
+
         keysToRemove.forEach(key => {
             removeLocalStorage(key);
         });

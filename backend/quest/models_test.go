@@ -265,6 +265,33 @@ func TestValidateQuest_Valid(t *testing.T) {
 	}
 }
 
+func TestValidateQuest_ExternalLinkSchemes(t *testing.T) {
+	cases := []struct {
+		name    string
+		link    string
+		wantErr bool
+	}{
+		{"https ok", "https://example.com/docs", false},
+		{"http ok", "http://example.com/docs", false},
+		{"javascript rejected", "javascript:alert(1)", true},
+		{"data rejected", "data:text/html,<script>alert(1)</script>", true},
+		{"vbscript rejected", "vbscript:msgbox(1)", true},
+		{"no scheme rejected", "example.com/docs", true},
+		{"empty ok", "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			quest := createValidQuest()
+			quest.Manual.ExternalLink = tc.link
+			err := validateQuest(&quest, 1)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateQuest with external_link %q: error = %v, wantErr = %v", tc.link, err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestValidateQuest_MissingTitle(t *testing.T) {
 	quest := createValidQuest()
 	quest.Title = ""

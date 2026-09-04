@@ -20,16 +20,8 @@
  */
 
 import { showToast } from './toast-service.js';
-
-/**
- * Error severity levels
- */
-export const ErrorLevel = {
-    INFO: 'info',
-    WARNING: 'warning',
-    ERROR: 'error',
-    CRITICAL: 'critical'
-};
+import { ApiError } from './api-service.js';
+import { ErrorLevel } from './constants.js';
 
 /**
  * Display an error message to the user
@@ -49,64 +41,24 @@ export function showError(message, level = ErrorLevel.ERROR) {
 }
 
 /**
- * Handle API errors with user-friendly messages
- * @param {Error} error - The error object
+ * Handle API errors with user-friendly messages, branching on the
+ * error's data (status code) instead of matching message strings
+ * @param {Error} error - The error object (ApiError from api-service)
  * @param {string} context - Context about what operation failed
  */
 export function handleApiError(error, context) {
     console.error(`API Error in ${context}:`, error);
-    
-    const userMessage = `Failed to ${context}. ${
-        error.message.includes('fetch') 
-            ? 'Please check if the server is running.' 
-            : 'Please try again.'
-    }`;
-    
-    showError(userMessage, ErrorLevel.ERROR);
-}
 
-/**
- * Handle storage errors
- * @param {Error} error - The error object
- * @param {string} operation - The storage operation that failed
- */
-export function handleStorageError(error, operation) {
-    console.error(`Storage Error during ${operation}:`, error);
-    
-    // Storage errors are usually not critical to user experience
-    // Log but don't show alert
-    console.warn(`localStorage ${operation} failed. Some progress may not be saved.`);
-}
-
-/**
- * Wrap an async function with error handling
- * @param {Function} fn - The async function to wrap
- * @param {string} context - Context for error messages
- * @returns {Function} Wrapped function with error handling
- */
-export function withErrorHandling(fn, context) {
-    return async (...args) => {
-        try {
-            return await fn(...args);
-        } catch (error) {
-            handleApiError(error, context);
-            throw error; // Re-throw so caller can handle if needed
+    let hint = 'Please try again.';
+    if (error instanceof ApiError) {
+        if (error.status === 401) {
+            hint = 'Your session has expired. Please log in again.';
+        } else if (error.status === 0) {
+            hint = 'Please check if the server is running.';
+        } else if (error.status >= 500) {
+            hint = 'The server encountered an error. Please try again later.';
         }
-    };
-}
+    }
 
-/**
- * Log an informational message
- * @param {string} message - The message to log
- */
-export function logInfo(message) {
-    console.info('[INFO]', message);
-}
-
-/**
- * Log a warning message
- * @param {string} message - The warning message
- */
-export function logWarning(message) {
-    console.warn('[WARNING]', message);
+    showError(`Failed to ${context}. ${hint}`, ErrorLevel.ERROR);
 }

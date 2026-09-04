@@ -19,8 +19,23 @@
  * Manages game state with encapsulation and persistence
  */
 
-import { getLocalStorage, setLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
+import { getLocalStorage, setLocalStorage, removeLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
 import { SCORING, DEFAULT_TEXT } from './constants.js';
+
+/**
+ * Maps label accessor keys to the pack's snake_case ui_labels key and
+ * the matching DEFAULT_TEXT fallback key
+ */
+const LABEL_KEYS = {
+    grimoireTitle: { ui: 'grimoire_title', fallback: 'GRIMOIRE_TITLE' },
+    hintButton: { ui: 'hint_button', fallback: 'HINT_BUTTON' },
+    verifyButton: { ui: 'verify_button', fallback: 'VERIFY_BUTTON' },
+    messageSuccess: { ui: 'message_success', fallback: 'MESSAGE_SUCCESS' },
+    messageFailure: { ui: 'message_failure', fallback: 'MESSAGE_FAILURE' },
+    perfectScoreMessage: { ui: 'perfect_score_message', fallback: 'PERFECT_SCORE_MESSAGE' },
+    perfectScoreButtonText: { ui: 'perfect_score_button_text', fallback: 'PERFECT_SCORE_BUTTON' },
+    beginAdventureButton: { ui: 'begin_adventure_button', fallback: 'BEGIN_ADVENTURE' }
+};
 
 /**
  * Game State Manager
@@ -37,33 +52,20 @@ export class GameState {
         this.currentQuestId = 0;
         this.currentQuest = null;
         this.currentLoreIndex = 0;
-        this.isMusicPlaying = false;
-        
+
         // Scoring
         this.totalScore = 0;
         this.questScores = {};
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
-        
+
         // Navigation
-        this.questHistory = [];
         this.isHistoryMode = false;
         this.activeQuestId = 0;
-        
-        // UI Labels (loaded from pack metadata)
+
+        // UI Labels (loaded from pack metadata; accessed via label())
         this.uiLabels = {};
-        this.grimoireTitle = '';
-        this.hintButton = '';
-        this.verifyButton = '';
-        this.messageSuccess = '';
-        this.messageFailure = '';
-        this.perfectScoreMessage = '';
-        this.perfectScoreButtonText = '';
-        this.beginAdventureButton = '';
-        
-        // Music progress ring
-        this.musicRingCircumference = 0;
-        
+
         // Load pack-specific data if pack is set
         if (this.currentPackId) {
             this.loadPackState(this.currentPackId);
@@ -73,11 +75,12 @@ export class GameState {
     /**
      * Load state for a specific pack from localStorage
      * @param {string} packId - The pack identifier
+     * @returns {Object|null} The loaded batched state, or null when no
+     * valid saved state exists
      */
     loadPackState(packId) {
-        // Try to load from batched state first
         const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
-        
+
         if (packedState) {
             try {
                 const state = JSON.parse(packedState);
@@ -85,50 +88,88 @@ export class GameState {
                 this.totalScore = state.totalScore || 0;
                 this.questScores = state.questScores || {};
                 this.activeQuestId = state.activeQuestId || this.currentQuestId;
-                return;
+                return state;
             } catch (e) {
-                // Fall back to individual keys if parsing fails
+                console.warn(`Ignoring corrupt saved state for pack "${packId}":`, e);
+                return null;
             }
         }
-        
-        // Fallback: load from individual keys (for backwards compatibility)
-        this.currentQuestId = parseInt(
-            getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0')
-        ) || 0;
-        
-        this.totalScore = parseInt(
-            getLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, packId), '0')
-        ) || 0;
-        
-        this.questScores = JSON.parse(
-            getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, packId), '{}')
-        );
-        
-        this.activeQuestId = parseInt(
-            getLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, packId), '0')
-        ) || this.currentQuestId;
+
+        // One-time migration from the legacy individual-key format so
+        // pre-upgrade progress is preserved instead of being wiped
+        const legacy = this.readLegacyPackState(packId);
+        if (legacy) {
+            this.currentQuestId = legacy.questId;
+            this.totalScore = legacy.totalScore;
+            this.questScores = legacy.questScores;
+            this.activeQuestId = legacy.activeQuestId;
+            this.savePackState();
+            this.removeLegacyPackState(packId);
+        }
+        return legacy;
     }
-    
+
+    /**
+     * Read progress from the legacy individual-key format, if any key
+     * carries data
+     * @param {string} packId - The pack identifier
+     * @returns {Object|null} Legacy state object or null
+     */
+    readLegacyPackState(packId) {
+        const questId = parseInt(getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0'), 10) || 0;
+        const totalScore = parseInt(getLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, packId), '0'), 10) || 0;
+        const activeQuestId = parseInt(getLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, packId), '0'), 10) || questId;
+
+        let questScores = {};
+        try {
+            const parsed = JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, packId), '{}'));
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                questScores = parsed;
+            }
+        } catch (e) {
+            questScores = {};
+        }
+
+        if (!questId && !totalScore && !activeQuestId && Object.keys(questScores).length === 0) {
+            return null;
+        }
+        return { questId, totalScore, questScores, activeQuestId };
+    }
+
+    /**
+     * Remove the legacy individual-key entries after a successful
+     * migration to the batched format
+     * @param {string} packId - The pack identifier
+     */
+    removeLegacyPackState(packId) {
+        removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId));
+        removeLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, packId));
+        removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, packId));
+        removeLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, packId));
+    }
+
     /**
      * Set the current pack and initialize its state
      * @param {string} packId - The pack identifier
-     * @param {boolean} isResuming - Whether resuming an existing adventure
+     * @returns {Object|null} The loaded batched state when resuming an
+     * adventure, or null when starting fresh (state was reset)
      */
-    setCurrentPack(packId, isResuming = false) {
+    setCurrentPack(packId) {
         this.currentPackId = packId;
         setLocalStorage(STORAGE_KEYS.PACK_ID, packId);
-        
-        if (!isResuming) {
+
+        const loaded = this.loadPackState(packId);
+        if (!loaded || !loaded.questId) {
             // Starting new adventure - reset everything
             this.currentQuestId = 0;
             this.activeQuestId = 0;
             this.totalScore = 0;
             this.questScores = {};
             this.savePackState();
-        } else {
-            // Resuming - load saved state
-            this.loadPackState(packId);
+            return null;
         }
+
+        return loaded;
     }
     
     /**
@@ -157,7 +198,7 @@ export class GameState {
      */
     loadPackData(packData) {
         this.quests = packData.quests;
-        
+
         // Create Map for O(1) quest lookup by ID
         this.questsMap = new Map();
         if (packData.quests) {
@@ -165,21 +206,23 @@ export class GameState {
                 this.questsMap.set(quest.id, quest);
             }
         }
-        
+
         this.prologue = packData.prologue;
         this.epilogue = packData.epilogue;
         this.meta = packData.meta;
-        
-        // Load UI labels with fallbacks
+
         this.uiLabels = packData.ui_labels || {};
-        this.grimoireTitle = this.uiLabels.grimoire_title || DEFAULT_TEXT.GRIMOIRE_TITLE;
-        this.hintButton = this.uiLabels.hint_button || DEFAULT_TEXT.HINT_BUTTON;
-        this.verifyButton = this.uiLabels.verify_button || DEFAULT_TEXT.VERIFY_BUTTON;
-        this.messageSuccess = this.uiLabels.message_success || DEFAULT_TEXT.MESSAGE_SUCCESS;
-        this.messageFailure = this.uiLabels.message_failure || DEFAULT_TEXT.MESSAGE_FAILURE;
-        this.perfectScoreMessage = this.uiLabels.perfect_score_message || DEFAULT_TEXT.PERFECT_SCORE_MESSAGE;
-        this.perfectScoreButtonText = this.uiLabels.perfect_score_button_text || DEFAULT_TEXT.PERFECT_SCORE_BUTTON;
-        this.beginAdventureButton = this.uiLabels.begin_adventure_button || DEFAULT_TEXT.BEGIN_ADVENTURE;
+    }
+
+    /**
+     * Get a UI label from the pack metadata, falling back to the
+     * application default when the pack does not define it
+     * @param {string} key - Label key (see LABEL_KEYS)
+     * @returns {string} The label text
+     */
+    label(key) {
+        const keys = LABEL_KEYS[key];
+        return this.uiLabels[keys.ui] || DEFAULT_TEXT[keys.fallback];
     }
     
     /**
@@ -289,9 +332,8 @@ export class GameState {
         this.questScores = {};
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
-        this.questHistory = [];
         this.isHistoryMode = false;
-        
+
         this.savePackState();
     }
 }
