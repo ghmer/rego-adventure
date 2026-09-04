@@ -19,7 +19,7 @@
  * Manages game state with encapsulation and persistence
  */
 
-import { getLocalStorage, setLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
+import { getLocalStorage, setLocalStorage, removeLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
 import { SCORING, DEFAULT_TEXT } from './constants.js';
 
 /**
@@ -80,19 +80,72 @@ export class GameState {
      */
     loadPackState(packId) {
         const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
-        if (!packedState) return null;
 
+        if (packedState) {
+            try {
+                const state = JSON.parse(packedState);
+                this.currentQuestId = state.questId || 0;
+                this.totalScore = state.totalScore || 0;
+                this.questScores = state.questScores || {};
+                this.activeQuestId = state.activeQuestId || this.currentQuestId;
+                return state;
+            } catch (e) {
+                console.warn(`Ignoring corrupt saved state for pack "${packId}":`, e);
+                return null;
+            }
+        }
+
+        // One-time migration from the legacy individual-key format so
+        // pre-upgrade progress is preserved instead of being wiped
+        const legacy = this.readLegacyPackState(packId);
+        if (legacy) {
+            this.currentQuestId = legacy.questId;
+            this.totalScore = legacy.totalScore;
+            this.questScores = legacy.questScores;
+            this.activeQuestId = legacy.activeQuestId;
+            this.savePackState();
+            this.removeLegacyPackState(packId);
+        }
+        return legacy;
+    }
+
+    /**
+     * Read progress from the legacy individual-key format, if any key
+     * carries data
+     * @param {string} packId - The pack identifier
+     * @returns {Object|null} Legacy state object or null
+     */
+    readLegacyPackState(packId) {
+        const questId = parseInt(getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId), '0'), 10) || 0;
+        const totalScore = parseInt(getLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, packId), '0'), 10) || 0;
+        const activeQuestId = parseInt(getLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, packId), '0'), 10) || questId;
+
+        let questScores = {};
         try {
-            const state = JSON.parse(packedState);
-            this.currentQuestId = state.questId || 0;
-            this.totalScore = state.totalScore || 0;
-            this.questScores = state.questScores || {};
-            this.activeQuestId = state.activeQuestId || this.currentQuestId;
-            return state;
+            const parsed = JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, packId), '{}'));
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                questScores = parsed;
+            }
         } catch (e) {
-            console.warn(`Ignoring corrupt saved state for pack "${packId}":`, e);
+            questScores = {};
+        }
+
+        if (!questId && !totalScore && !activeQuestId && Object.keys(questScores).length === 0) {
             return null;
         }
+        return { questId, totalScore, questScores, activeQuestId };
+    }
+
+    /**
+     * Remove the legacy individual-key entries after a successful
+     * migration to the batched format
+     * @param {string} packId - The pack identifier
+     */
+    removeLegacyPackState(packId) {
+        removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, packId));
+        removeLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, packId));
+        removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, packId));
+        removeLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, packId));
     }
 
     /**
