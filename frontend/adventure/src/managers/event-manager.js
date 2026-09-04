@@ -304,7 +304,7 @@ export class EventManager {
         // Hide perfect score button if it exists
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (perfectScoreBtn) {
-            perfectScoreBtn.style.display = 'none';
+            perfectScoreBtn.classList.add('hidden');
         }
         
         // Update score display

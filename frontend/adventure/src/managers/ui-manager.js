@@ -336,18 +336,20 @@ export class UIManager {
     }
 
     /**
-     * Update quest footer visibility based on button states
+     * Update quest footer visibility based on button states.
+     * Element visibility is managed exclusively via the `hidden` class;
+     * the footer's flex layout comes from CSS when visible.
      */
     updateQuestFooterVisibility() {
         const footer = document.querySelector('.quest-footer');
         if (!footer) return;
-        
+
         const buttons = footer.querySelectorAll('button');
         const hasVisibleButton = Array.from(buttons).some(button =>
-            button.style.display !== 'none' && !button.classList.contains('hidden')
+            !button.classList.contains('hidden')
         );
-        
-        footer.style.display = hasVisibleButton ? 'flex' : 'none';
+
+        footer.classList.toggle('hidden', !hasVisibleButton);
     }
 
     /**
@@ -372,7 +374,7 @@ export class UIManager {
         this.elements.startAdventureBtn.classList.add('hidden');
         this.elements.hintsList.classList.add('hidden');
         this.elements.hintsList.innerHTML = '';
-        this.elements.hintBtn.style.display = 'inline-block';
+        this.elements.hintBtn.classList.remove('hidden');
         this.elements.editorPane.classList.remove('hidden');
         this.elements.editor.disabled = false;
         this.elements.verifyBtn.disabled = false;
@@ -472,20 +474,19 @@ export class UIManager {
      */
     updateAuthUI(isAuthenticated, authEnabled) {
         if (!authEnabled) {
-            this.elements.loginContainer.style.display = 'none';
-            this.elements.logoutBtn.style.display = 'none';
+            this.elements.loginContainer.classList.add('hidden');
+            this.elements.logoutBtn.classList.add('hidden');
             return;
         }
 
         if (isAuthenticated) {
-            this.elements.logoutBtn.style.display = 'inline-block';
-            this.elements.loginContainer.style.display = 'none';
-            this.elements.questPackList.style.display = 'block';
+            this.elements.logoutBtn.classList.remove('hidden');
+            this.elements.loginContainer.classList.add('hidden');
+            this.elements.questPackList.classList.remove('hidden');
         } else {
             this.elements.loginContainer.classList.remove('hidden');
-            this.elements.loginContainer.style.display = 'block';
-            this.elements.questPackList.style.display = 'none';
-            this.elements.logoutBtn.style.display = 'none';
+            this.elements.questPackList.classList.add('hidden');
+            this.elements.logoutBtn.classList.add('hidden');
         }
     }
 
@@ -495,8 +496,8 @@ export class UIManager {
      */
     updateImpressumVisibility(show) {
         const impressumFooter = document.querySelector('.start-footer');
-        if (impressumFooter && !show) {
-            impressumFooter.style.display = 'none';
+        if (impressumFooter) {
+            impressumFooter.classList.toggle('hidden', !show);
         }
     }
 }

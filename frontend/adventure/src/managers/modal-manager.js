@@ -194,10 +194,8 @@ export class ModalManager {
                 // Show payload for failed tests
                 const payloadDiv = testItem.querySelector('.test-payload');
                 if (!test.passed && test.input) {
-                    payloadDiv.style.display = 'block';
+                    payloadDiv.classList.add('visible');
                     payloadDiv.querySelector('pre').textContent = JSON.stringify(test.input, null, 2);
-                } else {
-                    payloadDiv.style.display = 'none';
                 }
                 
                 this.ui.elements.resultTestList.appendChild(testItem);

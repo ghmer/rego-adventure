@@ -190,7 +190,7 @@ export class PackManager {
         // Hide perfect score button when starting new adventure
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (perfectScoreBtn) {
-            perfectScoreBtn.style.display = 'none';
+            perfectScoreBtn.classList.add('hidden');
         }
         this.ui.updateQuestFooterVisibility();
 
@@ -221,7 +221,7 @@ export class PackManager {
         // Hide perfect score button
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (perfectScoreBtn) {
-            perfectScoreBtn.style.display = 'none';
+            perfectScoreBtn.classList.add('hidden');
         }
         this.ui.updateQuestFooterVisibility();
 

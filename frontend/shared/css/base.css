@@ -122,14 +122,15 @@ body {
     margin-top: 2em;
 }
 
-/* Logout Button */
+/* Logout Button (initially hidden via `hidden` class; visibility is
+   toggled exclusively through that class) */
 #logout-btn {
-    display: none;
+    display: inline-block;
 }
 
-/* Perfect Score Button */
+/* Perfect Score Button (initially hidden via `hidden` class) */
 #perfect-score-btn {
-    display: none;
+    display: inline-block;
     animation: pulse 2s infinite;
 }
 
@@ -171,8 +172,8 @@ body {
     color: #888;
 }
 
-/* Allow JavaScript to explicitly show payload for failed tests */
-.test-result .test-payload[style*="display: block"] {
+/* Show payload for failed tests */
+.test-result .test-payload.visible {
     display: block !important;
 }
 

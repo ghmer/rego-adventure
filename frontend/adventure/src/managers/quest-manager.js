@@ -191,7 +191,7 @@ export class QuestManager {
         if (!perfectScoreBtn) return;
 
         perfectScoreBtn.textContent = this.state.perfectScoreButtonText || DEFAULT_TEXT.PERFECT_SCORE_BUTTON;
-        perfectScoreBtn.style.display = 'inline-block';
+        perfectScoreBtn.classList.remove('hidden');
 
         this.ui.updateQuestFooterVisibility();
     }
@@ -201,17 +201,17 @@ export class QuestManager {
      */
     updateQuestNavigationButtons() {
         if (!this.ui.elements.questBackBtn || !this.ui.elements.questForwardBtn) return;
-        
+
         // Hide navigation for prologue or epilogue
         if (this.state.currentQuestId === 0 || this.state.currentQuestId > this.state.quests.length) {
-            this.ui.elements.questBackBtn.style.display = 'none';
-            this.ui.elements.questForwardBtn.style.display = 'none';
+            this.ui.elements.questBackBtn.classList.add('hidden');
+            this.ui.elements.questForwardBtn.classList.add('hidden');
             return;
         }
-        
+
         // Show buttons for actual quests
-        this.ui.elements.questBackBtn.style.display = 'inline-block';
-        this.ui.elements.questForwardBtn.style.display = 'inline-block';
+        this.ui.elements.questBackBtn.classList.remove('hidden');
+        this.ui.elements.questForwardBtn.classList.remove('hidden');
         
         // Enable/disable based on availability
         this.ui.elements.questBackBtn.disabled = !this.state.canNavigateBack();
@@ -311,7 +311,7 @@ export class QuestManager {
             this.ui.elements.hintsList.appendChild(solutionItem);
             
             this.state.currentQuestSolutionViewed = true;
-            this.ui.elements.hintBtn.style.display = 'none';
+            this.ui.elements.hintBtn.classList.add('hidden');
             this.ui.updateQuestFooterVisibility();
         }
     }

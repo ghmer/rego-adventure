@@ -278,24 +278,16 @@ export class TutorialSystem {
             if (element) {
                 const computedStyle = window.getComputedStyle(element);
                 const isHidden = computedStyle.display === 'none' ||
-                                element.classList.contains('hidden') ||
-                                element.style.display === 'none';
-                
+                                element.classList.contains('hidden');
+
                 if (isHidden) {
-                    if (element.classList.contains('hidden')) {
-                        this.hiddenElementsState.add(selector);
-                    }
-                    
+                    this.hiddenElementsState.add(selector);
                     // Temporarily show the element
                     element.classList.remove('hidden');
-                    if (element.style.display === 'none') {
-                        element.dataset.tutorialRestoreDisplay = 'none';
-                        element.style.display = '';
-                    }
                 }
             }
         });
-        
+
         // Also ensure the editor pane parent is visible
         const editorPane = document.querySelector('#editor-pane');
         if (editorPane && editorPane.classList.contains('hidden')) {
@@ -315,12 +307,6 @@ export class TutorialSystem {
             }
         });
 
-        const restoredDisplayElements = document.querySelectorAll('[data-tutorial-restore-display="none"]');
-        restoredDisplayElements.forEach((element) => {
-            element.style.display = 'none';
-            delete element.dataset.tutorialRestoreDisplay;
-        });
-        
         // Clear the tracked state
         this.hiddenElementsState.clear();
     }
