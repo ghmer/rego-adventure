@@ -57,7 +57,16 @@ async function init() {
         uiManager.initEffectsState();
         
         // Load Config and Init Auth
-        await ConfigService.load();
+        // A config failure must not silently disable authentication;
+        // surface a clear error and stop initialization.
+        try {
+            await ConfigService.load();
+        } catch (error) {
+            console.error('Configuration could not be loaded:', error);
+            uiManager.elements.questPackList.innerHTML =
+                '<p>Configuration could not be loaded. Is the backend running? Authentication state is unknown.</p>';
+            return;
+        }
         await AuthService.init();
 
         // Handle impressum footer visibility based on config

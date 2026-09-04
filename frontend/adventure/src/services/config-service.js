@@ -14,19 +14,32 @@
    limitations under the License.
 */
 
+/**
+ * Config Service
+ * Loads the application configuration from the backend.
+ *
+ * Tri-state contract:
+ * - config set     -> configuration loaded successfully
+ * - load() threw   -> loadError is set and config is null; callers must
+ *                     surface the failure instead of assuming auth is disabled
+ */
 export const ConfigService = {
     config: null,
+    loadError: null,
     async load() {
+        this.loadError = null;
         try {
             const res = await fetch('/config');
-            if (!res.ok) throw new Error('Failed to load config');
+            if (!res.ok) {
+                throw new Error(`Failed to load config (HTTP ${res.status})`);
+            }
             this.config = await res.json();
             return this.config;
         } catch (e) {
-            console.error("Config load failed:", e);
-            // Fallback to disabled auth if config fails
-            this.config = { enabled: false };
-            return this.config;
+            console.error('Config load failed:', e);
+            this.config = null;
+            this.loadError = e;
+            throw e;
         }
     },
     get() {
