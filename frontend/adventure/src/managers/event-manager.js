@@ -205,6 +205,13 @@ export class EventManager {
      * Setup perfect score modal listeners
      */
     setupPerfectScoreListeners() {
+        const perfectScoreBtn = document.getElementById('perfect-score-btn');
+        if (perfectScoreBtn) {
+            perfectScoreBtn.addEventListener('click', () => {
+                this.modal.showPerfectScore();
+            });
+        }
+
         this.ui.elements.closePerfectScoreBtn.addEventListener('click', () => {
             this.modal.closePerfectScore();
         });
@@ -226,11 +233,17 @@ export class EventManager {
             
             try {
                 const result = await verifySolution(this.state.currentPackId, this.state.currentQuestId, code);
-                this.modal.showResult(result);
-                
-                // Update navigation buttons after quest completion
+
                 if (!result.error && result.passed) {
+                    // Award points here, in the flow that owns the state
+                    // transition; the modal only renders the outcome
+                    const pointsEarned = this.state.completeQuest(this.state.currentQuestId);
+                    this.modal.showResult(result, pointsEarned);
+
+                    // Update navigation buttons after quest completion
                     this.quest.updateQuestNavigationButtons();
+                } else {
+                    this.modal.showResult(result);
                 }
             } catch (e) {
                 handleApiError(e, 'verify solution');

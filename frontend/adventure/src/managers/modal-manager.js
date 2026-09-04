@@ -141,17 +141,19 @@ export class ModalManager {
     /**
      * Show result modal with test results
      * @param {Object} result - Verification result from API
+     * @param {number|null} [pointsEarned=null] - Points earned on success
+     * (computed and persisted by the caller that owns the state transition)
      */
-    showResult(result) {
+    showResult(result, pointsEarned = null) {
         this.ui.elements.resultTestList.innerHTML = '';
-        
+
         const isSuccess = !result.error && result.passed;
-        
+
         // Set icon
         const iconPath = `/quests/${this.state.currentPackId}/assets/${isSuccess ? 'icon-success.png' : 'icon-failure.png'}`;
         this.ui.elements.resultIcon.src = iconPath;
         this.ui.elements.resultIcon.alt = isSuccess ? 'Success - Quest completed' : 'Failure - Quest not completed';
-        
+
         // Set title and message
         if (result.error) {
             this.ui.elements.resultTitle.textContent = "Error";
@@ -160,16 +162,13 @@ export class ModalManager {
         } else if (isSuccess) {
             this.ui.elements.resultTitle.textContent = this.state.messageSuccess || DEFAULT_TEXT.MESSAGE_SUCCESS;
             this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
-            
-            // Complete quest first; completeQuest() returns the points earned and
-            // saves state, so both the display and the saved value are consistent.
-            const pointsEarned = this.state.completeQuest(this.state.currentQuestId);
+
             const pointsPossible = SCORING.POINTS_PER_QUEST;
-            
+
             this.ui.elements.pointsEarned.textContent = pointsEarned;
             this.ui.elements.pointsPossible.textContent = pointsPossible;
             this.ui.elements.scoreSummary.classList.remove('hidden');
-            
+
             this.ui.updateScoreDisplay(this.state.totalScore);
         } else {
             this.ui.elements.resultTitle.textContent = this.state.messageFailure || DEFAULT_TEXT.MESSAGE_FAILURE;

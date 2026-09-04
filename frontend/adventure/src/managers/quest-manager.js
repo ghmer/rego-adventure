@@ -183,39 +183,17 @@ export class QuestManager {
     }
 
     /**
-     * Show perfect score button
+     * Show perfect score button (visibility only; the click handler is
+     * wired once in EventManager and opens ModalManager.showPerfectScore)
      */
     showPerfectScoreButton() {
         const perfectScoreBtn = document.getElementById('perfect-score-btn');
         if (!perfectScoreBtn) return;
-        
+
         perfectScoreBtn.textContent = this.state.perfectScoreButtonText || DEFAULT_TEXT.PERFECT_SCORE_BUTTON;
         perfectScoreBtn.style.display = 'inline-block';
-        
-        if (!perfectScoreBtn.hasAttribute('data-handler-attached')) {
-            perfectScoreBtn.addEventListener('click', () => {
-                this.showPerfectScoreModal();
-            });
-            perfectScoreBtn.setAttribute('data-handler-attached', 'true');
-        }
-        
-        this.ui.updateQuestFooterVisibility();
-    }
 
-    /**
-     * Show perfect score modal
-     */
-    showPerfectScoreModal() {
-        this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/perfect_score.png`;
-        this.ui.elements.perfectScoreImage.onerror = () => {
-            this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/icon-success.png`;
-        };
-        
-        this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.perfectScoreMessage);
-        if (!this.ui.elements.perfectScoreModal.open) {
-            this.ui.elements.perfectScoreModal.showModal();
-        }
-        this.ui.elements.closePerfectScoreBtn.focus();
+        this.ui.updateQuestFooterVisibility();
     }
 
     /**
