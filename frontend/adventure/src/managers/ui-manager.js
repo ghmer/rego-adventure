@@ -242,11 +242,33 @@ export class UIManager {
         }
         
         if (manual.external_link && manual.external_link.trim() !== '') {
-            const linkSection = clone.querySelector('[data-section="external-link"]');
-            const link = linkSection.querySelector('a');
-            link.href = manual.external_link;
-            this.elements.manualContent.appendChild(linkSection);
+            const safeUrl = this.getSafeExternalUrl(manual.external_link);
+            if (safeUrl) {
+                const linkSection = clone.querySelector('[data-section="external-link"]');
+                const link = linkSection.querySelector('a');
+                link.href = safeUrl;
+                this.elements.manualContent.appendChild(linkSection);
+            }
         }
+    }
+
+    /**
+     * Validate an external link and return a safe URL, or null if the
+     * value is not a well-formed http(s) URL (blocks javascript:/data: etc.)
+     * @param {string} value - Raw external link from quest pack data
+     * @returns {string|null} Absolute http(s) URL or null
+     */
+    getSafeExternalUrl(value) {
+        try {
+            const url = new URL(value, window.location.origin);
+            if (url.protocol === 'https:' || url.protocol === 'http:') {
+                return url.href;
+            }
+        } catch (e) {
+            // fall through
+        }
+        console.warn('Rejected unsafe manual external link:', value);
+        return null;
     }
 
     /**

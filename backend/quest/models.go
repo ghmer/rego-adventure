@@ -19,6 +19,7 @@ package quest
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -198,6 +199,11 @@ func validateQuest(quest *Quest, questIndex int) error {
 		quest.Manual.ExternalLink, MaxManualExternalLink, p+" manual.external_link"); err != nil {
 		return err
 	}
+	if quest.Manual.ExternalLink != "" {
+		if err := validateExternalLinkScheme(quest.Manual.ExternalLink, p); err != nil {
+			return err
+		}
+	}
 
 	// Tests
 	if len(quest.Tests) == 0 {
@@ -213,6 +219,19 @@ func validateQuest(quest *Quest, questIndex int) error {
 		}
 	}
 
+	return nil
+}
+
+// validateExternalLinkScheme rejects external links whose URL scheme is not
+// http(s), preventing e.g. javascript: or data: URLs from being rendered.
+func validateExternalLinkScheme(link string, prefix string) error {
+	u, err := url.Parse(link)
+	if err != nil {
+		return fmt.Errorf("%s manual.external_link is not a valid URL: %w", prefix, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("%s manual.external_link must use http or https scheme, got %q", prefix, u.Scheme)
+	}
 	return nil
 }
 
