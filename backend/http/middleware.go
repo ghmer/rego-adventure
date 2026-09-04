@@ -19,6 +19,7 @@ package http
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -63,8 +64,17 @@ func StructuredLogger() gin.HandlerFunc {
 	}
 }
 
-// SecurityHeaders adds security headers to responses
-func SecurityHeaders() gin.HandlerFunc {
+// SecurityHeaders adds security headers to responses. When authentication is
+// enabled, the OIDC issuer (or discovery URL) origin is added to connect-src
+// so the frontend can perform discovery, token, and user-info requests.
+func SecurityHeaders(cfg *config.Config) gin.HandlerFunc {
+	connectSrc := []string{"'self'", "https://esm.sh"}
+	if cfg != nil && cfg.Auth.Enabled {
+		if origin := oidcOrigin(cfg.Auth.Issuer, cfg.Auth.DiscoveryURL); origin != "" {
+			connectSrc = append(connectSrc, origin)
+		}
+	}
+
 	csp := strings.Join([]string{
 		"default-src 'self'",
 		"script-src 'self' 'unsafe-inline' https://esm.sh",
@@ -72,7 +82,7 @@ func SecurityHeaders() gin.HandlerFunc {
 		"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
 		"img-src 'self' data:",
 		"font-src 'self' https://cdnjs.cloudflare.com",
-		"connect-src 'self' https://esm.sh",
+		"connect-src " + strings.Join(connectSrc, " "),
 		"frame-ancestors 'none'",
 	}, "; ")
 
@@ -83,6 +93,25 @@ func SecurityHeaders() gin.HandlerFunc {
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Next()
 	}
+}
+
+// oidcOrigin returns the http(s) origin of the first parseable URL,
+// or an empty string if none is usable.
+func oidcOrigin(urls ...string) string {
+	for _, raw := range urls {
+		if raw == "" {
+			continue
+		}
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			continue
+		}
+		if u.Scheme != "https" && u.Scheme != "http" {
+			continue
+		}
+		return u.Scheme + "://" + u.Host
+	}
+	return ""
 }
 
 // BodySizeLimit limits request body size to 1MB
