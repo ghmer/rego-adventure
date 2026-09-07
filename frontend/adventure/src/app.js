@@ -31,6 +31,7 @@ if (document.readyState === 'loading') {
 
 import { ConfigService } from './services/config-service.js';
 import { AuthService } from './services/auth-service.js';
+import { ApiError } from './services/api-service.js';
 import { GameState } from './services/state-service.js';
 import { UIManager } from './managers/ui-manager.js';
 import { QuestManager } from './managers/quest-manager.js';
@@ -116,7 +117,12 @@ async function init() {
         }
     } catch (error) {
         console.error("Failed to initialize:", error);
-        uiManager.elements.questPackList.innerHTML = "<p>Error loading adventures. Is the backend running?</p>";
+        if (error instanceof ApiError && error.status === 401) {
+            uiManager.elements.questPackList.innerHTML =
+                '<p>Your session has expired. Please log out and log in again.</p>';
+        } else {
+            uiManager.elements.questPackList.innerHTML = "<p>Error loading adventures. Is the backend running?</p>";
+        }
     }
 }
 
