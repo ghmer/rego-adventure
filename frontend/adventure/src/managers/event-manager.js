@@ -73,6 +73,12 @@ export class EventManager {
                 AuthService.logout();
             });
         }
+
+        if (this.ui.elements.logoutBtnStart) {
+            this.ui.elements.logoutBtnStart.addEventListener('click', () => {
+                AuthService.logout();
+            });
+        }
     }
 
     /**

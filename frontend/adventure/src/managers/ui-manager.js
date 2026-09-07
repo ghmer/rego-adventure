@@ -115,7 +115,9 @@ export class UIManager {
             // Auth
             loginBtn: document.getElementById('login-btn'),
             loginContainer: document.getElementById('login-container'),
-            logoutBtn: document.getElementById('logout-btn')
+            logoutBtn: document.getElementById('logout-btn'),
+            logoutBtnStart: document.getElementById('logout-btn-start'),
+            logoutContainerStart: document.getElementById('logout-container-start')
         };
     }
 
@@ -477,17 +479,20 @@ export class UIManager {
         if (!authEnabled) {
             this.elements.loginContainer.classList.add('hidden');
             this.elements.logoutBtn.classList.add('hidden');
+            this.elements.logoutContainerStart.classList.add('hidden');
             return;
         }
 
         if (isAuthenticated) {
             this.elements.logoutBtn.classList.remove('hidden');
+            this.elements.logoutContainerStart.classList.remove('hidden');
             this.elements.loginContainer.classList.add('hidden');
             this.elements.questPackList.classList.remove('hidden');
         } else {
             this.elements.loginContainer.classList.remove('hidden');
             this.elements.questPackList.classList.add('hidden');
             this.elements.logoutBtn.classList.add('hidden');
+            this.elements.logoutContainerStart.classList.add('hidden');
         }
     }
 
