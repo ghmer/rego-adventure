@@ -50,24 +50,46 @@ func NewVerifier() *Verifier {
 	return &Verifier{}
 }
 
-// normalizeValue round-trips v through JSON encoding to canonicalize its type
-// representation. This converts OPA-specific types (e.g. json.Number) to standard
+// normalizeValue canonicalizes value type representations without a JSON
+// round-trip. It converts OPA-specific types (e.g. json.Number) to standard
 // Go types (float64, string, bool, []any, map[string]any) so that
 // reflect.DeepEqual compares them reliably against values decoded from
 // the quests.json expected_value field.
 func normalizeValue(v any) (any, error) {
-	if v == nil {
+	switch t := v.(type) {
+	case nil:
 		return nil, nil
+	case json.Number:
+		f, err := t.Float64()
+		if err != nil {
+			return nil, fmt.Errorf("normalizeValue number %s: %w", t.String(), err)
+		}
+		return f, nil
+	case float64, string, bool:
+		return t, nil
+	case []any:
+		out := make([]any, len(t))
+		for i, e := range t {
+			n, err := normalizeValue(e)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = n
+		}
+		return out, nil
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, e := range t {
+			n, err := normalizeValue(e)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = n
+		}
+		return out, nil
+	default:
+		return t, nil
 	}
-	b, err := json.Marshal(v)
-	if err != nil {
-		return nil, fmt.Errorf("normalizeValue marshal: %w", err)
-	}
-	var out any
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, fmt.Errorf("normalizeValue unmarshal: %w", err)
-	}
-	return out, nil
 }
 
 // runTestCase executes a single test case and returns the result.
