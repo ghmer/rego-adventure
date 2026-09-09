@@ -123,7 +123,7 @@ func main() {
 	}
 
 	// 4. Write index.html
-	if err := os.WriteFile(indexPath, newIndexContent, 0600); err != nil { // #nosec G703
+	if err := os.WriteFile(indexPath, newIndexContent, 0600); err != nil { // #nosec G703 -- writes user-provided path
 		fmt.Printf("Error writing %s: %v\n", indexPath, err)
 		os.Exit(1)
 	}

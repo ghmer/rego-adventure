@@ -22,12 +22,16 @@ linters:
     - noctx
     - testifylint
     - misspell
+    - nolintlint
   settings:
     funlen:
       lines: 85
       statements: 75
     lll:
       line-length: 125
+    nolintlint:
+      require-explanation: true
+      require-specific: true
 
 formatters:
   enable:

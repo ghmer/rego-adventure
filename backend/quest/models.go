@@ -101,7 +101,7 @@ type UILabels struct {
 }
 
 // QuestPack represents a collection of quests (e.g., medieval, scifi).
-type QuestPack struct { //nolint
+type QuestPack struct { //nolint:revive // established public name; renaming to Pack would be a breaking API change
 	ID       string         `json:"id"`
 	Meta     MetaData       `json:"meta"`
 	UILabels UILabels       `json:"ui_labels"`

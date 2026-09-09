@@ -23,7 +23,7 @@ import (
 )
 
 // QuestRepository handles loading and accessing quests.
-type QuestRepository struct { //nolint
+type QuestRepository struct { //nolint:revive // established public API name
 	mu    sync.RWMutex
 	packs map[string]*QuestPack
 }
