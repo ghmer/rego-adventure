@@ -17,7 +17,7 @@ ARG TARGETOS TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-s -w" -trimpath -o bin/rego-adventure .
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.24
 
 WORKDIR /app
 
@@ -48,6 +48,9 @@ ENV GIN_MODE=release
 
 # Expose the port
 EXPOSE 8080
+
+# Health check against the public /health endpoint
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s CMD wget -qO- http://localhost:8080/health || exit 1
 
 # Run the application
 CMD ["./rego-adventure"]
