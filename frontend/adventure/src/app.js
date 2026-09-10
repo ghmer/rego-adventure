@@ -31,7 +31,7 @@ if (document.readyState === 'loading') {
 
 import { ConfigService } from './services/config-service.js';
 import { AuthService } from './services/auth-service.js';
-import { ApiError } from './services/api-service.js';
+import { ApiError, fetchPacks } from './services/api-service.js';
 import { GameState } from './services/state-service.js';
 import { UIManager } from './managers/ui-manager.js';
 import { QuestManager } from './managers/quest-manager.js';
@@ -102,7 +102,7 @@ async function beginQuest(packId) {
 }
 
 // Load pack list
-        const packs = await packManager.loadPackList();
+        const packs = await fetchPacks();
         uiManager.renderPackList(packs, async (packId) => {
             try {
                 await beginQuest(packId);
