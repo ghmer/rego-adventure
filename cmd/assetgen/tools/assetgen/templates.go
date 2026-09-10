@@ -92,6 +92,7 @@ body {
 
 /* Header Buttons - Circular Icon Style */
 #restart-btn,
+#minimize-btn,
 #home-btn,
 #logout-btn {
     padding: 0;
@@ -101,6 +102,7 @@ body {
 }
 
 #restart-btn:hover,
+#minimize-btn:hover,
 #home-btn:hover,
 #logout-btn:hover {
     background-color: transparent;
@@ -108,6 +110,7 @@ body {
 }
 
 #restart-btn i,
+#minimize-btn i,
 #home-btn i,
 #logout-btn i {
     width: 40px;
@@ -549,6 +552,10 @@ dialog#result-modal[open] {
 }
 
 /* Test Payload */
+#test-payload-data {
+    color: var(--text-color);
+}
+
 .test-result .test-payload pre {
     background: rgba(var(--text-rgb), 0.05);
 }
@@ -612,6 +619,13 @@ body::before {
 body.effects-disabled .action-btn,
 body.effects-disabled {
     animation: none;
+}
+*/
+
+/* Disable custom theme effects when effects are disabled
+body.effects-disabled .your-effect {
+    animation: none;
+    transform: none;
 }
 */
 
