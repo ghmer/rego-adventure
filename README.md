@@ -75,6 +75,7 @@ You'll need Go 1.27 or higher. Docker is optional but useful for containerized d
    export AUTH_DISCOVERY_URL="https://your-issuer.com/.well-known/openid-configuration"
    export AUTH_CLIENT_ID="your-client-id"
    export AUTH_AUDIENCE="your-audience"
+   export AUTH_ALLOWED_ALGORITHMS="RS256"
    ```
 
 5. Run the application:
@@ -182,6 +183,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | `AUTH_DISCOVERY_URL` | Conditional | -       | OIDC discovery endpoint (required if auth enabled) |
 | `AUTH_CLIENT_ID`     | Conditional | -       | OIDC client ID (required if auth enabled)          |
 | `AUTH_AUDIENCE`      | Conditional | -       | JWT audience claim (required if auth enabled)      |
+| `AUTH_ALLOWED_ALGORITHMS` | No     | `RS256` | Comma-separated list of allowed JWT signing algorithms (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512`, `EdDSA`) |
 | `TRUSTED_PROXIES`    | No          | -       | Comma-separated CIDR ranges for trusted proxies    |
 | `SHOW_IMPRESSUM`     | No          | `false` | Enable impressum/legal notice page link in footer  |
 

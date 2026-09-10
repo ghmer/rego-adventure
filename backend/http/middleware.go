@@ -143,7 +143,9 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		tokenString := parts[1]
-		token, err := jwt.Parse(tokenString, cfg.JWKS.Keyfunc)
+		token, err := jwt.Parse(tokenString, cfg.JWKS.Keyfunc,
+			jwt.WithValidMethods(cfg.Auth.AllowedAlgorithms),
+		)
 
 		if err != nil || !token.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
