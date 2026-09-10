@@ -153,9 +153,9 @@ func parseHexColor(s string) (color.RGBA, error) {
 	}
 
 	return color.RGBA{
-		R: uint8((v >> 16) & 0xFF), //nolint:gosec // G115: explicit mask ensures no overflow
-		G: uint8((v >> 8) & 0xFF),  //nolint:gosec // G115: explicit mask ensures no overflow
-		B: uint8(v & 0xFF),         //nolint:gosec // G115: explicit mask ensures no overflow
+		R: uint8((v >> 16) & 0xFF),
+		G: uint8((v >> 8) & 0xFF),
+		B: uint8(v & 0xFF),
 		A: 255,
 	}, nil
 }
@@ -182,7 +182,7 @@ func createFirstStepsQuest() quest.Quest {
 		DescriptionTask: "Allow access if the password is correct.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
-			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint: lll
+			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint:lll // markdown table string is intentionally long
 				"`input.password` | The password provided by the user |",
 			RegoSnippet: "To check if a password matches:\n```rego\n" +
 				"allow if input.password == \"secret\"\n```",
@@ -215,7 +215,7 @@ func createInventoryQuest() quest.Quest {
 		DescriptionTask: "Allow access if user has a 'pass' in inventory.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
-			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint: lll
+			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint:lll // markdown table string is intentionally long
 				"`input.user.inventory` | A list of items the user is carrying |",
 			RegoSnippet: "To check if an item is in a list:\n```rego\n" +
 				"allow if \"item\" in input.list\n```\nOr using array iteration:\n" +
@@ -252,7 +252,7 @@ func createDataLookupQuest() quest.Quest {
 		DescriptionTask: "Allow access if user is in the registry.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
-			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint: lll
+			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint:lll // markdown table string is intentionally long
 				"`input.user.name` | The name of the user |\n| `data.registry` | " +
 				"A list of registered users |",
 			RegoSnippet: "To check if a value exists in a data list:\n```rego\n" +

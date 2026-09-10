@@ -18,6 +18,7 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -163,7 +164,15 @@ func (c *Config) initializeJWKS() error {
 	}
 
 	// Fetch OIDC configuration to find jwks_uri
-	resp, err := httpClient.Get(c.Auth.DiscoveryURL) //nolint:noctx
+	fetchCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(fetchCtx, http.MethodGet, c.Auth.DiscoveryURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create OIDC discovery request: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch OIDC discovery document: %w", err)
 	}
