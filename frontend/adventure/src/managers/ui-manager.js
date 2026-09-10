@@ -100,6 +100,7 @@ export class UIManager {
             perfectScoreMessage: document.getElementById('perfect-score-message'),
             perfectScoreImage: document.getElementById('perfect-score-image'),
             closePerfectScoreBtn: document.getElementById('close-perfect-score-btn'),
+            perfectScoreBtn: document.getElementById('perfect-score-btn'),
             
             // Screens
             startScreen: document.getElementById('start-screen'),
@@ -356,6 +357,16 @@ export class UIManager {
     }
 
     /**
+     * Hide the perfect score button and refresh the quest footer
+     */
+    hidePerfectScoreButton() {
+        if (this.elements.perfectScoreBtn) {
+            this.elements.perfectScoreBtn.classList.add('hidden');
+        }
+        this.updateQuestFooterVisibility();
+    }
+
+    /**
      * Show/hide screens
      * @param {string} screen - 'start' or 'game'
      */
@@ -419,14 +430,23 @@ export class UIManager {
      * Initialize effects state from localStorage
      */
     initEffectsState() {
-        const effectsEnabled = getLocalStorage(STORAGE_KEYS.EFFECTS_ENABLED, 'false') === 'true';
-        
-        if (effectsEnabled) {
-            document.body.classList.remove('effects-disabled');
-        } else {
-            document.body.classList.add('effects-disabled');
-        }
-        
+        this.applyEffectsState(this.isEffectsEnabled());
+    }
+
+    /**
+     * Whether visual effects are enabled
+     * @returns {boolean} True if effects are enabled
+     */
+    isEffectsEnabled() {
+        return getLocalStorage(STORAGE_KEYS.EFFECTS_ENABLED, 'false') === 'true';
+    }
+
+    /**
+     * Apply the effects state to the document and the toggle button
+     * @param {boolean} effectsEnabled - Whether effects are enabled
+     */
+    applyEffectsState(effectsEnabled) {
+        document.body.classList.toggle('effects-disabled', !effectsEnabled);
         this.updateEffectsButton(effectsEnabled);
     }
 
@@ -456,18 +476,10 @@ export class UIManager {
      * Toggle visual effects
      */
     toggleEffects() {
-        const currentlyEnabled = getLocalStorage(STORAGE_KEYS.EFFECTS_ENABLED, 'false') === 'true';
-        const newState = !currentlyEnabled;
-        
+        const newState = !this.isEffectsEnabled();
+
         setLocalStorage(STORAGE_KEYS.EFFECTS_ENABLED, newState.toString());
-        
-        if (newState) {
-            document.body.classList.remove('effects-disabled');
-        } else {
-            document.body.classList.add('effects-disabled');
-        }
-        
-        this.updateEffectsButton(newState);
+        this.applyEffectsState(newState);
     }
 
     /**

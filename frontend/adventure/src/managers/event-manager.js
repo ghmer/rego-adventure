@@ -20,7 +20,7 @@
  */
 
 import { verifySolution } from '../services/api-service.js';
-import { setLocalStorage, getPackKey, clearAllGrimoires, removeLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
+import { setLocalStorage, getPackKey, buildQuestGrimoireKey, clearAllGrimoires, removeLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { AuthService } from '../services/auth-service.js';
 import { handleApiError } from '../services/error-service.js';
 
@@ -131,7 +131,7 @@ export class EventManager {
      */
     saveGrimoire() {
         if (this.state.currentQuestId > 0) {
-            const questGrimoireKey = getPackKey(`rego_grimoire_q${this.state.currentQuestId}`, this.state.currentPackId);
+            const questGrimoireKey = getPackKey(buildQuestGrimoireKey(this.state.currentQuestId), this.state.currentPackId);
             setLocalStorage(questGrimoireKey, this.ui.elements.editor.value);
         }
     }
@@ -210,7 +210,7 @@ export class EventManager {
      * Setup perfect score modal listeners
      */
     setupPerfectScoreListeners() {
-        const perfectScoreBtn = document.getElementById('perfect-score-btn');
+        const perfectScoreBtn = this.ui.elements.perfectScoreBtn;
         if (perfectScoreBtn) {
             perfectScoreBtn.addEventListener('click', () => {
                 this.modal.showPerfectScore();
@@ -304,11 +304,7 @@ export class EventManager {
         this.modal.closeRestartConfirmation();
         this.ui.setEditorReadOnly(false);
         
-        // Hide perfect score button if it exists
-        const perfectScoreBtn = document.getElementById('perfect-score-btn');
-        if (perfectScoreBtn) {
-            perfectScoreBtn.classList.add('hidden');
-        }
+        this.ui.hidePerfectScoreButton();
         
         // Update score display
         this.ui.updateScoreDisplay(this.state.totalScore);

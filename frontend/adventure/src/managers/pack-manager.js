@@ -187,12 +187,7 @@ export class PackManager {
      * @throws {Error} If the pack details fail to load
      */
     async startAdventure(packId) {
-        // Hide perfect score button when starting new adventure
-        const perfectScoreBtn = document.getElementById('perfect-score-btn');
-        if (perfectScoreBtn) {
-            perfectScoreBtn.classList.add('hidden');
-        }
-        this.ui.updateQuestFooterVisibility();
+        this.ui.hidePerfectScoreButton();
 
         // Set pack in state; the returned loaded state tells us whether
         // there is saved progress to resume
@@ -218,12 +213,7 @@ export class PackManager {
      * Return to home screen
      */
     returnHome() {
-        // Hide perfect score button
-        const perfectScoreBtn = document.getElementById('perfect-score-btn');
-        if (perfectScoreBtn) {
-            perfectScoreBtn.classList.add('hidden');
-        }
-        this.ui.updateQuestFooterVisibility();
+        this.ui.hidePerfectScoreButton();
 
         // Save current progress
         this.state.savePackState();

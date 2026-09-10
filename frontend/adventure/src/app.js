@@ -92,12 +92,20 @@ async function init() {
             return; // Stop initialization until logged in
         }
 
-        // Load pack list
+        /**
+ * Start (or resume) the given pack and load its current quest
+ * @param {string} packId - Pack identifier
+ */
+async function beginQuest(packId) {
+    await packManager.startAdventure(packId);
+    questManager.loadQuest(state.currentQuestId);
+}
+
+// Load pack list
         const packs = await packManager.loadPackList();
         uiManager.renderPackList(packs, async (packId) => {
             try {
-                await packManager.startAdventure(packId);
-                questManager.loadQuest(state.currentQuestId);
+                await beginQuest(packId);
             } catch (e) {
                 console.error("Failed to start adventure:", e);
             }
@@ -106,8 +114,7 @@ async function init() {
         // If we have a saved pack and quest, try to resume
         if (state.currentPackId && state.currentQuestId >= 0) {
             try {
-                await packManager.startAdventure(state.currentPackId);
-                questManager.loadQuest(state.currentQuestId);
+                await beginQuest(state.currentPackId);
             } catch (e) {
                 console.error("Failed to resume:", e);
                 // Fallback to start screen
