@@ -32,6 +32,9 @@ export class PackManager {
         this.state = state;
         this.ui = uiManager;
         this.audio = audioManager;
+        // Incremented on every pack entry/exit; stale async asset
+        // continuations compare against it and bail out
+        this.loadSeq = 0;
     }
 
     /**
@@ -39,6 +42,7 @@ export class PackManager {
      * @param {string} packId - Pack identifier
      */
     async loadPack(packId) {
+        const seq = ++this.loadSeq;
         try {
             const data = await fetchPackDetails(packId);
             
@@ -57,8 +61,9 @@ export class PackManager {
             // Load pack-specific theming
             this.loadPackTheme(packId);
             
-            // Load pack-specific assets
-            this.loadPackAssets(packId);
+            // Load pack-specific assets (not awaited: images appear when
+            // preloaded; loadPackAssets checks for staleness itself)
+            this.loadPackAssets(packId, seq);
             
             // Setup music
             this.audio.setupMusic(packId);
@@ -111,20 +116,25 @@ export class PackManager {
     }
 
     /**
-     * Load pack-specific assets (images, backgrounds)
-     * Preloads all assets in parallel before displaying
+     * Load pack-specific assets (images, backgrounds).
+     * Preloads all assets in parallel before displaying. The preload is
+     * async; the sequence token discards the writes if another pack (or
+     * the home screen) took over in the meantime.
      * @param {string} packId - Pack identifier
+     * @param {number} seq - Load sequence token from loadPack
      */
-    async loadPackAssets(packId) {
+    async loadPackAssets(packId, seq) {
         const basePath = `/quests/${packId}/assets/`;
-        
+
         // Preload all assets in parallel
         await Promise.all([
             this.preloadImage(basePath + 'npc-questgiver.png'),
             this.preloadImage(basePath + 'hero-avatar.png'),
             this.preloadImage(basePath + 'bg-adventure.jpg')
         ]);
-        
+
+        if (seq !== this.loadSeq) return;
+
         // Update NPC avatar (now guaranteed to be loaded)
         const npcAvatar = document.querySelector('.npc-avatar');
         if (npcAvatar) {
@@ -148,9 +158,11 @@ export class PackManager {
     }
 
     /**
-     * Reset to default theme and assets
+     * Reset to default theme and assets. Bumps the sequence so any
+     * in-flight asset preload for a pack cannot paint afterwards.
      */
     resetToDefaultTheme() {
+        this.loadSeq++;
         // Remove quest-specific CSS
         const questThemeLinks = document.querySelectorAll('[data-quest-theme]');
         questThemeLinks.forEach(link => link.remove());

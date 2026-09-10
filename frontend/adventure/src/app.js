@@ -33,6 +33,7 @@ import { ConfigService } from './services/config-service.js';
 import { AuthService } from './services/auth-service.js';
 import { ApiError, fetchPacks } from './services/api-service.js';
 import { GameState } from './services/state-service.js';
+import { removeLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
 import { UIManager } from './managers/ui-manager.js';
 import { QuestManager } from './managers/quest-manager.js';
 import { AudioManager } from './managers/audio-manager.js';
@@ -93,12 +94,22 @@ async function init() {
         }
 
         /**
- * Start (or resume) the given pack and load its current quest
+ * Start (or resume) the given pack and load its current quest.
+ * Guarded against concurrent starts: the resume path races the pack
+ * cards (rendered and clickable before the resume completes), and two
+ * interleaved startAdventure sequences would mix state from two packs.
  * @param {string} packId - Pack identifier
  */
+let beginQuestInFlight = false;
 async function beginQuest(packId) {
-    await packManager.startAdventure(packId);
-    questManager.loadQuest(state.currentQuestId);
+    if (beginQuestInFlight) return;
+    beginQuestInFlight = true;
+    try {
+        await packManager.startAdventure(packId);
+        questManager.loadQuest(state.currentQuestId);
+    } finally {
+        beginQuestInFlight = false;
+    }
 }
 
 // Load pack list
@@ -111,13 +122,15 @@ async function beginQuest(packId) {
             }
         });
 
-        // If we have a saved pack and quest, try to resume
-        if (state.currentPackId && state.currentQuestId >= 0) {
+        // If we have a saved pack, try to resume
+        if (state.currentPackId) {
             try {
                 await beginQuest(state.currentPackId);
             } catch (e) {
                 console.error("Failed to resume:", e);
-                // Fallback to start screen
+                // Persisted pointer is cleared so the next page load
+                // starts clean instead of retrying the broken pack
+                removeLocalStorage(STORAGE_KEYS.PACK_ID);
                 state.currentPackId = null;
                 state.currentQuestId = 0;
             }
