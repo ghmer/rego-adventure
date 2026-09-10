@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -34,12 +35,13 @@ import (
 
 // AuthConfig holds the authentication configuration
 type AuthConfig struct {
-	Enabled       bool   `json:"enabled"`
-	Issuer        string `json:"issuer"`
-	DiscoveryURL  string `json:"discovery_url"`
-	ClientID      string `json:"client_id"`
-	Audience      string `json:"audience"`
-	ShowImpressum bool   `json:"show_impressum"`
+	Enabled           bool     `json:"enabled"`
+	Issuer            string   `json:"issuer"`
+	DiscoveryURL      string   `json:"discovery_url"`
+	ClientID          string   `json:"client_id"`
+	Audience          string   `json:"audience"`
+	AllowedAlgorithms []string `json:"allowed_algorithms"`
+	ShowImpressum     bool     `json:"show_impressum"`
 }
 
 // Config holds all application configuration
@@ -79,8 +81,16 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	// Parse and validate the allowed JWT signing algorithms
+	if err := cfg.parseAllowedAlgorithms(); err != nil {
+		return nil, err
+	}
+
 	// Initialize JWKS if auth is enabled
 	if cfg.Auth.Enabled {
+		if err := cfg.validateAuthRequirements(); err != nil {
+			return nil, err
+		}
 		if err := cfg.initializeJWKS(); err != nil {
 			return nil, err
 		}
@@ -147,6 +157,77 @@ func (c *Config) validateAllowedOrigin() error {
 	return nil
 }
 
+// allowedJWTAlgorithms lists the JWT signing algorithms this server accepts.
+// Only asymmetric algorithms are supported, because verification keys come
+// from a JWKS endpoint; symmetric algorithms (HS*) cannot be verified
+// against published public keys.
+var allowedJWTAlgorithms = []string{
+	"RS256", "RS384", "RS512",
+	"PS256", "PS384", "PS512",
+	"ES256", "ES384", "ES512",
+	"EdDSA",
+}
+
+// parseAllowedAlgorithms parses and validates AUTH_ALLOWED_ALGORITHMS.
+// Unset or empty, the list defaults to RS256.
+func (c *Config) parseAllowedAlgorithms() error {
+	raw := os.Getenv("AUTH_ALLOWED_ALGORITHMS")
+	if raw == "" {
+		c.Auth.AllowedAlgorithms = []string{"RS256"}
+		return nil
+	}
+
+	for _, alg := range strings.Split(raw, ",") {
+		alg = strings.TrimSpace(alg)
+		if alg == "" {
+			continue
+		}
+
+		canonical, supported := supportedAlgorithm(alg)
+		if !supported {
+			return fmt.Errorf("unsupported algorithm %q in AUTH_ALLOWED_ALGORITHMS; supported: %s",
+				alg, strings.Join(allowedJWTAlgorithms, ", "))
+		}
+
+		if !slices.Contains(c.Auth.AllowedAlgorithms, canonical) {
+			c.Auth.AllowedAlgorithms = append(c.Auth.AllowedAlgorithms, canonical)
+		}
+	}
+
+	if len(c.Auth.AllowedAlgorithms) == 0 {
+		return fmt.Errorf("AUTH_ALLOWED_ALGORITHMS contains no algorithm names; supported: %s",
+			strings.Join(allowedJWTAlgorithms, ", "))
+	}
+
+	return nil
+}
+
+// supportedAlgorithm reports the canonical name of alg if it is supported.
+func supportedAlgorithm(alg string) (string, bool) {
+	for _, candidate := range allowedJWTAlgorithms {
+		if strings.EqualFold(candidate, alg) {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+// validateAuthRequirements ensures the required OIDC settings are present
+// when authentication is enabled, so misconfiguration fails at startup
+// instead of rejecting every request at runtime.
+func (c *Config) validateAuthRequirements() error {
+	if c.Auth.Issuer == "" {
+		return fmt.Errorf("AUTH_ISSUER is required when AUTH_ENABLED is true")
+	}
+	if c.Auth.Audience == "" {
+		return fmt.Errorf("AUTH_AUDIENCE is required when AUTH_ENABLED is true")
+	}
+	if c.Auth.DiscoveryURL == "" {
+		return fmt.Errorf("AUTH_DISCOVERY_URL is required when AUTH_ENABLED is true")
+	}
+	return nil
+}
+
 // HTTP client with connection pooling and timeout
 var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
@@ -159,10 +240,6 @@ var httpClient = &http.Client{
 
 // initializeJWKS initializes the JWKS for JWT validation
 func (c *Config) initializeJWKS() error {
-	if c.Auth.DiscoveryURL == "" {
-		return fmt.Errorf("AUTH_DISCOVERY_URL is required when AUTH_ENABLED is true")
-	}
-
 	// Fetch OIDC configuration to find jwks_uri
 	fetchCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
