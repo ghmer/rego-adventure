@@ -92,13 +92,28 @@ func normalizeValue(v any) (any, error) {
 	}
 }
 
-// runTestCase executes a single test case and returns the result.
-func runTestCase(ctx context.Context, query string, compiledModule func(*rego.Rego),
-	test TestCase) (*TestResult, error) {
+// dataKey canonicalizes a data document so tests carrying equal data share
+// one prepared query. json.Marshal sorts map keys, so the key is stable for
+// equal documents.
+func dataKey(data map[string]any) (string, error) {
+	if data == nil {
+		return "null", nil
+	}
+	b, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("canonicalize data document: %w", err)
+	}
+	return string(b), nil
+}
+
+// prepareForEval parses and compiles the user's module (plus the optional
+// data store) once, producing a query that can be evaluated repeatedly
+// with different inputs.
+func prepareForEval(ctx context.Context, query string, compiledModule func(*rego.Rego),
+	data map[string]any) (rego.PreparedEvalQuery, error) {
 	options := []func(*rego.Rego){
 		rego.Query(query),
 		compiledModule,
-		rego.Input(test.Payload.Input),
 		rego.UnsafeBuiltins(map[string]struct{}{
 			"http.send":          {},
 			"net.lookup_ip_addr": {},
@@ -106,13 +121,16 @@ func runTestCase(ctx context.Context, query string, compiledModule func(*rego.Re
 		}),
 	}
 
-	if test.Payload.Data != nil {
-		store := inmem.NewFromObject(test.Payload.Data)
-		options = append(options, rego.Store(store))
+	if data != nil {
+		options = append(options, rego.Store(inmem.NewFromObject(data)))
 	}
 
-	r := rego.New(options...)
-	rs, err := r.Eval(ctx)
+	return rego.New(options...).PrepareForEval(ctx)
+}
+
+// evalTestCase executes a single test case against the prepared query.
+func evalTestCase(ctx context.Context, pq rego.PreparedEvalQuery, test TestCase) (*TestResult, error) {
+	rs, err := pq.Eval(ctx, rego.EvalInput(test.Payload.Input))
 	if err != nil {
 		return nil, err
 	}
@@ -149,12 +167,34 @@ func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*
 
 	compiledModule := rego.Module("quest.rego", regoCode)
 
+	prepared := make(map[string]rego.PreparedEvalQuery)
+
 	for _, test := range quest.Tests {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 
-		result, err := runTestCase(ctx, quest.Query, compiledModule, test)
+		key, err := dataKey(test.Payload.Data)
+		if err != nil {
+			return &VerificationResult{
+				Passed: false,
+				Error:  fmt.Sprintf("Compilation/Runtime error: %v", err),
+			}, nil
+		}
+
+		pq, ok := prepared[key]
+		if !ok {
+			pq, err = prepareForEval(ctx, quest.Query, compiledModule, test.Payload.Data)
+			if err != nil {
+				return &VerificationResult{
+					Passed: false,
+					Error:  fmt.Sprintf("Compilation/Runtime error: %v", err),
+				}, nil
+			}
+			prepared[key] = pq
+		}
+
+		result, err := evalTestCase(ctx, pq, test)
 		if err != nil {
 			return &VerificationResult{
 				Passed: false,

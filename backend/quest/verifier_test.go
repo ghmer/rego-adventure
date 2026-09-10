@@ -555,3 +555,39 @@ func TestVerifier_Verify_ObjectResult(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkVerifierVerify(b *testing.B) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{
+			{ID: 1, ExpectedOutcome: true, Payload: TestPayload{Input: map[string]any{"user": "admin"}}},
+			{ID: 2, ExpectedOutcome: false, Payload: TestPayload{Input: map[string]any{"user": "guest"}}},
+			{ID: 3, ExpectedOutcome: true, Payload: TestPayload{Input: map[string]any{"user": "root"}}},
+			{ID: 4, ExpectedOutcome: false, Payload: TestPayload{Input: map[string]any{"user": "nobody"}}},
+			{ID: 5, ExpectedOutcome: true, Payload: TestPayload{Input: map[string]any{"user": "operator"}}},
+			{ID: 6, ExpectedOutcome: false, Payload: TestPayload{Input: map[string]any{"user": "auditor"}}},
+			{ID: 7, ExpectedOutcome: true, Payload: TestPayload{Input: map[string]any{"user": "sysadmin"}}},
+			{ID: 8, ExpectedOutcome: false, Payload: TestPayload{Input: map[string]any{"user": "intern"}}},
+		},
+	}
+
+	regoCode := `
+		package quest
+		default allow = false
+		allow if input.user in {"admin", "root", "operator", "sysadmin"}
+	`
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		result, err := verifier.Verify(ctx, quest, regoCode)
+		if err != nil {
+			b.Fatalf("Verify failed: %v", err)
+		}
+		if !result.Passed {
+			b.Fatal("expected verification to pass")
+		}
+	}
+}
