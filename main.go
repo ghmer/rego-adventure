@@ -26,6 +26,7 @@ import (
 	"github.com/ghmer/rego-adventure/backend/config"
 	"github.com/ghmer/rego-adventure/backend/http"
 	_ "github.com/ghmer/rego-adventure/backend/logger"
+	"github.com/ghmer/rego-adventure/backend/paths"
 	"github.com/ghmer/rego-adventure/backend/quest"
 )
 
@@ -41,7 +42,7 @@ func main() {
 	questRepo := quest.NewQuestRepository()
 
 	// Scan quests folder
-	questsDir := "frontend/quests"
+	questsDir := paths.QuestsDir
 	entries, err := os.ReadDir(questsDir)
 	if err != nil {
 		slog.Error("failed to read quests directory", "error", err)
