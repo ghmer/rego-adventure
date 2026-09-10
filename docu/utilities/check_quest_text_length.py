@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright 2025 Mario Enrico Ragucci
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/usr/bin/env python3
 """
 Quest Text Length Checker
 Scans all quest JSON files and reports text exceeding 200 characters.
@@ -99,26 +99,26 @@ def check_quest_file(theme: str, file_path: Path, max_length: int = 200) -> List
 
 def main():
     """Main function to scan all quest files."""
-    # Define themes and base path
-    themes = ['cyberpunk', 'fantasy', 'noir', 'scifi', 'thriller']
-    base_path = Path('frontend/quests')
+    # Discover all quest packs under <project root>/frontend/quests
+    project_root = Path(__file__).parent.parent.parent
+    quests_base_dir = project_root / 'frontend' / 'quests'
     max_length = 200
-    
+
     print("=" * 80)
     print("QUEST TEXT LENGTH CHECKER")
     print("=" * 80)
     print(f"Checking for text exceeding {max_length} characters...\n")
-    
+
     all_violations = []
-    
-    # Check each theme
-    for theme in themes:
-        quest_file = base_path / theme / 'quests.json'
-        
-        if not quest_file.exists():
-            print(f"Skipping {theme}: quests.json not found")
-            continue
-        
+
+    quest_files = sorted(quests_base_dir.glob('*/quests.json'))
+    if not quest_files:
+        print(f"No quests.json files found in {quests_base_dir}")
+        return
+
+    # Check each quest pack found on disk
+    for quest_file in quest_files:
+        theme = quest_file.parent.name
         violations = check_quest_file(theme, quest_file, max_length)
         all_violations.extend(violations)
     

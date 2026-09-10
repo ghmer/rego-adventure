@@ -5,3 +5,4 @@ node_modules/
 frontend/adventure/node_modules/
 frontend/adventure/package-lock.json
 frontend/quests/
+__pycache__/
