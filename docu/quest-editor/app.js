@@ -61,7 +61,6 @@ const VALIDATION_LIMITS = {
 // GLOBAL STATE
 // ============================================================================
 let questData = null;
-let currentQuestIndex = -1;
 let currentModalTest = null;
 
 // ============================================================================
@@ -167,7 +166,30 @@ function handleFileLoad(event) {
     reader.readAsText(file);
 }
 
+function normalizeTestPayloads() {
+    if (!questData || !Array.isArray(questData.quests)) return;
+
+    questData.quests.forEach(quest => {
+        if (!Array.isArray(quest.tests)) return;
+
+        quest.tests.forEach(test => {
+            if (!test.payload || typeof test.payload !== 'object' || Array.isArray(test.payload)) {
+                test.payload = {};
+            }
+            if (test.data !== undefined && test.payload.data === undefined) {
+                test.payload.data = test.data;
+            }
+            delete test.data;
+            if (test.payload.input === undefined) {
+                test.payload.input = {};
+            }
+        });
+    });
+}
+
 function loadEditor() {
+    normalizeTestPayloads();
+
     // Hide empty state, show editor
     document.getElementById('emptyState').classList.add('hidden');
     document.getElementById('editorLayout').classList.remove('hidden');
@@ -237,9 +259,6 @@ function switchView(viewName) {
 }
 
 function switchToQuest(questIndex) {
-    currentQuestIndex = questIndex;
-    const quest = questData.quests[questIndex];
-    
     // Update quest navigation
     document.querySelectorAll('#questNav .nav-item').forEach((item, idx) => {
         item.classList.toggle('active', idx === questIndex);
@@ -680,8 +699,7 @@ function addTestItem(questIndex) {
     
     const newTest = {
         id: quest.tests.length + 1,
-        payload: {},
-        data: {},
+        payload: { input: {} },
         expected_value: false
     };
     
@@ -708,8 +726,8 @@ function removeTestItem(questIndex, testIndex) {
 // ============================================================================
 function showTestModal(test) {
     document.getElementById('modal-test-id').value = test.id || '';
-    document.getElementById('modal-test-payload').value = JSON.stringify(test.payload || {}, null, 2);
-    document.getElementById('modal-test-data').value = JSON.stringify(test.data || {}, null, 2);
+    document.getElementById('modal-test-payload').value = JSON.stringify(test.payload?.input ?? {}, null, 2);
+    document.getElementById('modal-test-data').value = JSON.stringify(test.payload?.data ?? {}, null, 2);
     document.getElementById('modal-test-expected').value = JSON.stringify(test.expected_value);
     
     document.getElementById('modal').classList.add('active');
@@ -724,10 +742,17 @@ function saveModalTest() {
     if (!currentModalTest) return;
     
     try {
+        const payload = {
+            input: JSON.parse(document.getElementById('modal-test-payload').value || '{}')
+        };
+        const data = JSON.parse(document.getElementById('modal-test-data').value || '{}');
+        if (data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length > 0) {
+            payload.data = data;
+        }
+
         const test = {
             id: parseInt(document.getElementById('modal-test-id').value) || 0,
-            payload: JSON.parse(document.getElementById('modal-test-payload').value || '{}'),
-            data: JSON.parse(document.getElementById('modal-test-data').value || '{}'),
+            payload,
             expected_value: JSON.parse(document.getElementById('modal-test-expected').value)
         };
         
