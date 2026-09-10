@@ -36,6 +36,7 @@ export class AudioManager {
         this.musicRingCircumference = 0;
         this.audioCtx = null;
         this.gainNode = null;
+        this.pauseTimer = null;
 
         // Store bound functions once to avoid memory leaks from repeated .bind() calls
         this.boundHandleMusicEnded = this.handleMusicEnded.bind(this);
@@ -91,12 +92,14 @@ export class AudioManager {
     }
 
     /**
-     * Set the gain node value immediately
+     * Cancel scheduled automation and set the gain value immediately
      * @param {number} value - Gain value (0-1); no-op without a graph
      */
     setGain(value) {
         if (this.gainNode) {
-            this.gainNode.gain.value = value;
+            const now = this.audioCtx.currentTime;
+            this.gainNode.gain.cancelScheduledValues(now);
+            this.gainNode.gain.setValueAtTime(value, now);
         }
     }
 
@@ -175,14 +178,21 @@ export class AudioManager {
     }
 
     /**
-     * Toggle music playback (pause/resume keeps the current position)
+     * Toggle music playback (pause/resume keeps the current position).
+     * Pausing fades to silence first; stopping the element at full gain
+     * would cut the waveform mid-flight and is heard as a sharp knack.
      */
     toggleMusic() {
         this.isMusicPlaying = !this.isMusicPlaying;
         if (this.isMusicPlaying) {
+            clearTimeout(this.pauseTimer);
             // AudioContext creation/resume must happen inside a user gesture
             this.ensureAudioGraph();
-            this.setGain(0);
+            // Dropping the gain to 0 is only safe while nothing plays;
+            // resuming mid-fade-out must re-anchor on the live param
+            if (this.ui.elements.bgMusic.paused) {
+                this.setGain(0);
+            }
             this.ui.elements.bgMusic.play().then(() => {
                 // Short ramp in to avoid the playback start/resume click
                 this.rampGain(AUDIO.DEFAULT_VOLUME, TIMING.FADE_DURATION);
@@ -191,21 +201,32 @@ export class AudioManager {
                 this.isMusicPlaying = false;
             });
         } else {
-            this.ui.elements.bgMusic.pause();
-            // No gain reset here: resume re-anchors at 0 and ramps afresh,
-            // so touching the gain while paused would only fight that ramp
+            this.rampGain(0, TIMING.FADE_DURATION);
+            this.pauseTimer = setTimeout(() => {
+                this.pauseTimer = null;
+                if (!this.isMusicPlaying) {
+                    this.ui.elements.bgMusic.pause();
+                }
+            }, TIMING.FADE_DURATION);
         }
         this.updateMusicButton();
     }
 
     /**
-     * Stop music playback
+     * Stop music playback with a fade-out, then rewind
      */
     stopMusic() {
-        this.ui.elements.bgMusic.pause();
-        this.ui.elements.bgMusic.currentTime = 0;
+        clearTimeout(this.pauseTimer);
         this.isMusicPlaying = false;
         this.updateMusicButton();
+        this.rampGain(0, TIMING.FADE_DURATION);
+        this.pauseTimer = setTimeout(() => {
+            this.pauseTimer = null;
+            if (!this.isMusicPlaying) {
+                this.ui.elements.bgMusic.pause();
+                this.ui.elements.bgMusic.currentTime = 0;
+            }
+        }, TIMING.FADE_DURATION);
     }
 
     /**
