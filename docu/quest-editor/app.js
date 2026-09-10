@@ -61,7 +61,6 @@ const VALIDATION_LIMITS = {
 // GLOBAL STATE
 // ============================================================================
 let questData = null;
-let currentQuestIndex = -1;
 let currentModalTest = null;
 
 // ============================================================================
@@ -260,9 +259,6 @@ function switchView(viewName) {
 }
 
 function switchToQuest(questIndex) {
-    currentQuestIndex = questIndex;
-    const quest = questData.quests[questIndex];
-    
     // Update quest navigation
     document.querySelectorAll('#questNav .nav-item').forEach((item, idx) => {
         item.classList.toggle('active', idx === questIndex);
