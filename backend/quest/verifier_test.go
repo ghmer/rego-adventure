@@ -556,7 +556,7 @@ func TestVerifier_Verify_ObjectResult(t *testing.T) {
 	}
 }
 
-func BenchmarkVerifierVerify(b *testing.B) {
+func BenchmarkVerifier(b *testing.B) {
 	verifier := NewVerifier()
 	ctx := context.Background()
 
@@ -580,8 +580,7 @@ func BenchmarkVerifierVerify(b *testing.B) {
 		allow if input.user in {"admin", "root", "operator", "sysadmin"}
 	`
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		result, err := verifier.Verify(ctx, quest, regoCode)
 		if err != nil {
 			b.Fatalf("Verify failed: %v", err)
