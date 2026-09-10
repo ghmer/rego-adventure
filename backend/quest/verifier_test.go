@@ -243,9 +243,9 @@ func TestVerifier_Verify_ContextCancelled(t *testing.T) {
 	`
 
 	_, err := verifier.Verify(ctx, quest, regoCode)
-	// With a cancelled context, Verify should return an error.
+	// With a cancelled context, Verify must return the context error.
 	if err == nil {
-		t.Log("Verify with cancelled context returned nil error (context may have been checked mid-loop)")
+		t.Error("expected context error from Verify with cancelled context, got nil")
 	}
 }
 

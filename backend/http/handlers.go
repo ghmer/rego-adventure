@@ -19,15 +19,18 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/ghmer/rego-adventure/backend/quest"
 
 	"github.com/gin-gonic/gin"
 )
+
+// verifyTimeout bounds a single solution verification.
+const verifyTimeout = 10 * time.Second
 
 // Handler handles HTTP requests for quest operations.
 type Handler struct {
@@ -87,8 +90,8 @@ func (h *Handler) GetTestPayload(c *gin.Context) {
 	questID := c.Param("quest_id")
 
 	// Convert questID to int
-	var qid int
-	if _, err := fmt.Sscanf(questID, "%d", &qid); err != nil {
+	qid, err := strconv.Atoi(questID)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quest ID"})
 		return
 	}
@@ -126,15 +129,11 @@ func (h *Handler) VerifySolution(c *gin.Context) {
 		return
 	}
 
-	result, err := func() (*quest.VerificationResult, error) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-		defer cancel()
-		return h.verifier.Verify(ctx, q, req.RegoCode)
-	}()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), verifyTimeout)
+	defer cancel()
+
+	result, err := h.verifier.Verify(ctx, q, req.RegoCode)
 	if err != nil {
-		// Verify currently handles all errors (compilation, runtime) by returning a result with Error field set.
-		// The error return value is always nil in the current implementation.
-		// This path would only be reached if Verify's implementation changes to return actual Go errors.
 		slog.Error("error verifying solution", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return

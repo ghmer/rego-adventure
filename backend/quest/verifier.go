@@ -161,6 +161,8 @@ func evalTestCase(ctx context.Context, pq rego.PreparedEvalQuery, test TestCase)
 }
 
 // Verify checks the user's Rego code against the provided quest's test cases.
+// Compilation and evaluation problems are reported in the result's Error
+// field; the returned error is reserved for a cancelled or timed-out context.
 func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*VerificationResult, error) {
 	results := make([]TestResult, 0, len(quest.Tests))
 	allPassed := true
