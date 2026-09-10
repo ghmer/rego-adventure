@@ -85,14 +85,18 @@ export class ModalManager {
         });
 
         // Ensure visual effects are removed for all close paths (button, ESC, backdrop).
-        this.ui.elements.resultModal.addEventListener('close', () => {
-            cleanupEffects();
-        });
+        if (this.ui.elements.resultModal) {
+            this.ui.elements.resultModal.addEventListener('close', () => {
+                cleanupEffects();
+            });
+        }
 
         // Keep restart confirmation explicit (buttons only).
-        this.ui.elements.restartModal.addEventListener('cancel', (event) => {
-            event.preventDefault();
-        });
+        if (this.ui.elements.restartModal) {
+            this.ui.elements.restartModal.addEventListener('cancel', (event) => {
+                event.preventDefault();
+            });
+        }
     }
 
     /**

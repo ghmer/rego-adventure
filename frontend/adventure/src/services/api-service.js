@@ -23,8 +23,8 @@ import { API } from './constants.js';
 import { AuthService } from './auth-service.js';
 
 /**
- * Error thrown by API calls, carrying the HTTP status and response body
- * so error handling can branch on data instead of message-sniffing.
+ * Error thrown by API calls, carrying the HTTP status so error handling
+ * can branch on data instead of message-sniffing.
  * A status of 0 means the request never got a response
  * (network failure or timeout).
  */
@@ -32,14 +32,12 @@ export class ApiError extends Error {
     /**
      * @param {string} message - Human-readable error message
      * @param {number} status - HTTP status code, or 0 for network/timeout errors
-     * @param {string} body - Raw response body, when available
      * @param {Object} [options] - Additional error options (e.g. { cause })
      */
-    constructor(message, status = 0, body = '', options = {}) {
+    constructor(message, status = 0, options = {}) {
         super(message, options);
         this.name = 'ApiError';
         this.status = status;
-        this.body = body;
     }
 }
 
@@ -71,9 +69,9 @@ async function performFetch(url, options, timeout) {
         return await fetch(url, config);
     } catch (error) {
         if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-            throw new ApiError(`Request timeout after ${timeout}ms`, 0, '', { cause: error });
+            throw new ApiError(`Request timeout after ${timeout}ms`, 0, { cause: error });
         }
-        throw new ApiError(`Network error: ${error.message}`, 0, '', { cause: error });
+        throw new ApiError(`Network error: ${error.message}`, 0, { cause: error });
     }
 }
 
@@ -103,13 +101,7 @@ async function fetchWithAuth(url, options = {}, timeout = 30000) {
  */
 async function ensureOk(response, message) {
     if (response.ok) return;
-    let body = '';
-    try {
-        body = await response.text();
-    } catch (e) {
-        // body stays empty
-    }
-    throw new ApiError(message, response.status, body);
+    throw new ApiError(message, response.status);
 }
 
 /**

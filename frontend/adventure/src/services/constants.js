@@ -44,19 +44,9 @@ export const SCORING = {
  */
 export const TIMING = {
     FADE_DURATION: 250,              // Audio fade in/out duration
-    TUTORIAL_FOCUS_DELAY: 100,       // Delay before focusing tutorial elements
     TUTORIAL_SHOW_DELAY: 250,        // Delay before showing tutorial after quest load
     CONFETTI_DURATION: 3000,         // Confetti animation duration
     CONFETTI_INTERVAL: 250           // Confetti particle spawn interval
-};
-
-/**
- * UI spacing and layout constants (in pixels)
- */
-export const UI = {
-    SPOTLIGHT_PADDING: 10,            // Padding around tutorial spotlight
-    TOOLTIP_SPACING: 20,             // Spacing between tooltip and element
-    TOOLTIP_MIN_MARGIN: 20           // Minimum margin from viewport edge
 };
 
 /**
@@ -85,7 +75,6 @@ export const DEFAULT_TEXT = {
     PERFECT_SCORE_MESSAGE: 'You have achieved perfection!',
     PERFECT_SCORE_BUTTON: 'A Secret Awaits...',
     ADVENTURE_TITLE: 'Rego Adventure',
-    NEXT_QUEST: 'Next Quest',
     BEGIN_ADVENTURE: 'Begin Adventure',
     PROLOGUE_LABEL: 'Prologue',
     PROLOGUE_TITLE: 'Adventure Begins',
