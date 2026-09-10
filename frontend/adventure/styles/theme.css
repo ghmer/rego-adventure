@@ -21,7 +21,9 @@
    game interface is unaffected.
    ============================================ */
 
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+/* Note: no webfont @import here - the site's CSP restricts
+   style-src to 'self', inline styles, and cdnjs, so the landing
+   page uses a clean system font stack instead. */
 
 /* Background Canvas (shared with the game interface) */
 #bg-canvas {
@@ -70,9 +72,9 @@ body.effects-disabled {
    ============================================ */
 
 .start-screen {
-    /* Typography - clean humanist sans with graceful fallbacks */
-    --font-heading: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* Typography - clean system sans stack (CSP-safe, no external fonts) */
+    --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
     /* Palette - warm paper whites, soft ink, restrained amber accent */
     --landing-bg-top: #fffefb;
