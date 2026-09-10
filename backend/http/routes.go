@@ -25,18 +25,27 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/ghmer/rego-adventure/backend/paths"
 	"github.com/gin-gonic/gin"
 )
 
-// Cache for index.html to avoid repeated file reads in SPA handler
-var (
-	indexHTMLCache     []byte
-	indexHTMLCacheOnce sync.Once
-	indexHTMLCacheErr  error
-)
+// questCSSFiles lists the CSS files servable from a quest pack directory.
+var questCSSFiles = map[string]bool{
+	"theme.css":  true,
+	"custom.css": true,
+	"styles.css": true,
+}
+
+// validateQuestCSSFile reports whether filename is servable quest CSS.
+func validateQuestCSSFile(filename string) bool {
+	return questCSSFiles[filename]
+}
+
+// validateCSSAsset reports whether requestedPath is a servable asset type.
+func validateCSSAsset(requestedPath string) bool {
+	return filepath.Ext(requestedPath) == ".css"
+}
 
 // SetupRoutes configures all routes and middleware
 func (s *Server) SetupRoutes() {
@@ -125,14 +134,7 @@ func (s *Server) serveQuestCSS(c *gin.Context) {
 	}
 
 	baseDir := filepath.Join(paths.QuestsDir, pack)
-	validate := func(p string) bool {
-		allowedFiles := map[string]bool{
-			"theme.css":  true,
-			"custom.css": true,
-			"styles.css": true,
-		}
-		return allowedFiles[p]
-	}
+	validate := validateQuestCSSFile
 
 	s.serveSafeFile(c, baseDir, filename, validate, "text/css; charset=utf-8")
 }
@@ -141,9 +143,7 @@ func (s *Server) serveQuestCSS(c *gin.Context) {
 func (s *Server) serveSharedCSS(c *gin.Context) {
 	requestedPath := c.Param("filepath")
 	baseDir := paths.SharedCSSDir
-	validate := func(p string) bool {
-		return filepath.Ext(p) == ".css"
-	}
+	validate := validateCSSAsset
 
 	s.serveSafeFile(c, baseDir, requestedPath, validate, "text/css; charset=utf-8")
 }
@@ -205,37 +205,23 @@ func (s *Server) serveSafeFile(
 	c.File(absPath)
 }
 
-// getCachedIndexHTML returns the cached index.html content or an error if it could not be read.
-func getCachedIndexHTML(subFS fs.FS) ([]byte, error) {
-	indexHTMLCacheOnce.Do(func() {
-		indexHTMLCache, indexHTMLCacheErr = fs.ReadFile(subFS, "index.html")
-		if indexHTMLCacheErr != nil {
-			slog.Error("failed to read index.html for cache", "error", indexHTMLCacheErr)
-		}
-	})
-	if indexHTMLCacheErr != nil {
-		return nil, indexHTMLCacheErr
-	}
-	return indexHTMLCache, nil
-}
-
-// serveIndexHTML serves the cached index.html, returning 500 if it is unavailable.
-func serveIndexHTML(c *gin.Context, subFS fs.FS) {
-	data, err := getCachedIndexHTML(subFS)
-	if err != nil {
-		slog.Error("index.html unavailable", "error", err)
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	c.Data(http.StatusOK, "text/html; charset=utf-8", data)
-}
-
 // createSPAHandler creates a handler for SPA routing
 func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
-	// Pre-warm the index.html cache on startup; log but don't fatal — the
-	// handler itself will return 500 if the file is still missing at request time.
-	if _, err := getCachedIndexHTML(subFS); err != nil {
-		slog.Error("could not pre-warm index.html cache", "error", err)
+	// Read index.html once at handler creation; log but don't fatal — the
+	// handler returns 500 if the file is missing.
+	indexHTML, indexHTMLErr := fs.ReadFile(subFS, "index.html")
+	if indexHTMLErr != nil {
+		slog.Error("could not read index.html for SPA handler", "error", indexHTMLErr)
+	}
+
+	// serveIndex responds with the captured index.html bytes.
+	serveIndex := func(c *gin.Context) {
+		if indexHTMLErr != nil {
+			slog.Error("index.html unavailable", "error", indexHTMLErr)
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
 	}
 
 	return func(c *gin.Context) {
@@ -256,7 +242,7 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 
 		// If cleanPath is empty (root path), serve index.html
 		if cleanPath == "" || cleanPath == "." {
-			serveIndexHTML(c, subFS)
+			serveIndex(c)
 			return
 		}
 
@@ -264,7 +250,7 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 		file, err := subFS.Open(cleanPath)
 		if err != nil {
 			// File doesn't exist — serve index.html for SPA client-side routing
-			serveIndexHTML(c, subFS)
+			serveIndex(c)
 			return
 		}
 		defer func() {
@@ -277,11 +263,11 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 		stat, err := file.Stat()
 		if err != nil {
 			slog.Warn("failed to stat file, falling back to index.html", "path", cleanPath, "error", err)
-			serveIndexHTML(c, subFS)
+			serveIndex(c)
 			return
 		}
 		if stat.IsDir() {
-			serveIndexHTML(c, subFS)
+			serveIndex(c)
 			return
 		}
 

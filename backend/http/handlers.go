@@ -32,6 +32,10 @@ import (
 // verifyTimeout bounds a single solution verification.
 const verifyTimeout = 10 * time.Second
 
+// apiCacheControl prevents shared caches from storing responses that may be
+// authenticated; per-user (browser) caching is still allowed.
+const apiCacheControl = "private, max-age=300"
+
 // Handler handles HTTP requests for quest operations.
 type Handler struct {
 	questRepo *quest.QuestRepository
@@ -67,7 +71,7 @@ func (h *Handler) GetPacks(c *gin.Context) {
 			"genre":       p.Meta.Genre,
 		})
 	}
-	c.Header("Cache-Control", "public, max-age=300")
+	c.Header("Cache-Control", apiCacheControl)
 	c.JSON(http.StatusOK, simplified)
 }
 
@@ -80,7 +84,7 @@ func (h *Handler) GetPack(c *gin.Context) {
 		return
 	}
 	// Add cache headers to reduce repeated serialization overhead
-	c.Header("Cache-Control", "public, max-age=300")
+	c.Header("Cache-Control", apiCacheControl)
 	c.JSON(http.StatusOK, pack)
 }
 
@@ -103,7 +107,7 @@ func (h *Handler) GetTestPayload(c *gin.Context) {
 	}
 
 	// Extract test payload data
-	c.Header("Cache-Control", "public, max-age=300")
+	c.Header("Cache-Control", apiCacheControl)
 	c.JSON(http.StatusOK, quest.GetTestPayloads())
 }
 
