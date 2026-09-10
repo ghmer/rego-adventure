@@ -18,16 +18,13 @@
  * Config Service
  * Loads the application configuration from the backend.
  *
- * Tri-state contract:
- * - config set     -> configuration loaded successfully
- * - load() threw   -> loadError is set and config is null; callers must
- *                     surface the failure instead of assuming auth is disabled
+ * Contract: load() resolves with the configuration or rejects with the
+ * load error; get() returns the last successfully loaded configuration
+ * (null before the first successful load or after a failed one).
  */
 export const ConfigService = {
     config: null,
-    loadError: null,
     async load() {
-        this.loadError = null;
         try {
             const res = await fetch('/config');
             if (!res.ok) {
@@ -38,7 +35,6 @@ export const ConfigService = {
         } catch (e) {
             console.error('Config load failed:', e);
             this.config = null;
-            this.loadError = e;
             throw e;
         }
     },
