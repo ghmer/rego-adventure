@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ghmer/rego-adventure/backend/paths"
 	"github.com/gin-gonic/gin"
 )
 
@@ -79,7 +80,7 @@ func (s *Server) setupQuestRoutes() {
 // setupFrontendRoutes configures frontend and SPA routes
 func (s *Server) setupFrontendRoutes() {
 	// Serve Frontend
-	subFS := os.DirFS("frontend/adventure")
+	subFS := os.DirFS(paths.AdventureDir)
 
 	// Handle SPA routes
 	s.router.GET("/callback", func(c *gin.Context) {
@@ -102,7 +103,7 @@ func (s *Server) serveQuestAssets(c *gin.Context) {
 		return
 	}
 
-	baseDir := filepath.Join("./frontend/quests", pack, "assets")
+	baseDir := filepath.Join(paths.QuestsDir, pack, "assets")
 	validate := func(p string) bool {
 		return isAllowedExtension(p) && !isSensitiveFile(p)
 	}
@@ -123,7 +124,7 @@ func (s *Server) serveQuestCSS(c *gin.Context) {
 		return
 	}
 
-	baseDir := filepath.Join("./frontend/quests", pack)
+	baseDir := filepath.Join(paths.QuestsDir, pack)
 	validate := func(p string) bool {
 		allowedFiles := map[string]bool{
 			"theme.css":  true,
@@ -139,7 +140,7 @@ func (s *Server) serveQuestCSS(c *gin.Context) {
 // serveSharedCSS handles serving shared CSS files from frontend/shared/css/
 func (s *Server) serveSharedCSS(c *gin.Context) {
 	requestedPath := c.Param("filepath")
-	baseDir := "./frontend/shared/css"
+	baseDir := paths.SharedCSSDir
 	validate := func(p string) bool {
 		return filepath.Ext(p) == ".css"
 	}
