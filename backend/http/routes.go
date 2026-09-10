@@ -190,7 +190,7 @@ func (s *Server) serveSafeFile(
 		return
 	}
 
-	if !strings.HasPrefix(absPath, expectedPrefix) {
+	if absPath != expectedPrefix && !strings.HasPrefix(absPath, expectedPrefix+string(os.PathSeparator)) {
 		slog.Warn("security: path escape attempt blocked", "path", absPath)
 		c.AbortWithStatus(http.StatusForbidden)
 		return

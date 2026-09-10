@@ -20,8 +20,10 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	nethttp "net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ghmer/rego-adventure/backend/config"
 	"github.com/ghmer/rego-adventure/backend/http"
@@ -80,7 +82,14 @@ func main() {
 	addr := fmt.Sprintf("0.0.0.0:%s", cfg.Port)
 	slog.Info("starting server", "address", addr)
 
-	if err := srv.Router().Run(addr); err != nil {
+	server := &nethttp.Server{
+		Addr:    addr,
+		Handler: srv.Router(),
+		// Bound the time to read request headers so slow clients cannot
+		// hold connections open indefinitely (slowloris)
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
 		slog.Error("failed to start server", "error", err)
 		os.Exit(1)
 	}
