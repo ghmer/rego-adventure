@@ -193,7 +193,7 @@ func createFirstStepsQuest() quest.Quest {
 			"Access the password from `input.password`.",
 			"The correct password is \"secret\".",
 		},
-		Solution:      "allow if input.password == \"secret\"",
+		Solution:      "default allow := false\nallow if input.password == \"secret\"",
 		ApplyTemplate: true,
 		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
 		Tests: []quest.TestCase{
@@ -226,7 +226,7 @@ func createInventoryQuest() quest.Quest {
 			"Access the inventory at `input.user.inventory`.",
 			"Check if any item equals \"pass\".",
 		},
-		Solution:      "allow if input.user.inventory[_] == \"pass\"",
+		Solution:      "default allow := false\nallow if input.user.inventory[_] == \"pass\"",
 		ApplyTemplate: true,
 		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
 		Tests: []quest.TestCase{
@@ -263,7 +263,7 @@ func createDataLookupQuest() quest.Quest {
 			"Use `data.registry[_]` to iterate through the registry list.",
 			"The user name is at `input.user.name`.",
 		},
-		Solution:      "allow if input.user.name == data.registry[_]",
+		Solution:      "default allow := false\nallow if input.user.name == data.registry[_]",
 		ApplyTemplate: true,
 		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
 		Tests: []quest.TestCase{

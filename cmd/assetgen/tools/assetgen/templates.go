@@ -513,16 +513,8 @@ body {
     color: var(--text-color);
 }
 
-/* Tutorial Overlay */
-.tutorial-overlay {
-    background-color: rgba(var(--text-rgb), 0.9);
-}
-
-/* Tutorial Spotlight */
-.tutorial-spotlight-highlight {
-    border-radius: 0;
-    box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.8),
-                inset 0 0 30px rgba(var(--accent-rgb), 0.3);
+.tutorial-prompt-checkbox label {
+    color: var(--text-color);
 }
 
 dialog#result-modal[open] {
@@ -532,29 +524,6 @@ dialog#result-modal[open] {
     justify-content: center;
     align-items: center;
     z-index: var(--z-modal);
-}
-
-/* Tutorial Tooltip */
-.tutorial-tooltip {
-    background-color: var(--surface-dark);
-    border-radius: 0;
-    box-shadow: 0 10px 40px rgba(var(--text-rgb), 0.9),
-                0 0 30px rgba(var(--accent-rgb), 0.5);
-}
-
-.tutorial-tooltip-title {
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.tutorial-close-btn:hover {
-    text-shadow: 0 0 10px var(--error-color);
-}
-
-.tutorial-progress {
-    background: rgba(var(--accent-rgb), 0.1);
-    border: 1px solid rgba(var(--accent-rgb), 0.3);
-    border-radius: 0;
 }
 
 /* Test Case Cards */
