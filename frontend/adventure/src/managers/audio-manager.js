@@ -101,13 +101,14 @@ export class AudioManager {
     }
 
     /**
-     * Ramp the gain node to a target value, replacing any scheduled ramp
-     * @param {number} targetValue - Target gain (0-1); no-op without a graph
+     * Ramp the gain node to a target value, replacing any scheduled ramp.
+     * Scheduling is synchronous; the ramp itself plays out on the context
+     * timeline. No-op without a graph.
+     * @param {number} targetValue - Target gain (0-1)
      * @param {number} duration - Ramp duration in ms
-     * @returns {Promise} Resolves when the ramp is scheduled
      */
     rampGain(targetValue, duration) {
-        if (!this.gainNode) return Promise.resolve();
+        if (!this.gainNode) return;
 
         const gain = this.gainNode.gain;
         const startTime = this.audioCtx.currentTime;
@@ -115,7 +116,6 @@ export class AudioManager {
         gain.cancelScheduledValues(startTime);
         gain.setValueAtTime(gain.value, startTime);
         gain.linearRampToValueAtTime(targetValue, startTime + duration / 1000);
-        return Promise.resolve();
     }
 
     /**
@@ -192,7 +192,8 @@ export class AudioManager {
             });
         } else {
             this.ui.elements.bgMusic.pause();
-            this.setGain(AUDIO.DEFAULT_VOLUME);
+            // No gain reset here: resume re-anchors at 0 and ramps afresh,
+            // so touching the gain while paused would only fight that ramp
         }
         this.updateMusicButton();
     }
