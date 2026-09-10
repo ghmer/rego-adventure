@@ -19,7 +19,7 @@
  * Handles pack loading, theming, and asset management
  */
 
-import { fetchPacks, fetchPackDetails } from '../services/api-service.js';
+import { fetchPackDetails } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { DEFAULT_TEXT, TIMING } from '../services/constants.js';
 import { tutorial } from '../tutorial.js';
@@ -32,19 +32,6 @@ export class PackManager {
         this.state = state;
         this.ui = uiManager;
         this.audio = audioManager;
-    }
-
-    /**
-     * Load and render the list of available quest packs
-     */
-    async loadPackList() {
-        try {
-            const packs = await fetchPacks();
-            return packs;
-        } catch (error) {
-            handleApiError(error, 'load adventures');
-            throw error;
-        }
     }
 
     /**
