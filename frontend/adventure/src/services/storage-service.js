@@ -77,6 +77,16 @@ export function getPackKey(baseKey, packId) {
 }
 
 /**
+ * Build the base storage key for a quest's saved code, e.g.
+ * `rego_grimoire_q3`. Pack scoping is applied separately via getPackKey.
+ * @param {number} questId - The quest identifier
+ * @returns {string} The base key
+ */
+export function buildQuestGrimoireKey(questId) {
+    return `rego_grimoire_q${questId}`;
+}
+
+/**
  * Clear all grimoires for a specific pack
  * Matches only keys of the exact format `rego_grimoire_q<questId>_<packId>`
  * so pack ids that are substrings of other pack ids (e.g. "1" vs "11")
@@ -86,10 +96,11 @@ export function getPackKey(baseKey, packId) {
 export function clearAllGrimoires(packId) {
     try {
         const suffix = `_${packId}`;
+        const keyPrefix = buildQuestGrimoireKey('');
         const keysToRemove = Object.keys(localStorage).filter(key => {
             if (!key.endsWith(suffix)) return false;
             const prefix = key.slice(0, -suffix.length);
-            return /^rego_grimoire_q\d+$/.test(prefix);
+            return prefix.startsWith(keyPrefix) && /^\d+$/.test(prefix.slice(keyPrefix.length));
         });
 
         keysToRemove.forEach(key => {

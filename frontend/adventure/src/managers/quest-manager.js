@@ -19,7 +19,7 @@
  * Handles quest loading, navigation, and state management
  */
 
-import { getLocalStorage, getPackKey } from '../services/storage-service.js';
+import { getLocalStorage, getPackKey, buildQuestGrimoireKey } from '../services/storage-service.js';
 import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
 
 /**
@@ -93,7 +93,7 @@ export class QuestManager {
      * @param {number} questId - Quest ID
      */
     loadQuestCode(questId) {
-        const questGrimoireKey = getPackKey(`rego_grimoire_q${questId}`, this.state.currentPackId);
+        const questGrimoireKey = getPackKey(buildQuestGrimoireKey(questId), this.state.currentPackId);
         const savedCode = getLocalStorage(questGrimoireKey);
         
         if (savedCode) {
@@ -106,40 +106,51 @@ export class QuestManager {
     }
 
     /**
+     * Prepare the editor area for a narrative screen (prologue/epilogue):
+     * render its lore, hide quest-only elements, refresh navigation
+     * @param {string[]} lore - Narrative lore paragraphs
+     * @param {string} taskText - Objective text for the narrative screen
+     */
+    prepareNarrativeStage(lore, taskText) {
+        this.state.currentQuest = {
+            description_lore: lore
+        };
+
+        this.state.currentLoreIndex = 0;
+        this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
+
+        this.ui.elements.questTask.textContent = taskText;
+        this.ui.setEditorReadOnly(true);
+
+        this.ui.elements.outcomeArea.classList.add('hidden');
+        this.ui.elements.hintsList.classList.add('hidden');
+        this.ui.elements.editorPane.classList.add('hidden');
+
+        this.updateQuestNavigationButtons();
+    }
+
+    /**
      * Show prologue
      */
     showPrologue() {
         this.ui.elements.questCounter.textContent = DEFAULT_TEXT.PROLOGUE_LABEL;
         this.ui.elements.questTitle.textContent = this.state.meta?.title || DEFAULT_TEXT.PROLOGUE_TITLE;
-        
-        this.state.currentQuest = {
-            description_lore: this.state.prologue
-        };
-        
-        this.state.currentLoreIndex = 0;
-        this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
 
-        this.ui.elements.questTask.textContent = this.state.meta?.initial_objective || DEFAULT_TEXT.PROLOGUE_OBJECTIVE;
-        this.ui.setEditorReadOnly(true);
-        
-        // Hide unnecessary elements
-        this.ui.elements.outcomeArea.classList.add('hidden');
-        this.ui.elements.hintsList.classList.add('hidden');
-        this.ui.elements.editorPane.classList.add('hidden');
+        this.prepareNarrativeStage(
+            this.state.prologue,
+            this.state.meta?.initial_objective || DEFAULT_TEXT.PROLOGUE_OBJECTIVE
+        );
 
         // Show Start Adventure button
         this.ui.elements.startAdventureBtn.classList.remove('hidden');
         this.ui.elements.startAdventureBtn.textContent = this.state.label('beginAdventureButton');
-        
+
         // Move start adventure button to quest footer
         const footer = document.querySelector('.quest-footer');
         if (footer) {
             footer.appendChild(this.ui.elements.startAdventureBtn);
         }
         this.ui.updateQuestFooterVisibility();
-        
-        // Hide navigation buttons for prologue
-        this.updateQuestNavigationButtons();
     }
 
     /**
@@ -148,32 +159,19 @@ export class QuestManager {
     showEpilogue() {
         this.ui.elements.questCounter.textContent = DEFAULT_TEXT.EPILOGUE_LABEL;
         this.ui.elements.questTitle.textContent = DEFAULT_TEXT.EPILOGUE_TITLE;
-        
+
         // Set state
         this.state.currentQuestId = this.state.quests.length + 1;
         this.state.activeQuestId = this.state.currentQuestId;
         this.state.isHistoryMode = false;
-        
-        // Epilogue lore
-        this.state.currentQuest = {
-            description_lore: this.state.epilogue
-        };
-        
-        this.state.currentLoreIndex = 0;
-        this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
 
-        this.ui.elements.questTask.textContent = this.state.meta?.final_objective || DEFAULT_TEXT.EPILOGUE_OBJECTIVE;
-        this.ui.setEditorReadOnly(true);
-        
-        // Hide unnecessary elements
-        this.ui.elements.outcomeArea.classList.add('hidden');
+        this.prepareNarrativeStage(
+            this.state.epilogue,
+            this.state.meta?.final_objective || DEFAULT_TEXT.EPILOGUE_OBJECTIVE
+        );
+
         this.ui.elements.startAdventureBtn.classList.add('hidden');
-        this.ui.elements.hintsList.classList.add('hidden');
-        this.ui.elements.editorPane.classList.add('hidden');
-        
-        // Update navigation
-        this.updateQuestNavigationButtons();
-        
+
         // Check for perfect score
         if (this.state.hasPerfectScore()) {
             this.showPerfectScoreButton();
@@ -187,7 +185,7 @@ export class QuestManager {
      * wired once in EventManager and opens ModalManager.showPerfectScore)
      */
     showPerfectScoreButton() {
-        const perfectScoreBtn = document.getElementById('perfect-score-btn');
+        const perfectScoreBtn = this.ui.elements.perfectScoreBtn;
         if (!perfectScoreBtn) return;
 
         perfectScoreBtn.textContent = this.state.label('perfectScoreButtonText');
