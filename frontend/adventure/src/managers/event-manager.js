@@ -20,7 +20,7 @@
  */
 
 import { verifySolution } from '../services/api-service.js';
-import { setLocalStorage, getPackKey, buildQuestGrimoireKey, clearAllGrimoires, removeLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
+import { setLocalStorage, getPackKey, buildQuestGrimoireKey, clearAllGrimoires } from '../services/storage-service.js';
 import { AuthService } from '../services/auth-service.js';
 import { handleApiError } from '../services/error-service.js';
 
@@ -290,14 +290,8 @@ export class EventManager {
     handleRestart() {
         // Clear all grimoires for this adventure
         clearAllGrimoires(this.state.currentPackId);
-        
-        // Clear storage - remove pack-specific scores and legacy keys
-        removeLocalStorage(getPackKey(STORAGE_KEYS.TOTAL_SCORE, this.state.currentPackId));
-        removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_SCORES, this.state.currentPackId));
-        removeLocalStorage(getPackKey(STORAGE_KEYS.ACTIVE_QUEST_ID, this.state.currentPackId));
-        removeLocalStorage(getPackKey(STORAGE_KEYS.QUEST_ID, this.state.currentPackId));
-        
-        // Reset state
+
+        // Reset state (persisted batched state is rewritten)
         this.state.resetProgress();
 
         // Reset UI
