@@ -5,51 +5,6 @@ import (
 	"testing"
 )
 
-func createValidPack() QuestPack {
-	return QuestPack{
-		ID: "test-pack",
-		Meta: MetaData{
-			Title:       "Test Pack",
-			Description: "A test pack",
-			Genre:       "test",
-		},
-		UILabels: UILabels{
-			GrimoireTitle:          "Grimoire",
-			HintButton:             "Hint",
-			VerifyButton:           "Verify",
-			MessageSuccess:         "Success",
-			MessageFailure:         "Failure",
-			PerfectScoreMessage:    "Perfect",
-			PerfectScoreButtonText: "Next",
-			BeginAdventureButton:   "Start",
-		},
-		Prologue: []string{"Intro"},
-		Epilogue: []string{"Outro"},
-		Quests: []Quest{
-			{
-				ID:              1,
-				Title:           "Quest 1",
-				DescriptionTask: "Do something",
-				DescriptionLore: []string{"Lore"},
-				Manual: Manual{
-					DataModel:    "{}",
-					RegoSnippet:  "package test",
-					ExternalLink: "http://example.com",
-				},
-				Tests: []TestCase{
-					{
-						ID:              1,
-						ExpectedOutcome: true,
-						Payload: TestPayload{
-							Input: map[string]any{"foo": "bar"},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func TestNewQuestRepository(t *testing.T) {
 	repo := NewQuestRepository()
 	if repo == nil {
@@ -62,7 +17,7 @@ func TestNewQuestRepository(t *testing.T) {
 
 func TestLoadPack_Valid(t *testing.T) {
 	repo := NewQuestRepository()
-	pack := createValidPack()
+	pack := createValidQuestPack()
 	data, err := json.Marshal(pack)
 	if err != nil {
 		t.Fatalf("Failed to marshal pack: %v", err)
@@ -95,7 +50,7 @@ func TestLoadPack_InvalidJSON(t *testing.T) {
 
 func TestLoadPack_ValidationFailure(t *testing.T) {
 	repo := NewQuestRepository()
-	pack := createValidPack()
+	pack := createValidQuestPack()
 	pack.Meta.Title = "" // Invalid: empty title
 
 	data, err := json.Marshal(pack)
@@ -199,7 +154,7 @@ func TestLoadPack_ValidationScenarios(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := NewQuestRepository()
-			pack := createValidPack()
+			pack := createValidQuestPack()
 			tt.modifyPack(&pack)
 
 			data, err := json.Marshal(pack)
@@ -220,7 +175,7 @@ func TestLoadPack_ValidationScenarios(t *testing.T) {
 
 func TestGetQuestByID(t *testing.T) {
 	repo := NewQuestRepository()
-	pack := createValidPack()
+	pack := createValidQuestPack()
 	data, err := json.Marshal(pack)
 	if err != nil {
 		t.Fatalf("Failed to marshal pack: %v", err)
@@ -235,8 +190,8 @@ func TestGetQuestByID(t *testing.T) {
 	if !ok {
 		t.Error("GetQuestByID(1) returned false")
 	}
-	if quest != nil && quest.Title != "Quest 1" {
-		t.Errorf("Expected quest title 'Quest 1', got '%s'", quest.Title)
+	if quest != nil && quest.Title != "Test Quest" {
+		t.Errorf("Expected quest title 'Test Quest', got '%s'", quest.Title)
 	}
 
 	// Test non-existing quest
@@ -254,11 +209,11 @@ func TestGetQuestByID(t *testing.T) {
 
 func TestGetAllPacks(t *testing.T) {
 	repo := NewQuestRepository()
-	pack1 := createValidPack()
+	pack1 := createValidQuestPack()
 	pack1.ID = "pack1"
 	data1, _ := json.Marshal(pack1)
 
-	pack2 := createValidPack()
+	pack2 := createValidQuestPack()
 	pack2.ID = "pack2"
 	data2, _ := json.Marshal(pack2)
 
@@ -280,7 +235,7 @@ func TestGetNumberOfPacks_Empty(t *testing.T) {
 
 func TestGetNumberOfPacks_AfterLoad(t *testing.T) {
 	repo := NewQuestRepository()
-	pack := createValidPack()
+	pack := createValidQuestPack()
 	data, _ := json.Marshal(pack)
 
 	if err := repo.LoadPack("test-pack", data); err != nil {
@@ -294,7 +249,7 @@ func TestGetNumberOfPacks_AfterLoad(t *testing.T) {
 
 func TestLoadPack_DuplicateQuestID(t *testing.T) {
 	repo := NewQuestRepository()
-	pack := createValidPack()
+	pack := createValidQuestPack()
 
 	// Add a second quest with the same ID as the first
 	duplicate := pack.Quests[0]
@@ -313,7 +268,7 @@ func TestLoadPack_DuplicateQuestID(t *testing.T) {
 
 func TestLoadPack_OverwritesExistingPack(t *testing.T) {
 	repo := NewQuestRepository()
-	pack := createValidPack()
+	pack := createValidQuestPack()
 	data, _ := json.Marshal(pack)
 
 	if err := repo.LoadPack("test-pack", data); err != nil {
@@ -350,7 +305,7 @@ func TestGetAllPacks_Empty(t *testing.T) {
 
 func TestGetQuestByID_QuestMapLookup(t *testing.T) {
 	repo := NewQuestRepository()
-	pack := createValidPack()
+	pack := createValidQuestPack()
 
 	// Add a second quest with a different ID
 	quest2 := pack.Quests[0]
