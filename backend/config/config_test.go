@@ -17,6 +17,8 @@
 package config
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -199,5 +201,25 @@ func TestLoad_RequiresIssuerAndAudienceWhenAuthEnabled(t *testing.T) {
 	t.Setenv("AUTH_ISSUER", "https://id.example.com/realms/demo")
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "AUTH_AUDIENCE") {
 		t.Errorf("expected AUTH_AUDIENCE requirement error, got: %v", err)
+	}
+}
+
+func TestInitializeJWKS_ReportsNonOKDiscoveryStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("<html>gateway error</html>"))
+	}))
+	t.Cleanup(server.Close)
+
+	cfg := &Config{Auth: AuthConfig{DiscoveryURL: server.URL + "/.well-known/openid-configuration"}}
+	err := cfg.initializeJWKS()
+	if err == nil {
+		t.Fatal("expected initializeJWKS to fail for a non-200 discovery response, got nil")
+	}
+	if !strings.Contains(err.Error(), "status 503") {
+		t.Errorf("expected error to report the HTTP status, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "decode") {
+		t.Errorf("expected a status error, not a decode error, got: %v", err)
 	}
 }

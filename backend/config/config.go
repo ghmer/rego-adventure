@@ -259,6 +259,10 @@ func (c *Config) initializeJWKS() error {
 		}
 	}()
 
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("OIDC discovery request failed: status %s", resp.Status)
+	}
+
 	var oidcConfig struct {
 		JWKSURI string `json:"jwks_uri"`
 	}

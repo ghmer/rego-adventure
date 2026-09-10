@@ -56,6 +56,13 @@ func syncCdnJsVersions(indexContent []byte, deps map[string]string) []byte {
 		sub := cdnjsLinkRe.FindSubmatch(match)
 		currentVersion := string(sub[2])
 
+		// The version group can match empty (URL without a version
+		// segment); bytes.Replace with an empty old would insert the new
+		// version at offset 0 and corrupt the URL
+		if currentVersion == "" {
+			return match
+		}
+
 		newVersion, ok := deps[string(sub[1])]
 		if !ok {
 			return match
