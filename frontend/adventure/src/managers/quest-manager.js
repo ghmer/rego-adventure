@@ -225,7 +225,6 @@ export class QuestManager {
                 this.state.activeQuestId = this.state.currentQuestId;
             }
             this.state.currentQuestId--;
-            this.state.isHistoryMode = true;
             this.loadQuest(this.state.currentQuestId);
         }
     }

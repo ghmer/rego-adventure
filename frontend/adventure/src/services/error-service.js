@@ -24,7 +24,8 @@ import { ApiError } from './api-service.js';
 import { ErrorLevel } from './constants.js';
 
 /**
- * Display an error message to the user
+ * Display an error message to the user. Toast notifications fire for
+ * ERROR and CRITICAL levels; INFO and WARNING are console-only.
  * @param {string} message - The error message to display
  * @param {string} level - The severity level (from ErrorLevel)
  */
