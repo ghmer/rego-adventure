@@ -116,10 +116,6 @@ export function clearAllGrimoires(packId) {
  */
 export const STORAGE_KEYS = {
     PACK_ID: 'rego_pack_id',
-    QUEST_ID: 'rego_quest_id',
-    ACTIVE_QUEST_ID: 'rego_active_quest_id',
-    TOTAL_SCORE: 'rego_total_score',
-    QUEST_SCORES: 'rego_quest_scores',
     PACK_STATE: 'rego_pack_state',
     EFFECTS_ENABLED: 'rego_effects_enabled',
     TUTORIAL_COMPLETED: 'adventureTutorialCompleted'
