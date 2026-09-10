@@ -23,8 +23,8 @@ const themeCSSTemplate = `/* ============================================
    ============================================
    
    This file contains theme-specific CSS variables and minimal overrides.
-   The shared CSS files (base.css, layout.css, components.css, animations.css)
-   are loaded from frontend/shared/css/ and provide the core styling.
+   The shared CSS files (base.css, layout.css, components.css, animations.css,
+   toast.css) are loaded from frontend/shared/css/ and provide the core styling.
    
    Customize this file to match your theme's visual identity.
    ============================================ */
@@ -675,6 +675,7 @@ This theme uses a modular CSS structure:
 - **layout.css** - Layout structure, containers, responsive design
 - **components.css** - UI components (buttons, modals, cards, etc.)
 - **animations.css** - Keyframe animations and transitions
+- **toast.css** - Toast notification styling
 
 ### Theme-Specific CSS (in this directory)
 - **theme.css** - CSS variables (colors, fonts) and minimal theme overrides
