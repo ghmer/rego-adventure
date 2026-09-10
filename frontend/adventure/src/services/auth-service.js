@@ -39,16 +39,18 @@ export const AuthService = {
         };
         
         userManager = new UserManager(settings);
-        
-        // Handle callback if code is present in URL
-        if (window.location.search.includes("code=")) {
+
+        // Handle callback if the authorization code is present in the URL
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('code')) {
             try {
                 await userManager.signinCallback();
-                // Clean URL
-                window.history.replaceState({}, document.title, "/");
             } catch (e) {
-                console.error("Signin callback failed:", e);
+                console.error('Signin callback failed:', e);
             }
+            // Clean the URL in all cases: a failing callback must not
+            // leave the code param behind, or every reload repeats it
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
     },
 

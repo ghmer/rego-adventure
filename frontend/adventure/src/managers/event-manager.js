@@ -59,24 +59,26 @@ export class EventManager {
     }
 
     /**
-     * Setup authentication event listeners
+     * Setup authentication event listeners. The OIDC redirects perform
+     * network I/O; failures must reach the user instead of surfacing as
+     * unhandled promise rejections.
      */
     setupAuthListeners() {
         if (this.ui.elements.loginBtn) {
             this.ui.elements.loginBtn.addEventListener('click', () => {
-                AuthService.login();
+                AuthService.login().catch(e => handleApiError(e, 'log in'));
             });
         }
-        
+
         if (this.ui.elements.logoutBtn) {
             this.ui.elements.logoutBtn.addEventListener('click', () => {
-                AuthService.logout();
+                AuthService.logout().catch(e => handleApiError(e, 'log out'));
             });
         }
 
         if (this.ui.elements.logoutBtnStart) {
             this.ui.elements.logoutBtnStart.addEventListener('click', () => {
-                AuthService.logout();
+                AuthService.logout().catch(e => handleApiError(e, 'log out'));
             });
         }
     }
