@@ -111,16 +111,10 @@ body.effects-disabled {
 /* Genre Badges - Enhanced visibility */
 .genre-badge {
     background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.15), rgba(var(--accent-rgb), 0.25)) !important;
-    border: 2px solid var(--accent-color) !important;
+    border: 1px solid var(--accent-color) !important;
     color: var(--secondary-accent) !important;
     font-weight: 700;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 8px rgba(var(--accent-rgb), 0.15) !important;
-}
-
-.genre-badge:hover {
-    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25), rgba(var(--accent-rgb), 0.35)) !important;
-    border-color: var(--secondary-accent) !important;
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15), 0 0 12px rgba(var(--accent-rgb), 0.25) !important;
 }
 
 /* Main Title Enhancement */
