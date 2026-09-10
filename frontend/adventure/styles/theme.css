@@ -15,31 +15,17 @@
 */
 
 /* ============================================
-   ADVENTURE THEME - Dark Tech Theme
-   Theme-specific CSS variables and overrides
+   ADVENTURE THEME - Landing Page
+   Clean, professional styling for the start screen.
+   All landing rules are scoped to .start-screen so the
+   game interface is unaffected.
    ============================================ */
 
-:root {
-    /* Colors derived from logo - WCAG AAA compliant */
-    --bg-color: #ffffff;
-    --surface-light: #fffbf5;
-    --surface-dark: #f5f0e8;
-    --text-color: #1a1410;
-    --accent-color: #c77d00;
-    --secondary-accent: #9d6300;
-    --button-color: #c77d00;
-    --success-color: #2e7d32;
-    --error-color: #c62828;
-    --info-color: #c77d00;
-    --accent-rgb: 199, 125, 0;
-    
-    /* Fonts */
-    --font-heading: Georgia, "Times New Roman", Times, serif;
-    --font-body: Georgia, "Times New Roman", Times, serif;
-    --font-code: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-}
+/* Note: no webfont @import here - the site's CSP restricts
+   style-src to 'self', inline styles, and cdnjs, so the landing
+   page uses a clean system font stack instead. */
 
-/* Background Canvas */
+/* Background Canvas (shared with the game interface) */
 #bg-canvas {
     position: fixed;
     top: 0;
@@ -50,7 +36,7 @@
     opacity: 0.6;
 }
 
-/* Global Scrollbar Styling */
+/* Global Scrollbar Styling (shared) */
 * {
     scrollbar-width: thin;
     scrollbar-color: var(--info-color) var(--surface-dark);
@@ -76,85 +62,248 @@
 
 /* Effects disabled state - base class for disabling CSS effects */
 body.effects-disabled {
-    /* This class will be used in custom.css files to disable animations */
+    /* This class will be used to disable animations */
 }
 
 /* ============================================
-   LANDING PAGE ENHANCEMENTS
+   LANDING PAGE - Design Tokens
+   Warm neutrals derived from the logo amber,
+   scoped to the start screen only.
    ============================================ */
 
-/* Quest Pack Cards - Enhanced styling for better readability */
-.quest-pack-card {
-    background-color: var(--surface-light) !important;
-    border: 2px solid var(--accent-color) !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(var(--accent-rgb), 0.1) !important;
-}
-
-.quest-pack-card:hover {
-    background-color: var(--surface-dark) !important;
-    border-color: var(--secondary-accent) !important;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(var(--accent-rgb), 0.2) !important;
-}
-
-/* Quest Pack Card Titles */
-.quest-pack-card h3 {
-    color: var(--secondary-accent) !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* Quest Pack Card Descriptions */
-.quest-pack-card p {
-    color: var(--text-color) !important;
-    opacity: 0.9;
-}
-
-/* Genre Badges - Enhanced visibility */
-.genre-badge {
-    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.15), rgba(var(--accent-rgb), 0.25)) !important;
-    border: 1px solid var(--accent-color) !important;
-    color: var(--secondary-accent) !important;
-    font-weight: 700;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 8px rgba(var(--accent-rgb), 0.15) !important;
-}
-
-/* Main Title Enhancement */
-.main-title {
-    color: var(--secondary-accent) !important;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 20px rgba(var(--accent-rgb), 0.2);
-}
-
-/* Subtitle Enhancement */
-.subtitle {
-    color: var(--text-color) !important;
-    opacity: 0.75;
-}
-
-/* Start Screen Background Enhancement */
 .start-screen {
-    background: linear-gradient(to bottom, var(--bg-color), var(--surface-light));
+    /* Typography - clean system sans stack (CSP-safe, no external fonts) */
+    --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* Palette - warm paper whites, soft ink, restrained amber accent */
+    --landing-bg-top: #fffefb;
+    --landing-bg-bottom: #f5f2ec;
+    --landing-ink: #26200f;
+    --landing-ink-secondary: #6f685a;
+    --landing-card-border: #e7e1d5;
+    --landing-card-border-hover: #d6cbb4;
+    --landing-accent: #9d6300;
+    --landing-accent-hover: #7d4e00;
+    --landing-accent-soft: rgba(199, 125, 0, 0.08);
+    --landing-accent-border: rgba(199, 125, 0, 0.25);
+    --landing-hover-wash: #f1ede4;
+    --landing-shadow-sm: 0 1px 2px rgba(38, 32, 15, 0.04), 0 2px 8px rgba(38, 32, 15, 0.04);
+    --landing-shadow-md: 0 2px 4px rgba(38, 32, 15, 0.04), 0 12px 28px rgba(38, 32, 15, 0.08);
 }
 
-/* Landing Logo */
+/* Start Screen Canvas - quiet, warm paper background.
+   Opaque so the game's animated canvas stays out of sight here. */
+.start-screen {
+    background: linear-gradient(180deg, var(--landing-bg-top) 0%, var(--landing-bg-bottom) 100%);
+}
+
+/* Start Screen Content - remove the boxed surface so the page
+   reads as an open, uncluttered landing layout */
+.start-screen .start-content {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 3.5rem 2rem 2rem;
+    gap: 1.25rem;
+}
+
+/* Landing Logo - understated, gentle presence */
 .landing-logo {
-    width: 200px;
+    width: 176px;
     height: auto;
-    margin-bottom: 1.5rem;
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
-    transition: transform var(--transition-normal), filter var(--transition-normal);
+    margin-bottom: 0.5rem;
+    filter: drop-shadow(0 2px 6px rgba(38, 32, 15, 0.14));
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.35s ease;
 }
 
 .landing-logo:hover {
-    transform: scale(1.05);
-    filter: drop-shadow(0 6px 12px rgba(199, 125, 0, 0.5));
+    transform: translateY(-2px) scale(1.02);
+    filter: drop-shadow(0 6px 16px rgba(199, 125, 0, 0.22));
 }
 
-@media (max-width: 768px) {
-    .landing-logo {
-        width: 160px;
+/* Main Title - large, confident, near-ink */
+.main-title {
+    color: var(--landing-ink);
+    font-family: var(--font-heading);
+    font-size: clamp(2.5rem, 6vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+    margin-bottom: 0.25rem;
+    text-shadow: none;
+}
+
+/* Subtitle - calm secondary line, no italics */
+.subtitle {
+    color: var(--landing-ink-secondary);
+    font-size: 1.125rem;
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.5rem;
+    opacity: 1;
+}
+
+/* Login Container - borderless wrapper, the button carries the weight */
+#start-screen #login-container {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0.75rem 0 0;
+    max-width: none;
+}
+
+#start-screen #login-container:hover {
+    background: transparent;
+    box-shadow: none;
+}
+
+/* Login Button - single solid accent, quiet depth */
+#start-screen .login-btn {
+    background: var(--landing-accent);
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.85rem 2.25rem;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    text-shadow: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(38, 32, 15, 0.1), 0 4px 14px rgba(157, 99, 0, 0.18);
+    transition: background-color 0.2s ease, transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+#start-screen .login-btn:hover {
+    background: var(--landing-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(38, 32, 15, 0.08), 0 8px 22px rgba(157, 99, 0, 0.22);
+}
+
+#start-screen .login-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(38, 32, 15, 0.1);
+}
+
+/* Stop the pulsing login animation from the shared styles */
+#start-screen .action-btn.login-btn {
+    animation: none;
+}
+
+/* Logout Button on the landing page - quiet ghost pill */
+#start-screen .action-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--landing-card-border);
+    color: var(--landing-ink-secondary);
+    border-radius: 999px;
+    padding: 0.6rem 1.5rem;
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    transition: background-color 0.2s ease, color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+#start-screen .action-btn.secondary:hover {
+    background: var(--landing-hover-wash);
+    border-color: var(--landing-card-border-hover);
+    color: var(--landing-ink);
+}
+
+/* Quest Pack Grid */
+#start-screen .quest-pack-list {
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+/* Keep three columns on desktop: the shared 300px minimum only fits
+   three tracks when the gap stays at 1rem, so relax it slightly for
+   a safe fit inside the 1000px container */
+@media (min-width: 1025px) {
+    #start-screen .quest-pack-list {
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
     }
 }
 
-/* Start Screen Footer */
+/* Loading placeholder while packs are fetched */
+#quest-pack-list > p {
+    color: var(--landing-ink-secondary);
+    font-size: 0.95rem;
+}
+
+/* ============================================
+   QUEST PACK CARDS
+   ============================================ */
+
+.quest-pack-card {
+    background-color: #ffffff;
+    border: 1px solid var(--landing-card-border);
+    border-radius: 16px;
+    padding: 1.5rem 1.4rem 1.3rem;
+    box-shadow: var(--landing-shadow-sm);
+    transition: transform 0.25s ease, box-shadow 0.25s ease,
+        border-color 0.25s ease;
+}
+
+.quest-pack-card:hover {
+    background-color: #ffffff;
+    border-color: var(--landing-card-border-hover);
+    transform: translateY(-3px);
+    box-shadow: var(--landing-shadow-md);
+}
+
+.quest-pack-card:focus-visible {
+    outline: 2px solid var(--landing-accent);
+    outline-offset: 2px;
+}
+
+.quest-pack-card h3 {
+    color: var(--landing-ink);
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.5rem;
+    text-shadow: none;
+}
+
+.quest-pack-card p {
+    color: var(--landing-ink-secondary);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin-bottom: 1rem;
+    opacity: 1;
+}
+
+/* Genre Badge - subtle tinted pill, no glow */
+.genre-badge {
+    background: var(--landing-accent-soft);
+    border: 1px solid var(--landing-accent-border);
+    color: var(--landing-accent);
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    box-shadow: none;
+}
+
+/* ============================================
+   LANDING FOOTER
+   ============================================ */
+
 .start-footer {
     margin-top: 3rem;
     padding-top: 0;
@@ -162,74 +311,133 @@ body.effects-disabled {
 }
 
 .footer-link {
-    color: var(--accent-color);
+    color: var(--landing-ink-secondary);
     text-decoration: none;
-    font-size: 0.9rem;
-    opacity: 0.8;
-    transition: opacity var(--transition-normal), color var(--transition-normal);
+    font-size: 0.875rem;
+    font-weight: 500;
+    opacity: 1;
+    transition: color 0.2s ease;
 }
 
 .footer-link:hover {
-    opacity: 1;
-    color: var(--secondary-accent);
-}
-
-@media (max-width: 768px) {
-    .start-footer {
-        margin-top: 2rem;
-    }
-    
-    .footer-link {
-        font-size: 0.85rem;
-    }
+    color: var(--landing-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 /* ============================================
-   LOGIN COMPONENT STYLING
+   LANDING ENTRANCE - one quiet staggered reveal
    ============================================ */
 
-/* Login Container */
-#login-container {
-    background-color: var(--surface-light);
-    border: 2px solid var(--accent-color);
-    border-radius: 8px;
-    padding: 2rem;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(var(--accent-rgb), 0.1);
-    max-width: 400px;
-    margin: 2rem auto;
+@keyframes landing-rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-#login-container:hover {
-    background-color: var(--surface-dark);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(var(--accent-rgb), 0.2);
+.start-content > * {
+    animation: landing-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-/* Login Button */
-#login-btn,
-.login-btn {
-    background: linear-gradient(135deg, var(--accent-color), var(--secondary-accent));
-    color: var(--surface-light);
-    border: 2px solid var(--secondary-accent);
-    padding: 0.75rem 2rem;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all var(--transition-normal);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), 0 0 12px rgba(var(--accent-rgb), 0.2);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+.start-content > .landing-logo {
+    animation-delay: 0.05s;
 }
 
-#login-btn:hover,
-.login-btn:hover {
-    background: linear-gradient(135deg, var(--secondary-accent), var(--accent-color));
-    border-color: var(--accent-color);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25), 0 0 16px rgba(var(--accent-rgb), 0.3);
+.start-content > .main-title {
+    animation-delay: 0.1s;
 }
 
-#login-btn:active,
-.login-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 8px rgba(var(--accent-rgb), 0.15);
+.start-content > .subtitle {
+    animation-delay: 0.16s;
+}
+
+.start-content > #login-container {
+    animation-delay: 0.2s;
+}
+
+.start-content > .quest-pack-list {
+    animation-delay: 0.22s;
+}
+
+.start-content > #logout-container-start {
+    animation-delay: 0.26s;
+}
+
+.start-content > .start-footer {
+    animation-delay: 0.3s;
+}
+
+.quest-pack-card {
+    animation: landing-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.quest-pack-card:nth-child(1) {
+    animation-delay: 0.26s;
+}
+
+.quest-pack-card:nth-child(2) {
+    animation-delay: 0.34s;
+}
+
+.quest-pack-card:nth-child(3) {
+    animation-delay: 0.42s;
+}
+
+.quest-pack-card:nth-child(4) {
+    animation-delay: 0.5s;
+}
+
+.quest-pack-card:nth-child(5) {
+    animation-delay: 0.58s;
+}
+
+.quest-pack-card:nth-child(n + 6) {
+    animation-delay: 0.64s;
+}
+
+/* Respect reduced motion and the effects toggle */
+@media (prefers-reduced-motion: reduce) {
+    .start-content > *,
+    .quest-pack-card,
+    .landing-logo {
+        animation: none;
+        transition: none;
+    }
+}
+
+body.effects-disabled .start-content > *,
+body.effects-disabled .quest-pack-card {
+    animation: none;
+}
+
+/* ============================================
+   RESPONSIVE - LANDING
+   ============================================ */
+
+@media (max-width: 768px) {
+    .landing-logo {
+        width: 144px;
+    }
+
+    .start-screen .start-content {
+        padding: 2.5rem 1.25rem 1.5rem;
+    }
+
+    #start-screen .login-btn {
+        width: 100%;
+        max-width: 320px;
+    }
+
+    .start-footer {
+        margin-top: 2.25rem;
+    }
+
+    .footer-link {
+        font-size: 0.85rem;
+    }
 }
