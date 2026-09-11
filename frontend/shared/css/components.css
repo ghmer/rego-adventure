@@ -628,6 +628,28 @@ dialog#result-modal[open] {
     word-break: break-word;
 }
 
+/* Editor Save Indicator */
+.save-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+    background-color: var(--success-color);
+    box-shadow: 0 0 6px var(--success-color);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.save-indicator.dirty {
+    background-color: var(--warning-color, #f0a020);
+    box-shadow: 0 0 6px var(--warning-color, #f0a020);
+}
+
+.save-indicator.error {
+    background-color: var(--error-color);
+    box-shadow: 0 0 6px var(--error-color);
+}
+
 .result-test-list .test-result {
     display: flex;
     align-items: center;

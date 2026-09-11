@@ -298,6 +298,7 @@ func generateQuestsJSON(dir, theme string) error {
 			GrimoireTitle:          "Policy Grimoire",
 			HintButton:             "Ask Advisor",
 			VerifyButton:           "Apply Policy",
+			Verifying:              "Verifying…",
 			MessageSuccess:         "Quest Complete!",
 			MessageFailure:         "Quest Failed",
 			PerfectScoreMessage:    "You have achieved perfection in mastering Rego policies!",

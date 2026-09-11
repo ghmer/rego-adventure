@@ -30,6 +30,7 @@ const VALIDATION_LIMITS = {
     UI_GRIMOIRE_TITLE: 100,
     UI_HINT_BUTTON: 100,
     UI_VERIFY_BUTTON: 100,
+    UI_VERIFYING: 100,
     UI_MESSAGE_SUCCESS: 200,
     UI_MESSAGE_FAILURE: 200,
     UI_PERFECT_SCORE_MESSAGE: 1000,
@@ -127,6 +128,7 @@ function initializeMaxLengthAttributes() {
         'ui_labels-grimoire_title': VALIDATION_LIMITS.UI_GRIMOIRE_TITLE,
         'ui_labels-hint_button': VALIDATION_LIMITS.UI_HINT_BUTTON,
         'ui_labels-verify_button': VALIDATION_LIMITS.UI_VERIFY_BUTTON,
+        'ui_labels-verifying': VALIDATION_LIMITS.UI_VERIFYING,
         'ui_labels-message_success': VALIDATION_LIMITS.UI_MESSAGE_SUCCESS,
         'ui_labels-message_failure': VALIDATION_LIMITS.UI_MESSAGE_FAILURE,
         'ui_labels-perfect_score_message': VALIDATION_LIMITS.UI_PERFECT_SCORE_MESSAGE,
@@ -367,6 +369,7 @@ function renderUILabels() {
             grimoire_title: 'Policy Grimoire',
             hint_button: 'Ask Advisor',
             verify_button: 'Apply Policy',
+            verifying: 'Verifying…',
             message_success: '',
             message_failure: '',
             perfect_score_message: '',
@@ -378,6 +381,7 @@ function renderUILabels() {
     document.getElementById('ui_labels-grimoire_title').value = questData.ui_labels.grimoire_title || '';
     document.getElementById('ui_labels-hint_button').value = questData.ui_labels.hint_button || '';
     document.getElementById('ui_labels-verify_button').value = questData.ui_labels.verify_button || '';
+    document.getElementById('ui_labels-verifying').value = questData.ui_labels.verifying || '';
     document.getElementById('ui_labels-message_success').value = questData.ui_labels.message_success || '';
     document.getElementById('ui_labels-message_failure').value = questData.ui_labels.message_failure || '';
     document.getElementById('ui_labels-perfect_score_message').value = questData.ui_labels.perfect_score_message || '';
@@ -790,7 +794,7 @@ function setupFormListeners() {
     });
     
     // UI Labels fields
-    ['grimoire_title', 'hint_button', 'verify_button', 'message_success', 'message_failure', 'perfect_score_message', 'perfect_score_button_text', 'begin_adventure_button'].forEach(field => {
+    ['grimoire_title', 'hint_button', 'verify_button', 'verifying', 'message_success', 'message_failure', 'perfect_score_message', 'perfect_score_button_text', 'begin_adventure_button'].forEach(field => {
         const el = document.getElementById(`ui_labels-${field}`);
         if (el) {
             el.addEventListener('change', () => {

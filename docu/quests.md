@@ -14,6 +14,7 @@ The `quests/<theme>/quests.json` files define the tutorial quests the player mus
   - `grimoire_title`: Title shown above the code editor (e.g., "ICE Protocol Editor", "Case Files")
   - `hint_button`: Text for the hint/advisor button (e.g., "Query NetWatch", "Call Veronica")
   - `verify_button`: Text for the verify/submit button (e.g., "Execute ICE", "Close the Case")
+  - `verifying`: Text shown on the verify button while the policy is being evaluated (e.g., "Executing ICE...", "Closing the Case..."). Falls back to "Verifying…" when not set
   - `message_success`: Message displayed when a quest is completed successfully
   - `message_failure`: Message displayed when a quest fails
   - `perfect_score_button_text`: Text for the button shown when a perfect score is achieved
@@ -63,6 +64,7 @@ All text fields in the quest JSON structure are validated against maximum length
 - `ui_labels.grimoire_title`: 100 characters
 - `ui_labels.hint_button`: 100 characters
 - `ui_labels.verify_button`: 100 characters
+- `ui_labels.verifying`: 100 characters
 - `ui_labels.message_success`: 200 characters
 - `ui_labels.message_failure`: 200 characters
 - `ui_labels.perfect_score_message`: 1000 characters

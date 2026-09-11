@@ -93,6 +93,7 @@ type UILabels struct {
 	GrimoireTitle          string `json:"grimoire_title"`
 	HintButton             string `json:"hint_button"`
 	VerifyButton           string `json:"verify_button"`
+	Verifying              string `json:"verifying"`
 	MessageSuccess         string `json:"message_success"`
 	MessageFailure         string `json:"message_failure"`
 	PerfectScoreMessage    string `json:"perfect_score_message"`
@@ -236,6 +237,37 @@ func validateExternalLinkScheme(link string, prefix string) error {
 }
 
 // validateQuestPack validates the entire quest pack structure.
+// validateUILabels checks presence and length of the customizable UI labels.
+func validateUILabels(labels UILabels) error {
+	type uiLabel struct {
+		value    string
+		maxLen   int
+		name     string
+		required bool
+	}
+	for _, l := range []uiLabel{
+		{labels.GrimoireTitle, MaxUIGrimoireTitle, "ui_labels.grimoire_title", true},
+		{labels.HintButton, MaxUIHintButton, "ui_labels.hint_button", true},
+		{labels.VerifyButton, MaxUIVerifyButton, "ui_labels.verify_button", true},
+		{labels.Verifying, MaxUIVerifying, "ui_labels.verifying", false},
+		{labels.MessageSuccess, MaxUIMessageSuccess, "ui_labels.message_success", false},
+		{labels.MessageFailure, MaxUIMessageFailure, "ui_labels.message_failure", false},
+		{labels.PerfectScoreMessage, MaxUIPerfectScoreMessage, "ui_labels.perfect_score_message", false},
+		{labels.PerfectScoreButtonText, MaxUIPerfectScoreButton, "ui_labels.perfect_score_button_text", false},
+		{labels.BeginAdventureButton, MaxUIBeginAdventureButton, "ui_labels.begin_adventure_button", false},
+	} {
+		if l.required {
+			if err := validateNonEmpty(l.value, l.name); err != nil {
+				return err
+			}
+		}
+		if err := validateStringLength(l.value, l.maxLen, l.name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func validateQuestPack(pack *QuestPack) error {
 	// Metadata
 	if err := validateNonEmpty(pack.Meta.Title, "pack title"); err != nil {
@@ -271,30 +303,8 @@ func validateQuestPack(pack *QuestPack) error {
 	}
 
 	// UI Labels
-	type uiLabel struct {
-		value    string
-		maxLen   int
-		name     string
-		required bool
-	}
-	for _, l := range []uiLabel{
-		{pack.UILabels.GrimoireTitle, MaxUIGrimoireTitle, "ui_labels.grimoire_title", true},
-		{pack.UILabels.HintButton, MaxUIHintButton, "ui_labels.hint_button", true},
-		{pack.UILabels.VerifyButton, MaxUIVerifyButton, "ui_labels.verify_button", true},
-		{pack.UILabels.MessageSuccess, MaxUIMessageSuccess, "ui_labels.message_success", false},
-		{pack.UILabels.MessageFailure, MaxUIMessageFailure, "ui_labels.message_failure", false},
-		{pack.UILabels.PerfectScoreMessage, MaxUIPerfectScoreMessage, "ui_labels.perfect_score_message", false},
-		{pack.UILabels.PerfectScoreButtonText, MaxUIPerfectScoreButton, "ui_labels.perfect_score_button_text", false},
-		{pack.UILabels.BeginAdventureButton, MaxUIBeginAdventureButton, "ui_labels.begin_adventure_button", false},
-	} {
-		if l.required {
-			if err := validateNonEmpty(l.value, l.name); err != nil {
-				return err
-			}
-		}
-		if err := validateStringLength(l.value, l.maxLen, l.name); err != nil {
-			return err
-		}
+	if err := validateUILabels(pack.UILabels); err != nil {
+		return err
 	}
 
 	// Narrative (prologue / epilogue)

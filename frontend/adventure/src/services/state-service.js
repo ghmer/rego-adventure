@@ -19,7 +19,7 @@
  * Manages game state with encapsulation and persistence
  */
 
-import { getLocalStorage, setLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
+import { getLocalStorage, setLocalStorage, getPackKey, buildQuestHintsKey, STORAGE_KEYS } from './storage-service.js';
 import { SCORING, DEFAULT_TEXT } from './constants.js';
 
 /**
@@ -30,6 +30,7 @@ const LABEL_KEYS = {
     grimoireTitle: { ui: 'grimoire_title', fallback: 'GRIMOIRE_TITLE' },
     hintButton: { ui: 'hint_button', fallback: 'HINT_BUTTON' },
     verifyButton: { ui: 'verify_button', fallback: 'VERIFY_BUTTON' },
+    verifying: { ui: 'verifying', fallback: 'VERIFYING' },
     messageSuccess: { ui: 'message_success', fallback: 'MESSAGE_SUCCESS' },
     messageFailure: { ui: 'message_failure', fallback: 'MESSAGE_FAILURE' },
     perfectScoreMessage: { ui: 'perfect_score_message', fallback: 'PERFECT_SCORE_MESSAGE' },
@@ -191,6 +192,46 @@ export class GameState {
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
         this.currentLoreIndex = 0;
+    }
+
+    /**
+     * Persist the revealed hint state of the current quest so it survives
+     * page reloads (the in-memory counters alone reset on refresh)
+     */
+    persistQuestHintState() {
+        if (!this.currentPackId || this.currentQuestId <= 0) return;
+
+        setLocalStorage(
+            getPackKey(buildQuestHintsKey(this.currentQuestId), this.currentPackId),
+            JSON.stringify({
+                hintsUsed: this.currentQuestHintsUsed,
+                solutionViewed: this.currentQuestSolutionViewed
+            })
+        );
+    }
+
+    /**
+     * Load the persisted hint state for the current quest
+     * @returns {Object|null} {hintsUsed, solutionViewed} or null when no
+     * valid saved state exists
+     */
+    loadQuestHintState() {
+        if (!this.currentPackId || this.currentQuestId <= 0) return null;
+
+        const raw = getLocalStorage(getPackKey(buildQuestHintsKey(this.currentQuestId), this.currentPackId), null);
+        if (!raw) return null;
+
+        try {
+            const state = JSON.parse(raw);
+            if (typeof state !== 'object' || state === null) return null;
+            return {
+                hintsUsed: Number.isInteger(state.hintsUsed) && state.hintsUsed > 0 ? state.hintsUsed : 0,
+                solutionViewed: state.solutionViewed === true
+            };
+        } catch (e) {
+            console.warn('Ignoring corrupt saved hint state:', e);
+            return null;
+        }
     }
     
     /**
