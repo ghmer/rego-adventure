@@ -7,7 +7,8 @@
   "scripts": {
     "audit": "npm audit",
     "audit:fix": "npm audit fix",
-    "outdated": "npm outdated"
+    "outdated": "npm outdated",
+    "test": "vitest run"
   },
   "devDependencies": {
     "dompurify": "3.4.15",
@@ -33,6 +34,7 @@
     "purpose": "This package.json tracks CDN dependencies for security scanning only.",
     "deployment": "Dependencies are loaded via CDN using Import Maps (see index.html/importmap.json).",
     "security": "Run 'npm audit' to check for vulnerabilities in tracked dependencies.",
-    "updates": "Use 'npm outdated' to check for available updates, then update versions in both package.json and the import map in index.html."
+    "updates": "Use 'npm outdated' to check for available updates, then update versions in both package.json and the import map in index.html.",
+    "testing": "Run 'npm test' with the pinned vitest toolchain installed ephemeral like in CI: npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3"
   }
 }
