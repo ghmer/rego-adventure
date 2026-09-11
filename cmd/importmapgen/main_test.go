@@ -29,8 +29,16 @@ var testDeps = map[string]string{
 	"marked":          "18.0.11",
 }
 
+// buildPkg assembles a PackageJSON for tests.
+func buildPkg(deps map[string]string, subpaths map[string][]string) PackageJSON {
+	return PackageJSON{
+		DevDependencies: deps,
+		Importmap:       ImportmapConfig{Subpaths: subpaths},
+	}
+}
+
 func TestUpdateIndexHTMLRewritesImportMap(t *testing.T) {
-	out, err := updateIndexHTML([]byte(testHTML), testDeps)
+	out, err := updateIndexHTML([]byte(testHTML), buildPkg(testDeps, nil))
 	if err != nil {
 		t.Fatalf("updateIndexHTML returned error: %v", err)
 	}
@@ -44,7 +52,7 @@ func TestUpdateIndexHTMLRewritesImportMap(t *testing.T) {
 }
 
 func TestUpdateIndexHTMLSyncsCdnJsLink(t *testing.T) {
-	out, err := updateIndexHTML([]byte(testHTML), testDeps)
+	out, err := updateIndexHTML([]byte(testHTML), buildPkg(testDeps, nil))
 	if err != nil {
 		t.Fatalf("updateIndexHTML returned error: %v", err)
 	}
@@ -55,7 +63,7 @@ func TestUpdateIndexHTMLSyncsCdnJsLink(t *testing.T) {
 }
 
 func TestUpdateIndexHTMLLeavesUnrelatedCdnJsLinks(t *testing.T) {
-	out, err := updateIndexHTML([]byte(testHTML), testDeps)
+	out, err := updateIndexHTML([]byte(testHTML), buildPkg(testDeps, nil))
 	if err != nil {
 		t.Fatalf("updateIndexHTML returned error: %v", err)
 	}
@@ -70,7 +78,7 @@ func TestUpdateIndexHTMLToleratesRangePrefixes(t *testing.T) {
 	deps := map[string]string{
 		"driver.js": "^1.9.0",
 	}
-	out, err := updateIndexHTML([]byte(testHTML), deps)
+	out, err := updateIndexHTML([]byte(testHTML), buildPkg(deps, nil))
 	if err != nil {
 		t.Fatalf("updateIndexHTML returned error: %v", err)
 	}
@@ -87,7 +95,7 @@ func TestUpdateIndexHTMLNoVersionChurn(t *testing.T) {
 	deps := map[string]string{
 		"driver.js": "1.8.0",
 	}
-	out, err := updateIndexHTML([]byte(testHTML), deps)
+	out, err := updateIndexHTML([]byte(testHTML), buildPkg(deps, nil))
 	if err != nil {
 		t.Fatalf("updateIndexHTML returned error: %v", err)
 	}
@@ -98,8 +106,71 @@ func TestUpdateIndexHTMLNoVersionChurn(t *testing.T) {
 }
 
 func TestUpdateIndexHTMLErrorsWithoutImportMap(t *testing.T) {
-	_, err := updateIndexHTML([]byte("<html><head></head></html>"), testDeps)
+	_, err := updateIndexHTML([]byte("<html><head></head></html>"), buildPkg(testDeps, nil))
 	if err == nil {
 		t.Fatal("expected error when the document has no import map block")
+	}
+}
+
+func TestBuildImportMapEmitsDeclaredSubpaths(t *testing.T) {
+	deps := map[string]string{"yace": "1.1.0"}
+	subpaths := map[string][]string{
+		"yace": {"plugins/tab", "plugins/preserveIndent"},
+	}
+	out, err := buildImportMap(deps, subpaths)
+	if err != nil {
+		t.Fatalf("buildImportMap returned error: %v", err)
+	}
+
+	if !strings.Contains(string(out), `"yace": "https://esm.sh/yace@1.1.0"`) {
+		t.Errorf("subpath declarations must not remove the bare entry, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), `"yace/plugins/tab": "https://esm.sh/yace@1.1.0/plugins/tab"`) {
+		t.Errorf("declared subpath should get its own entry, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), `"yace/plugins/preserveIndent": "https://esm.sh/yace@1.1.0/plugins/preserveIndent"`) {
+		t.Errorf("declared subpath should get its own entry, got:\n%s", out)
+	}
+}
+
+func TestBuildImportMapStripsRangePrefixesInSubpaths(t *testing.T) {
+	deps := map[string]string{"yace": "~1.1.0"}
+	subpaths := map[string][]string{"yace": {"plugins/tab"}}
+	out, err := buildImportMap(deps, subpaths)
+	if err != nil {
+		t.Fatalf("buildImportMap returned error: %v", err)
+	}
+
+	if !strings.Contains(string(out), `"yace/plugins/tab": "https://esm.sh/yace@1.1.0/plugins/tab"`) {
+		t.Errorf("subpath URL should carry the stripped version, got:\n%s", out)
+	}
+}
+
+func TestBuildImportMapTrimsSlashesFromSubpaths(t *testing.T) {
+	deps := map[string]string{"yace": "1.1.0"}
+	subpaths := map[string][]string{"yace": {"/plugins/tab"}}
+	out, err := buildImportMap(deps, subpaths)
+	if err != nil {
+		t.Fatalf("buildImportMap returned error: %v", err)
+	}
+
+	if !strings.Contains(string(out), `"yace/plugins/tab": "https://esm.sh/yace@1.1.0/plugins/tab"`) {
+		t.Errorf("subpath URLs should not contain doubled slashes, got:\n%s", out)
+	}
+}
+
+func TestBuildImportMapErrorsOnEmptySubpath(t *testing.T) {
+	deps := map[string]string{"yace": "1.1.0"}
+	subpaths := map[string][]string{"yace": {"/"}}
+	if _, err := buildImportMap(deps, subpaths); err == nil {
+		t.Fatal("expected error for an empty subpath entry")
+	}
+}
+
+func TestBuildImportMapErrorsOnUnknownDependency(t *testing.T) {
+	deps := map[string]string{"driver.js": "1.9.0"}
+	subpaths := map[string][]string{"yace": {"plugins/tab"}}
+	if _, err := buildImportMap(deps, subpaths); err == nil {
+		t.Fatal("expected error when subpaths are declared for a missing devDependency")
 	}
 }

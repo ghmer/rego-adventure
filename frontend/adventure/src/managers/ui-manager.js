@@ -29,7 +29,13 @@ import { showToast } from '../services/toast-service.js';
  * Manages all DOM elements and UI rendering
  */
 export class UIManager {
-    constructor() {
+    /**
+     * @param {EditorService|null} [editorService] - Editor service owning the
+     *   Yace instance; when absent the editor falls back to a plain textarea
+     *   (used by tests and any page without the editor service wired up)
+     */
+    constructor(editorService = null) {
+        this.editorService = editorService;
         this.elements = this.initializeElements();
     }
 
@@ -58,8 +64,12 @@ export class UIManager {
             outcomeMessage: document.getElementById('outcome-message'),
             testResults: document.getElementById('test-results'),
             
-            // Editor
-            editor: document.getElementById('rego-editor'),
+            // Editor: with the editor service wired up this is the native
+            // textarea inside the Yace instance; listeners, value reads and
+            // read-only toggling work on it like on any plain textarea
+            editor: this.editorService
+                ? this.editorService.textarea
+                : document.getElementById('rego-editor'),
             verifyBtn: document.getElementById('verify-btn'),
             verifyBtnLabel: document.querySelector('#verify-btn [data-label]'),
             editorPane: document.getElementById('editor-pane'),
@@ -501,7 +511,7 @@ export class UIManager {
         this.elements.hintsList.innerHTML = '';
         this.elements.hintBtn.classList.remove('hidden');
         this.elements.editorPane.classList.remove('hidden');
-        this.elements.editor.disabled = false;
+        this.elements.editor.readOnly = false;
         this.elements.verifyBtn.disabled = false;
         this.elements.hintBtn.disabled = false;
     }
@@ -511,9 +521,23 @@ export class UIManager {
      * @param {boolean} readOnly - Whether to enable read-only mode
      */
     setEditorReadOnly(readOnly) {
-        this.elements.editor.disabled = readOnly;
+        this.elements.editor.readOnly = readOnly;
         this.elements.verifyBtn.disabled = readOnly;
         this.elements.hintBtn.disabled = readOnly;
+    }
+
+    /**
+     * Replace the editor content. Programmatic writes must go through the
+     * editor service so Yace re-renders the highlighted layer; assigning
+     * textarea.value directly would leave the highlight layer stale.
+     * @param {string} value - New editor content
+     */
+    setEditorValue(value) {
+        if (this.editorService) {
+            this.editorService.setValue(value);
+        } else if (this.elements.editor) {
+            this.elements.editor.value = value;
+        }
     }
 
     /**

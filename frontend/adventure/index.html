@@ -29,7 +29,11 @@
                 "dompurify": "https://esm.sh/dompurify@3.4.15",
                 "driver.js": "https://esm.sh/driver.js@1.8.0",
                 "marked": "https://esm.sh/marked@18.0.12",
-                "oidc-client-ts": "https://esm.sh/oidc-client-ts@3.5.0"
+                "oidc-client-ts": "https://esm.sh/oidc-client-ts@3.5.0",
+                "yace": "https://esm.sh/yace@1.1.0",
+                "yace/plugins/autoClose": "https://esm.sh/yace@1.1.0/plugins/autoClose",
+                "yace/plugins/preserveIndent": "https://esm.sh/yace@1.1.0/plugins/preserveIndent",
+                "yace/plugins/tab": "https://esm.sh/yace@1.1.0/plugins/tab"
             }
         }
     </script>
@@ -201,8 +205,10 @@
                     </div>
                 </div>
                 <div class="editor-container">
-                    <textarea id="rego-editor" spellcheck="false"
-                        placeholder="Write your Rego policy here..."></textarea>
+                    <!-- Yace editor mount: yace creates the textarea and the
+                         highlighted pre layer (plus the line-number gutter)
+                         inside this container -->
+                    <div id="rego-editor"></div>
                 </div>
                 <div class="editor-footer">
                     <button id="quest-back-btn" class="action-btn secondary" aria-label="Previous Quest"
