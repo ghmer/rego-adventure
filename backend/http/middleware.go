@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghmer/rego-adventure/backend/config"
+	"github.com/ghmer/rego-adventure/v2/backend/config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

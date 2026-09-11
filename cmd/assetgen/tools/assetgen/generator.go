@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ghmer/rego-adventure/backend/quest"
+	"github.com/ghmer/rego-adventure/v2/backend/quest"
 )
 
 // Asset represents an image asset to be generated.

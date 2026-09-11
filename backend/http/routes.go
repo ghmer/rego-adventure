@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ghmer/rego-adventure/backend/paths"
+	"github.com/ghmer/rego-adventure/v2/backend/paths"
 	"github.com/gin-gonic/gin"
 )
 

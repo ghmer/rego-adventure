@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghmer/rego-adventure/backend/quest"
+	"github.com/ghmer/rego-adventure/v2/backend/quest"
 	"github.com/gin-gonic/gin"
 )
 

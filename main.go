@@ -28,11 +28,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ghmer/rego-adventure/backend/config"
-	"github.com/ghmer/rego-adventure/backend/http"
-	_ "github.com/ghmer/rego-adventure/backend/logger"
-	"github.com/ghmer/rego-adventure/backend/paths"
-	"github.com/ghmer/rego-adventure/backend/quest"
+	"github.com/ghmer/rego-adventure/v2/backend/config"
+	"github.com/ghmer/rego-adventure/v2/backend/http"
+	_ "github.com/ghmer/rego-adventure/v2/backend/logger"
+	"github.com/ghmer/rego-adventure/v2/backend/paths"
+	"github.com/ghmer/rego-adventure/v2/backend/quest"
 )
 
 func main() {
