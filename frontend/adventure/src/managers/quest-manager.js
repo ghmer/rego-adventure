@@ -19,7 +19,6 @@
  * Handles quest loading, navigation, and state management
  */
 
-import { getLocalStorage, getPackKey, buildQuestGrimoireKey } from '../services/storage-service.js';
 import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
 
 /**
@@ -68,7 +67,7 @@ export class QuestManager {
         this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.label('hintButton'));
 
         // Re-render hints revealed in a previous session
-        this.restoreQuestHints();
+        this.restoreQuestHints(questId);
         
         // Render lore
         this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
@@ -96,8 +95,7 @@ export class QuestManager {
      * @param {number} questId - Quest ID
      */
     loadQuestCode(questId) {
-        const questGrimoireKey = getPackKey(buildQuestGrimoireKey(questId), this.state.currentPackId);
-        const savedCode = getLocalStorage(questGrimoireKey);
+        const savedCode = this.state.loadGrimoire(questId);
         
         if (savedCode) {
             this.ui.setEditorValue(savedCode);
@@ -286,11 +284,12 @@ export class QuestManager {
 
     /**
      * Re-render hints (and optionally the solution) that were revealed in
-     * a previous session for the current quest, so a page reload does not
+     * a previous session for the given quest, so a page reload does not
      * hide them while their score penalty persists
+     * @param {number} questId - The quest identifier
      */
-    restoreQuestHints() {
-        const saved = this.state.loadQuestHintState();
+    restoreQuestHints(questId) {
+        const saved = this.state.loadQuestHintState(questId);
         if (!saved || (!saved.hintsUsed && !saved.solutionViewed)) return;
 
         const hints = Array.isArray(this.state.currentQuest?.hints) ? this.state.currentQuest.hints : [];
