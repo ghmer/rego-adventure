@@ -121,6 +121,11 @@
     animation: mute-pulse 2s ease-in-out infinite;
 }
 
+/* Stop ambient animations when the user turns the effects toggle off */
+body.effects-disabled #music-btn.music-playing {
+    animation: none;
+}
+
 #music-btn:hover {
     background-color: transparent;
     transform: scale(1.1);

@@ -253,7 +253,7 @@ export class TutorialSystem {
                 element: '#effects-btn',
                 popover: {
                     title: 'Effects Control',
-                    description: 'Toggle effects to toggle visual effects on or off. This enhances the game experience, but might be disturbing to some.',
+                    description: 'Toggle effects to toggle visual effects on or off. This enhances the game experience, but might be disturbing to some. Note that some effects are GPU-intensive and can drain your battery faster — if you are on a laptop or mobile device, consider keeping them off.',
                     side: 'bottom',
                     align: 'center'
                 }
