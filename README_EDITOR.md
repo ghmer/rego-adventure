@@ -38,7 +38,7 @@ The quest editor loads `quests.json` files, lets you edit them, and saves them b
 
 ### Quest Editor Tabs
 
-Each quest has five tabs.
+Each quest has six tabs.
 
 **Details** - Core quest configuration:
 
@@ -57,6 +57,13 @@ Each quest has five tabs.
 - Data model description
 - Rego snippet/examples
 - External link (optional)
+
+**Support** - Hidden Rego modules compiled alongside the player's policy during verification (array of complete Rego modules):
+
+- Each module must include its own package declaration (e.g., `package under_test`)
+- Intended for quests where the player writes test rules against a fixed policy under test
+- Referenced from the player's code via the package path (e.g., `data.under_test.allow`)
+- Maximum of 5 modules per quest, 10000 characters each
 
 **Tests** - Test cases with:
 

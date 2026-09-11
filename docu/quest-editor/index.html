@@ -210,6 +210,7 @@
                     <button class="tab-btn" data-tab="lore" title="Edit quest lore and story"><i class="fas fa-book"></i> Lore</button>
                     <button class="tab-btn" data-tab="hints" title="Edit quest hints"><i class="fas fa-lightbulb"></i> Hints</button>
                     <button class="tab-btn" data-tab="manual" title="Edit quest manual and documentation"><i class="fas fa-book-open"></i> Manual</button>
+                    <button class="tab-btn" data-tab="support" title="Edit hidden support modules compiled with the player's policy"><i class="fas fa-cubes"></i> Support</button>
                     <button class="tab-btn" data-tab="tests" title="Edit quest test cases"><i class="fas fa-flask"></i> Tests</button>
                 </div>
 
@@ -281,6 +282,14 @@
                             <input type="url" id="quest-manual-external_link" class="form-control" data-field="quest-manual-external_link">
                         </div>
                     </div>
+                </div>
+
+                <div class="tab-content" id="tab-support">
+                    <div class="tab-header">
+                        <p>Hidden Rego modules compiled alongside the player's policy during verification (e.g. the policy under test). Each module must be a complete Rego module with its own package declaration.</p>
+                        <button class="btn btn-secondary" id="addSupportModuleBtn" title="Add a new support module"><i class="fas fa-plus"></i> Add Support Module</button>
+                    </div>
+                    <div id="supportModulesList" class="item-list"></div>
                 </div>
 
                 <div class="tab-content" id="tab-tests">

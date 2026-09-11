@@ -307,7 +307,8 @@ func TestVerifier_Verify_RuntimeConflictErrorDetails(t *testing.T) {
 	}
 }
 
-func TestVerifier_Verify_UndefinedResult(t *testing.T) {	verifier := NewVerifier()
+func TestVerifier_Verify_UndefinedResult(t *testing.T) {
+	verifier := NewVerifier()
 	ctx := context.Background()
 
 	quest := &Quest{
@@ -719,6 +720,170 @@ func TestVerifier_Verify_ObjectResult(t *testing.T) {
 		for _, r := range result.Results {
 			t.Logf("Test %d: passed=%v expected=%v actual=%v", r.TestID, r.Passed, r.Expected, r.Actual)
 		}
+	}
+}
+
+func TestVerifier_Verify_SupportModules(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	// The support module acts as the hidden "policy under test". The
+	// player's solution consists of test rules asserting its behavior.
+	quest := &Quest{
+		Query: "data.play.test_allow_admin",
+		SupportModules: []string{`
+			package under_test
+
+			allow if input.user == "admin"
+		`},
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: true,
+				Payload:         TestPayload{Input: map[string]any{}},
+			},
+		},
+	}
+
+	regoCode := `
+		package play
+
+		import data.under_test
+
+		test_allow_admin if under_test.allow with input as {"user": "admin"}
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	if !result.Passed {
+		t.Errorf("Expected verification to pass, error: %s", result.Error)
+		for _, r := range result.Results {
+			t.Logf("Test %d: passed=%v expected=%v actual=%v", r.TestID, r.Passed, r.Expected, r.Actual)
+		}
+	}
+}
+
+func TestVerifier_Verify_SupportModules_Failure(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.play.test_allow_admin",
+		SupportModules: []string{`
+			package under_test
+
+			allow if input.user == "admin"
+		`},
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: true,
+				Payload:         TestPayload{Input: map[string]any{}},
+			},
+		},
+	}
+
+	// The test rule asserts the wrong scenario, so it is undefined.
+	regoCode := `
+		package play
+
+		import data.under_test
+
+		test_allow_admin if under_test.allow with input as {"user": "guest"}
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	if result.Passed {
+		t.Error("Expected verification to fail")
+	}
+	if !result.Results[0].Undefined {
+		t.Error("Expected undefined result for a failing test rule")
+	}
+}
+
+func TestVerifier_Verify_SupportModules_CompilationError(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.play.test_allow_admin",
+		SupportModules: []string{`
+			package under_test
+
+			allow if {
+		`},
+		Tests: []TestCase{{ID: 1, ExpectedOutcome: true}},
+	}
+
+	regoCode := `
+		package play
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Expected Verify to return nil error (errors should be in result object), but got: %v", err)
+	}
+
+	if result.Error != "Compilation error" {
+		t.Errorf("expected Error='Compilation error', got %q", result.Error)
+	}
+	if len(result.Details) == 0 {
+		t.Fatal("expected structured error details for compile error")
+	}
+	if result.Details[0].File != "support_1.rego" {
+		t.Errorf("expected compile error to be attributed to support_1.rego, got %q", result.Details[0].File)
+	}
+}
+
+func TestVerifier_Verify_MultipleSupportModules(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.play.test_authorized",
+		SupportModules: []string{
+			`
+				package roles
+
+				admin := "admin"
+			`,
+			`
+				package under_test
+
+				authorized if input.role == data.roles.admin
+			`,
+		},
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: true,
+				Payload:         TestPayload{Input: map[string]any{}},
+			},
+		},
+	}
+
+	regoCode := `
+		package play
+
+		import data.under_test
+
+		test_authorized if under_test.authorized with input as {"role": "admin"}
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	if !result.Passed {
+		t.Errorf("Expected verification to pass, error: %s", result.Error)
 	}
 }
 
