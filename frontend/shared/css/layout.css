@@ -185,6 +185,13 @@
     color: var(--accent-color);
 }
 
+/* Editor title row: heading with save status indicator */
+.pane-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .grimoire-controls {
     display: flex;
     align-items: center;

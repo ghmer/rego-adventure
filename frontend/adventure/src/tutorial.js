@@ -178,6 +178,15 @@ export class TutorialSystem {
                 }
             },
             {
+                element: '#editor-save-indicator',
+                popover: {
+                    title: 'Save Indicator',
+                    description: 'This light shows the save state of your policy: green means all changes are saved, orange means you are still typing, and red means saving failed.',
+                    side: 'bottom',
+                    align: 'center'
+                }
+            },
+            {
                 element: '#check-manual-btn',
                 popover: {
                     title: 'Manual',
