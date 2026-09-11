@@ -63,7 +63,8 @@ function createUi() {
         updateQuestFooterVisibility: vi.fn(),
         updateHintButtonText: vi.fn(),
         renderLore: vi.fn(),
-        setEditorReadOnly: vi.fn()
+        setEditorReadOnly: vi.fn(),
+        setEditorValue: vi.fn()
     };
 }
 
@@ -96,7 +97,7 @@ describe('quest-manager', () => {
 
             qm.loadQuestCode(1);
 
-            expect(ui.elements.editor.value).toBe('package saved');
+            expect(ui.setEditorValue).toHaveBeenCalledWith('package saved');
         });
 
         it('falls back to the quest template', () => {
@@ -105,7 +106,7 @@ describe('quest-manager', () => {
 
             qm.loadQuestCode(1);
 
-            expect(ui.elements.editor.value).toBe('package tpl');
+            expect(ui.setEditorValue).toHaveBeenCalledWith('package tpl');
         });
 
         it('falls back to the default rego code without a template', () => {
@@ -114,7 +115,7 @@ describe('quest-manager', () => {
 
             qm.loadQuestCode(1);
 
-            expect(ui.elements.editor.value).toBe(DEFAULT_REGO_CODE);
+            expect(ui.setEditorValue).toHaveBeenCalledWith(DEFAULT_REGO_CODE);
         });
     });
 
@@ -266,7 +267,7 @@ describe('quest-manager', () => {
 
             expect(state.isHistoryMode).toBe(true);
             expect(ui.setEditorReadOnly).toHaveBeenCalledWith(true);
-            expect(ui.elements.editor.value).toBe('package done');
+            expect(ui.setEditorValue).toHaveBeenCalledWith('package done');
         });
 
         it('keeps the active quest editable', () => {

@@ -15,7 +15,8 @@
     "driver.js": "1.8.0",
     "marked": "18.0.12",
     "canvas-confetti": "1.9.4",
-    "oidc-client-ts": "3.5.0"
+    "oidc-client-ts": "3.5.0",
+    "yace": "1.1.0"
   },
   "repository": {
     "type": "git",
@@ -30,11 +31,17 @@
   ],
   "author": "Mario Enrico Ragucci",
   "license": "Apache-2.0",
+  "importmap": {
+    "subpaths": {
+      "yace": ["plugins/tab", "plugins/preserveIndent", "plugins/autoClose"]
+    }
+  },
   "comments": {
     "purpose": "This package.json tracks CDN dependencies for security scanning only.",
     "deployment": "Dependencies are loaded via CDN using Import Maps (see index.html/importmap.json).",
     "security": "Run 'npm audit' to check for vulnerabilities in tracked dependencies.",
-    "updates": "Use 'npm outdated' to check for available updates, then update versions in both package.json and the import map in index.html.",
+    "updates": "Use 'npm outdated' to check for available updates, then update versions in package.json and regenerate the import map in index.html with cmd/importmapgen (do not edit the import map by hand).",
+    "importmap": "The optional 'importmap.subpaths' field declares package subpath modules per devDependency; importmapgen emits an extra '<lib>/<subpath>' entry for each. Declare subpaths here when a new import path is used in frontend code.",
     "testing": "Run 'npm test' with the pinned vitest toolchain installed ephemeral like in CI: npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3"
   }
 }

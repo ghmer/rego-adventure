@@ -34,6 +34,7 @@ import { AuthService } from './services/auth-service.js';
 import { ApiError, fetchPacks } from './services/api-service.js';
 import { GameState } from './services/state-service.js';
 import { removeLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
+import { EditorService } from './services/editor-service.js';
 import { UIManager } from './managers/ui-manager.js';
 import { QuestManager } from './managers/quest-manager.js';
 import { AudioManager } from './managers/audio-manager.js';
@@ -41,9 +42,11 @@ import { ModalManager } from './managers/modal-manager.js';
 import { PackManager } from './managers/pack-manager.js';
 import { EventManager } from './managers/event-manager.js';
 
-// Initialize managers
+// Initialize managers; the editor service mounts the Yace editor before the
+// UI manager so the manager can reference the native textarea inside it
+const editorService = new EditorService('#rego-editor');
 const state = new GameState();
-const uiManager = new UIManager();
+const uiManager = new UIManager(editorService);
 const audioManager = new AudioManager(uiManager);
 const questManager = new QuestManager(state, uiManager);
 const modalManager = new ModalManager(state, uiManager);

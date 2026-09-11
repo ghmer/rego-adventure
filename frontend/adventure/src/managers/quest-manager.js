@@ -100,11 +100,11 @@ export class QuestManager {
         const savedCode = getLocalStorage(questGrimoireKey);
         
         if (savedCode) {
-            this.ui.elements.editor.value = savedCode;
+            this.ui.setEditorValue(savedCode);
         } else if (this.state.currentQuest.apply_template && this.state.currentQuest.template) {
-            this.ui.elements.editor.value = this.state.currentQuest.template;
+            this.ui.setEditorValue(this.state.currentQuest.template);
         } else {
-            this.ui.elements.editor.value = DEFAULT_REGO_CODE;
+            this.ui.setEditorValue(DEFAULT_REGO_CODE);
         }
     }
 

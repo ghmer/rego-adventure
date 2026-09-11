@@ -354,11 +354,19 @@ button[onclick*="login"]:hover {
 
 .editor-container {
     flex: 1;
+    /* Allow the container to shrink below its content height. Flex items
+       default to min-height: auto ("never smaller than content"), which let
+       the tall Yace editor stretch the fixed layout instead of scrolling. */
+    min-height: 0;
     display: flex;
     flex-direction: column;
     margin-bottom: 1rem;
 }
 
+/* Yace editor mount. Yace sets the core layout (position, overflow) and
+   font metrics inline on the mount; these rules only provide the visuals
+   the shared theme owns. The textarea inside is a transparent input layer
+   positioned absolutely over the highlighted pre layer. */
 #rego-editor {
     flex: 1;
     width: 100%;
@@ -369,14 +377,53 @@ button[onclick*="login"]:hover {
     padding: 1rem;
     border: 1px solid var(--accent-color);
     border-radius: var(--radius-md);
-    resize: none;
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
     line-height: 1.5;
+    /* Rendered width of one '\t' (we indent with tabs to match opa fmt).
+       Inherited by the textarea, the highlight layer and the gutter, so
+       all layers keep rendering tabs identically. */
+    tab-size: 4;
 }
 
-#rego-editor:focus {
+#rego-editor:focus-within {
     outline: 3px solid var(--accent-color);
     outline-offset: 2px;
+}
+
+/* The textarea scrolls internally with a native scrollbar; the painted
+   layers follow via the editor service, which also compensates their width
+   by the scrollbar width so both layers wrap identically. */
+
+/* Rego token colors. Only theme variables from the assetgen template are
+   used (accent, secondary-accent, success, info, text-rgb) so every quest
+   pack theme colors the editor automatically. No bold/italic: the token
+   layer must match the textarea's glyph widths exactly. */
+#rego-editor .ra-comment {
+    color: rgba(var(--text-rgb), 0.55);
+}
+
+#rego-editor .ra-keyword {
+    color: var(--accent-color);
+}
+
+#rego-editor .ra-string {
+    color: var(--success-color);
+}
+
+#rego-editor .ra-number,
+#rego-editor .ra-constant,
+#rego-editor .ra-root {
+    color: var(--info-color);
+}
+
+#rego-editor .ra-operator,
+#rego-editor .ra-call {
+    color: var(--secondary-accent);
+}
+
+#rego-editor .ra-placeholder {
+    color: var(--text-color);
+    opacity: 0.5;
 }
 
 /* ============================================

@@ -167,6 +167,10 @@
 /* Editor Pane */
 .editor-pane {
     flex: 1.5;
+    /* Allow the pane to shrink below its content height; without this the
+       tall editor imposes its content size and stretches past the layout
+       instead of scrolling (flex items default to min-height: auto) */
+    min-height: 0;
 }
 
 /* Pane Header */

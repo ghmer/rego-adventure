@@ -20,6 +20,16 @@ import (
 
 type PackageJSON struct {
 	DevDependencies map[string]string `json:"devDependencies"`
+	Importmap       ImportmapConfig   `json:"importmap"`
+}
+
+// ImportmapConfig carries optional import-map hints that cannot be derived
+// from the devDependency list alone. Subpaths maps a devDependency name to
+// its package subpath modules (without the package name); each entry is
+// emitted as an extra import-map key "<lib>/<subpath>" resolved to
+// "https://esm.sh/<lib>@<version>/<subpath>".
+type ImportmapConfig struct {
+	Subpaths map[string][]string `json:"subpaths"`
 }
 
 type ImportMap struct {
@@ -35,14 +45,33 @@ var importMapRe = regexp.MustCompile(`(?s)<script type="importmap">.*?</script>`
 var pkgPath string
 var indexPath string
 
-// buildImportMap renders the import map JSON block from the devDependencies.
-func buildImportMap(deps map[string]string) ([]byte, error) {
+// buildImportMap renders the import map JSON block from the devDependencies
+// and the optional subpath manifest.
+func buildImportMap(deps map[string]string, subpaths map[string][]string) ([]byte, error) {
 	imports := make(map[string]string)
 
 	for lib, ver := range deps {
 		// Strip common version prefixes like ~ and ^
 		version := strings.TrimLeft(ver, "~^")
 		imports[lib] = fmt.Sprintf("https://esm.sh/%s@%s", lib, version)
+
+		for _, sub := range subpaths[lib] {
+			// A leading or trailing slash in the manifest would produce
+			// malformed keys and URLs; fail instead of emitting them
+			sub = strings.Trim(sub, "/")
+			if sub == "" {
+				return nil, fmt.Errorf("empty subpath declared for %q", lib)
+			}
+			imports[lib+"/"+sub] = fmt.Sprintf("https://esm.sh/%s@%s/%s", lib, version, sub)
+		}
+	}
+
+	// A subpath may only be declared for a declared dependency; otherwise
+	// the generated key would resolve to a dependency nobody audits
+	for lib := range subpaths {
+		if _, ok := deps[lib]; !ok {
+			return nil, fmt.Errorf("subpaths declared for %q, which is not a devDependency", lib)
+		}
 	}
 
 	return json.MarshalIndent(ImportMap{Imports: imports}, "        ", "    ")
@@ -79,8 +108,8 @@ func syncCdnJsVersions(indexContent []byte, deps map[string]string) []byte {
 
 // updateIndexHTML applies the import map and cdnjs version sync to the
 // document. It fails when no import map block is present.
-func updateIndexHTML(indexContent []byte, deps map[string]string) ([]byte, error) {
-	mapContent, err := buildImportMap(deps)
+func updateIndexHTML(indexContent []byte, pkg PackageJSON) ([]byte, error) {
+	mapContent, err := buildImportMap(pkg.DevDependencies, pkg.Importmap.Subpaths)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling import map: %w", err)
 	}
@@ -94,7 +123,7 @@ func updateIndexHTML(indexContent []byte, deps map[string]string) ([]byte, error
 	}
 
 	newIndexContent := importMapRe.ReplaceAll(indexContent, []byte(newScriptTag))
-	return syncCdnJsVersions(newIndexContent, deps), nil
+	return syncCdnJsVersions(newIndexContent, pkg.DevDependencies), nil
 }
 
 func main() {
@@ -123,7 +152,7 @@ func main() {
 	}
 
 	// 3. Rewrite import map and synced cdnjs links
-	newIndexContent, err := updateIndexHTML(indexContent, pkg.DevDependencies)
+	newIndexContent, err := updateIndexHTML(indexContent, pkg)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
