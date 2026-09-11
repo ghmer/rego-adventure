@@ -214,8 +214,9 @@ export class PackManager {
     returnHome() {
         this.ui.hidePerfectScoreButton();
 
-        // Save current progress
-        this.state.savePackState();
+        // Flush progress and clear the active pack pointer so a reload
+        // stays on the start screen; progress itself is kept for resume
+        this.state.clearCurrentPack();
         
         // Stop music
         this.audio.stopMusic();
