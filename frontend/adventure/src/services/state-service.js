@@ -19,7 +19,7 @@
  * Manages game state with encapsulation and persistence
  */
 
-import { getLocalStorage, setLocalStorage, getPackKey, buildQuestHintsKey, STORAGE_KEYS } from './storage-service.js';
+import { getLocalStorage, setLocalStorage, removeLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
 import { SCORING, DEFAULT_TEXT } from './constants.js';
 
 /**
@@ -60,6 +60,10 @@ export class GameState {
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
 
+        // Per-quest persisted maps (part of the packed state)
+        this.questHints = {};
+        this.grimoires = {};
+
         // Navigation
         this.isHistoryMode = false;
         this.activeQuestId = 0;
@@ -88,6 +92,8 @@ export class GameState {
                 this.currentQuestId = state.questId || 0;
                 this.totalScore = state.totalScore || 0;
                 this.questScores = state.questScores || {};
+                this.questHints = state.questHints || {};
+                this.grimoires = state.grimoires || {};
                 this.activeQuestId = state.activeQuestId || this.currentQuestId;
                 return state;
             } catch (e) {
@@ -116,11 +122,27 @@ export class GameState {
             this.activeQuestId = 0;
             this.totalScore = 0;
             this.questScores = {};
+            this.questHints = {};
+            this.grimoires = {};
             this.savePackState();
             return null;
         }
 
         return loaded;
+    }
+
+    /**
+     * Leave the current adventure: flush progress and clear the active
+     * pack pointer so the next page load starts at the pack selection
+     * screen instead of resuming this pack. The packed state itself is
+     * kept, so re-entering the pack still resumes the progress.
+     */
+    clearCurrentPack() {
+        if (!this.currentPackId) return;
+
+        this.savePackState();
+        removeLocalStorage(STORAGE_KEYS.PACK_ID);
+        this.currentPackId = null;
     }
     
     /**
@@ -134,6 +156,8 @@ export class GameState {
             questId: this.currentQuestId,
             totalScore: this.totalScore,
             questScores: this.questScores,
+            questHints: this.questHints,
+            grimoires: this.grimoires,
             activeQuestId: this.activeQuestId
         };
         
@@ -201,37 +225,55 @@ export class GameState {
     persistQuestHintState() {
         if (!this.currentPackId || this.currentQuestId <= 0) return;
 
-        setLocalStorage(
-            getPackKey(buildQuestHintsKey(this.currentQuestId), this.currentPackId),
-            JSON.stringify({
-                hintsUsed: this.currentQuestHintsUsed,
-                solutionViewed: this.currentQuestSolutionViewed
-            })
-        );
+        this.questHints[this.currentQuestId] = {
+            hintsUsed: this.currentQuestHintsUsed,
+            solutionViewed: this.currentQuestSolutionViewed
+        };
+        this.savePackState();
     }
 
     /**
-     * Load the persisted hint state for the current quest
+     * Load the persisted hint state for a quest. In-progress quests keep
+     * their state in the questHints map; completed quests keep it in the
+     * quest score recorded on completion.
+     * @param {number} [questId] - The quest identifier; defaults to the
+     * current quest
      * @returns {Object|null} {hintsUsed, solutionViewed} or null when no
      * valid saved state exists
      */
-    loadQuestHintState() {
-        if (!this.currentPackId || this.currentQuestId <= 0) return null;
+    loadQuestHintState(questId = this.currentQuestId) {
+        if (!this.currentPackId || questId <= 0) return null;
 
-        const raw = getLocalStorage(getPackKey(buildQuestHintsKey(this.currentQuestId), this.currentPackId), null);
-        if (!raw) return null;
+        const saved = this.questHints[questId] ?? this.questScores[questId];
+        if (typeof saved !== 'object' || saved === null) return null;
 
-        try {
-            const state = JSON.parse(raw);
-            if (typeof state !== 'object' || state === null) return null;
-            return {
-                hintsUsed: Number.isInteger(state.hintsUsed) && state.hintsUsed > 0 ? state.hintsUsed : 0,
-                solutionViewed: state.solutionViewed === true
-            };
-        } catch (e) {
-            console.warn('Ignoring corrupt saved hint state:', e);
-            return null;
-        }
+        return {
+            hintsUsed: Number.isInteger(saved.hintsUsed) && saved.hintsUsed > 0 ? saved.hintsUsed : 0,
+            solutionViewed: saved.solutionViewed === true
+        };
+    }
+
+    /**
+     * Persist the editor content (grimoire) of a quest
+     * @param {number} questId - The quest identifier
+     * @param {string} code - The editor content to store
+     * @returns {boolean} True when the content was persisted
+     */
+    saveGrimoire(questId, code) {
+        if (!this.currentPackId || !this.questsMap?.has(questId)) return false;
+
+        this.grimoires[questId] = code;
+        this.savePackState();
+        return true;
+    }
+
+    /**
+     * Get the persisted editor content of a quest
+     * @param {number} questId - The quest identifier
+     * @returns {string|null} The saved code, or null when none exists
+     */
+    loadGrimoire(questId) {
+        return this.grimoires[questId] ?? null;
     }
     
     /**
@@ -274,6 +316,9 @@ export class GameState {
             solutionViewed: this.currentQuestSolutionViewed,
             pointsEarned: pointsEarned
         };
+
+        // The transient hint entry is superseded by the quest score
+        delete this.questHints[questId];
         
         // Update active quest to next quest
         if (questId < this.quests.length) {
@@ -321,6 +366,8 @@ export class GameState {
         this.activeQuestId = 0;
         this.totalScore = 0;
         this.questScores = {};
+        this.questHints = {};
+        this.grimoires = {};
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
         this.isHistoryMode = false;

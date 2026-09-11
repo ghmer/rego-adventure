@@ -73,6 +73,37 @@ describe('state-service', () => {
         });
     });
 
+    describe('clearCurrentPack', () => {
+        it('clears the active pack pointer and keeps the packed state', () => {
+            const state = createState(3);
+            state.setCurrentQuest(2);
+            state.currentQuestHintsUsed = 1;
+            state.completeQuest(2);
+
+            state.clearCurrentPack();
+
+            expect(state.currentPackId).toBeNull();
+            expect(getLocalStorage(STORAGE_KEYS.PACK_ID)).toBeNull();
+
+            // A fresh page load starts at the pack selection screen ...
+            const fresh = new GameState();
+            expect(fresh.currentPackId).toBeNull();
+
+            // ... but re-entering the pack resumes the progress
+            const restored = new GameState();
+            expect(restored.setCurrentPack(PACK_ID)).not.toBeNull();
+            expect(restored.currentQuestId).toBe(2);
+        });
+
+        it('is a no-op without an active pack', () => {
+            const state = new GameState();
+
+            state.clearCurrentPack();
+
+            expect(getLocalStorage(STORAGE_KEYS.PACK_ID)).toBeNull();
+        });
+    });
+
     describe('savePackState / loadPackState roundtrip', () => {
         it('restores quest position, score, and quest scores', () => {
             const state = createState(3);
@@ -161,17 +192,22 @@ describe('state-service', () => {
         it('clears all progress and persists the reset', () => {
             const state = createState(3);
             state.completeQuest(1);
+            state.questHints[2] = { hintsUsed: 1, solutionViewed: false };
+            state.grimoires[2] = 'package draft';
 
             state.resetProgress();
 
             expect(state.currentQuestId).toBe(0);
             expect(state.totalScore).toBe(0);
             expect(state.questScores).toEqual({});
+            expect(state.questHints).toEqual({});
+            expect(state.grimoires).toEqual({});
             expect(state.isHistoryMode).toBe(false);
 
             const restored = new GameState();
             restored.setCurrentPack(PACK_ID);
             expect(restored.totalScore).toBe(0);
+            expect(restored.grimoires).toEqual({});
         });
     });
 
@@ -214,6 +250,16 @@ describe('state-service', () => {
             });
         });
 
+        it('keeps hint state inside the packed state', () => {
+            const state = createState(3);
+            state.setCurrentQuest(2);
+            state.currentQuestHintsUsed = 1;
+            state.persistQuestHintState();
+
+            const packed = JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID)));
+            expect(packed.questHints[2]).toEqual({ hintsUsed: 1, solutionViewed: false });
+        });
+
         it('returns null on narrative screens (quest 0)', () => {
             const state = createState(3);
             expect(state.loadQuestHintState()).toBeNull();
@@ -221,11 +267,63 @@ describe('state-service', () => {
             expect(state.loadQuestHintState()).toBeNull();
         });
 
-        it('returns null for corrupt persisted state', () => {
+        it('falls back to the recorded quest score for completed quests', () => {
+            const state = createState(3);
+            state.currentQuestHintsUsed = 2;
+            state.completeQuest(1);
+
+            expect(state.loadQuestHintState(1)).toEqual({ hintsUsed: 2, solutionViewed: false });
+        });
+
+        it('drops the transient hint entry on completion', () => {
             const state = createState(3);
             state.setCurrentQuest(1);
-            setLocalStorage(getPackKey('rego_hints_q1', PACK_ID), 'not json{');
+            state.currentQuestHintsUsed = 1;
+            state.persistQuestHintState();
+
+            state.completeQuest(1);
+
+            expect(state.questHints[1]).toBeUndefined();
+        });
+
+        it('returns null for corrupt persisted hint state', () => {
+            setLocalStorage(
+                getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID),
+                JSON.stringify({ questId: 1, questHints: 'garbage' })
+            );
+
+            const state = new GameState();
+            state.setCurrentPack(PACK_ID);
+
             expect(state.loadQuestHintState()).toBeNull();
+        });
+    });
+
+    describe('saveGrimoire / loadGrimoire', () => {
+        it('round-trips the editor content of a quest', () => {
+            const state = createState(3);
+            state.setCurrentQuest(1);
+            state.saveGrimoire(1, 'package saved');
+
+            const restored = new GameState();
+            restored.setCurrentPack(PACK_ID);
+
+            expect(restored.loadGrimoire(1)).toBe('package saved');
+        });
+
+        it('rejects saves for quests that do not exist', () => {
+            const state = createState(3);
+
+            expect(state.saveGrimoire(99, 'package junk')).toBe(false);
+            expect(state.loadGrimoire(99)).toBeNull();
+        });
+
+        it('keeps grimoires inside the packed state', () => {
+            const state = createState(3);
+            state.saveGrimoire(1, 'package saved');
+
+            const packed = JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID)));
+            expect(packed.grimoires[1]).toBe('package saved');
         });
     });
 });

@@ -20,7 +20,6 @@
  */
 
 import { verifySolution } from '../services/api-service.js';
-import { setLocalStorage, getPackKey, buildQuestGrimoireKey, clearAllGrimoires } from '../services/storage-service.js';
 import { AuthService } from '../services/auth-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
@@ -133,17 +132,19 @@ export class EventManager {
     }
 
     /**
-     * Save grimoire content to localStorage and update the save indicator.
+     * Save the grimoire content of the current quest via the game state
+     * and update the save indicator. No-op on narrative screens (prologue
+     * or epilogue), where there is no quest to save for.
      * @returns {boolean} True when the content was written successfully
      */
     saveGrimoire() {
-        if (this.state.currentQuestId > 0) {
-            const questGrimoireKey = getPackKey(buildQuestGrimoireKey(this.state.currentQuestId), this.state.currentPackId);
-            const saved = setLocalStorage(questGrimoireKey, this.ui.elements.editor.value);
-            this.ui.setSaveIndicator(saved ? 'saved' : 'error');
-            return saved;
+        if (!this.state.questsMap?.has(this.state.currentQuestId)) {
+            return false;
         }
-        return false;
+
+        const saved = this.state.saveGrimoire(this.state.currentQuestId, this.ui.elements.editor.value);
+        this.ui.setSaveIndicator(saved ? 'saved' : 'error');
+        return saved;
     }
 
     /**
@@ -363,10 +364,8 @@ export class EventManager {
      * Handle restart confirmation
      */
     handleRestart() {
-        // Clear all grimoires for this adventure
-        clearAllGrimoires(this.state.currentPackId);
-
-        // Reset state (persisted batched state is rewritten)
+        // Reset state (clears scores, hints, and grimoires, and persists
+        // the reset)
         this.state.resetProgress();
 
         // Reset UI

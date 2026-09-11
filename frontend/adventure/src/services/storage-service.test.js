@@ -19,10 +19,7 @@ import {
     getLocalStorage,
     setLocalStorage,
     removeLocalStorage,
-    getPackKey,
-    buildQuestGrimoireKey,
-    buildQuestHintsKey,
-    clearAllGrimoires
+    getPackKey
 } from './storage-service.js';
 
 describe('storage-service', () => {
@@ -60,53 +57,6 @@ describe('storage-service', () => {
 
         it('returns the unscoped key without a pack id', () => {
             expect(getPackKey('base', undefined)).toBe('base');
-        });
-    });
-
-    describe('key builders', () => {
-        it('builds grimoire keys', () => {
-            expect(buildQuestGrimoireKey(3)).toBe('rego_grimoire_q3');
-        });
-
-        it('builds hint keys', () => {
-            expect(buildQuestHintsKey(3)).toBe('rego_hints_q3');
-        });
-    });
-
-    describe('clearAllGrimoires', () => {
-        it('clears grimoires and hint states of the pack', () => {
-            setLocalStorage('rego_grimoire_q1_fantasy', 'code');
-            setLocalStorage('rego_grimoire_q2_fantasy', 'code');
-            setLocalStorage('rego_hints_q1_fantasy', '{"hintsUsed":1}');
-            setLocalStorage('rego_pack_state_fantasy', '{}');
-
-            clearAllGrimoires('fantasy');
-
-            expect(getLocalStorage('rego_grimoire_q1_fantasy')).toBeNull();
-            expect(getLocalStorage('rego_grimoire_q2_fantasy')).toBeNull();
-            expect(getLocalStorage('rego_hints_q1_fantasy')).toBeNull();
-            // Non-grimoire keys must survive
-            expect(getLocalStorage('rego_pack_state_fantasy')).toBe('{}');
-        });
-
-        it('keeps other packs untouched', () => {
-            setLocalStorage('rego_grimoire_q1_fantasy', 'code');
-            setLocalStorage('rego_grimoire_q1_noir', 'code');
-
-            clearAllGrimoires('fantasy');
-
-            expect(getLocalStorage('rego_grimoire_q1_fantasy')).toBeNull();
-            expect(getLocalStorage('rego_grimoire_q1_noir')).toBe('code');
-        });
-
-        it('does not over-delete for pack ids that are substrings of others', () => {
-            setLocalStorage('rego_grimoire_q1_1', 'pack "1"');
-            setLocalStorage('rego_grimoire_q1_11', 'pack "11"');
-
-            clearAllGrimoires('1');
-
-            expect(getLocalStorage('rego_grimoire_q1_1')).toBeNull();
-            expect(getLocalStorage('rego_grimoire_q1_11')).toBe('pack "11"');
         });
     });
 });
