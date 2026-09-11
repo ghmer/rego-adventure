@@ -537,6 +537,13 @@ func TestValidateQuestPack_UILabelsTooLong(t *testing.T) {
 			},
 		},
 		{
+			name:   "verifying too long",
+			maxLen: MaxUIVerifying,
+			modifyPack: func(p *QuestPack) {
+				p.UILabels.Verifying = strings.Repeat("a", MaxUIVerifying+1)
+			},
+		},
+		{
 			name:   "message success too long",
 			maxLen: MaxUIMessageSuccess,
 			modifyPack: func(p *QuestPack) {

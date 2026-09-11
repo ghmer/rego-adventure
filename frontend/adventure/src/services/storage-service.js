@@ -87,20 +87,30 @@ export function buildQuestGrimoireKey(questId) {
 }
 
 /**
- * Clear all grimoires for a specific pack
+ * Build the base storage key for a quest's revealed hint state, e.g.
+ * `rego_hints_q3`. Pack scoping is applied separately via getPackKey.
+ * @param {number} questId - The quest identifier
+ * @returns {string} The base key
+ */
+export function buildQuestHintsKey(questId) {
+    return `rego_hints_q${questId}`;
+}
+
+/**
+ * Clear all grimoires and hint states for a specific pack.
  * Matches only keys of the exact format `rego_grimoire_q<questId>_<packId>`
- * so pack ids that are substrings of other pack ids (e.g. "1" vs "11")
- * cannot over-delete.
+ * or `rego_hints_q<questId>_<packId>` so pack ids that are substrings of
+ * other pack ids (e.g. "1" vs "11") cannot over-delete.
  * @param {string} packId - The pack identifier
  */
 export function clearAllGrimoires(packId) {
     try {
         const suffix = `_${packId}`;
-        const keyPrefix = buildQuestGrimoireKey('');
+        const keyPrefixes = [buildQuestGrimoireKey(''), buildQuestHintsKey('')];
         const keysToRemove = Object.keys(localStorage).filter(key => {
             if (!key.endsWith(suffix)) return false;
             const prefix = key.slice(0, -suffix.length);
-            return prefix.startsWith(keyPrefix) && /^\d+$/.test(prefix.slice(keyPrefix.length));
+            return keyPrefixes.some(base => prefix.startsWith(base) && /^\d+$/.test(prefix.slice(base.length)));
         });
 
         keysToRemove.forEach(key => {

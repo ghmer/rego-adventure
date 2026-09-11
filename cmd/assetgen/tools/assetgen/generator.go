@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/ghmer/rego-adventure/backend/quest"
 )
@@ -51,9 +52,39 @@ func GenerateTheme(themeName, outputDir string) error {
 	}
 
 	baseDir := filepath.Join(outputDir, themeName)
-	assetsDir := filepath.Join(baseDir, "assets")
+	if err := generateAssets(filepath.Join(baseDir, "assets")); err != nil {
+		return err
+	}
 
-	// Ensure assets directory exists
+	steps := []struct {
+		name string
+		run  func() error
+	}{
+		{"quests.json", func() error { return generateQuestsJSON(baseDir, themeName) }},
+		{"theme.css", func() error { return generateThemeCSS(baseDir) }},
+		{"custom.css", func() error { return generateCustomCSS(baseDir) }},
+		{"README.md", func() error { return generateREADME(baseDir, themeName) }},
+	}
+	for _, step := range steps {
+		if err := step.run(); err != nil {
+			return fmt.Errorf("error generating %s: %w", step.name, err)
+		}
+		fmt.Printf("Generated %s\n", step.name)
+	}
+
+	fmt.Printf("\nQuest pack '%s' created successfully in %s\n", themeName, baseDir)
+	fmt.Printf("\nNext steps:\n")
+	fmt.Printf("1. Replace bg-music.m4a with your theme's background music\n")
+	fmt.Printf("2. Customize the quest content in quests.json\n")
+	fmt.Printf("3. Adjust colors and styling in theme.css\n")
+	fmt.Printf("4. Add theme-specific effects in custom.css\n")
+	fmt.Printf("5. Replace placeholder images in assets/ with theme-appropriate artwork\n")
+	return nil
+}
+
+// generateAssets creates the assets directory with placeholder images and
+// the placeholder background music file.
+func generateAssets(assetsDir string) error {
 	if err := os.MkdirAll(assetsDir, 0750); err != nil {
 		return fmt.Errorf("error creating directory: %w", err)
 	}
@@ -80,34 +111,6 @@ func GenerateTheme(themeName, outputDir string) error {
 		return fmt.Errorf("error creating placeholder audio: %w", err)
 	}
 	fmt.Printf("Generated bg-music.m4a (placeholder - replace with actual audio)\n")
-
-	if err := generateQuestsJSON(baseDir, themeName); err != nil {
-		return fmt.Errorf("error generating quests.json: %w", err)
-	}
-	fmt.Printf("Generated quests.json\n")
-
-	if err := generateThemeCSS(baseDir); err != nil {
-		return fmt.Errorf("error generating theme.css: %w", err)
-	}
-	fmt.Printf("Generated theme.css\n")
-
-	if err := generateCustomCSS(baseDir); err != nil {
-		return fmt.Errorf("error generating custom.css: %w", err)
-	}
-	fmt.Printf("Generated custom.css\n")
-
-	if err := generateREADME(baseDir, themeName); err != nil {
-		return fmt.Errorf("error generating README.md: %w", err)
-	}
-	fmt.Printf("Generated README.md\n")
-
-	fmt.Printf("\nQuest pack '%s' created successfully in %s\n", themeName, baseDir)
-	fmt.Printf("\nNext steps:\n")
-	fmt.Printf("1. Replace bg-music.m4a with your theme's background music\n")
-	fmt.Printf("2. Customize the quest content in quests.json\n")
-	fmt.Printf("3. Adjust colors and styling in theme.css\n")
-	fmt.Printf("4. Add theme-specific effects in custom.css\n")
-	fmt.Printf("5. Replace placeholder images in assets/ with theme-appropriate artwork\n")
 	return nil
 }
 
@@ -160,7 +163,6 @@ func parseHexColor(s string) (color.RGBA, error) {
 	}, nil
 }
 
-// createDefaultQuests creates the default quest list
 // createQuestTest creates a test case with the given parameters.
 func createQuestTest(id int, input any, data map[string]any, expected bool) quest.TestCase {
 	return quest.TestCase{
@@ -182,10 +184,17 @@ func createFirstStepsQuest() quest.Quest {
 		DescriptionTask: "Allow access if the password is correct.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
-			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint:lll // markdown table string is intentionally long
-				"`input.password` | The password provided by the user |",
-			RegoSnippet: "To check if a password matches:\n```rego\n" +
-				"allow if input.password == \"secret\"\n```",
+			DataModel: strings.Join([]string{
+				"| Field | Description |",
+				"|-------|-------------|",
+				"| `input.password` | The password provided by the user |",
+			}, "\n"),
+			RegoSnippet: strings.Join([]string{
+				"To check if a password matches:",
+				"```rego",
+				`allow if input.password == "secret"`,
+				"```",
+			}, "\n"),
 			ExternalLink: "",
 		},
 		Hints: []string{
@@ -193,9 +202,15 @@ func createFirstStepsQuest() quest.Quest {
 			"Access the password from `input.password`.",
 			"The correct password is \"secret\".",
 		},
-		Solution:      "default allow := false\nallow if input.password == \"secret\"",
+		Solution: `default allow := false
+allow if input.password == "secret"`,
 		ApplyTemplate: true,
-		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
+		Template: `package play
+import rego.v1
+
+default allow := false
+
+`,
 		Tests: []quest.TestCase{
 			createQuestTest(101, map[string]any{"password": "wrong"}, nil, false),
 			createQuestTest(102, map[string]any{"password": "secret"}, nil, true),
@@ -215,20 +230,36 @@ func createInventoryQuest() quest.Quest {
 		DescriptionTask: "Allow access if user has a 'pass' in inventory.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
-			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint:lll // markdown table string is intentionally long
-				"`input.user.inventory` | A list of items the user is carrying |",
-			RegoSnippet: "To check if an item is in a list:\n```rego\n" +
-				"allow if \"item\" in input.list\n```\nOr using array iteration:\n" +
-				"```rego\nallow if input.list[_] == \"item\"\n```",
+			DataModel: strings.Join([]string{
+				"| Field | Description |",
+				"|-------|-------------|",
+				"| `input.user.inventory` | A list of items the user is carrying |",
+			}, "\n"),
+			RegoSnippet: strings.Join([]string{
+				"To check if an item is in a list:",
+				"```rego",
+				`allow if "item" in input.list`,
+				"```",
+				"Or using array iteration:",
+				"```rego",
+				"allow if input.list[_] == \"item\"",
+				"```",
+			}, "\n"),
 		},
 		Hints: []string{
 			"Use array iteration with `[_]` to check each item in the inventory.",
 			"Access the inventory at `input.user.inventory`.",
 			"Check if any item equals \"pass\".",
 		},
-		Solution:      "default allow := false\nallow if input.user.inventory[_] == \"pass\"",
+		Solution: `default allow := false
+allow if input.user.inventory[_] == "pass"`,
 		ApplyTemplate: true,
-		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
+		Template: `package play
+import rego.v1
+
+default allow := false
+
+`,
 		Tests: []quest.TestCase{
 			createQuestTest(201,
 				map[string]any{"user": map[string]any{"inventory": []string{"apple"}}},
@@ -252,20 +283,33 @@ func createDataLookupQuest() quest.Quest {
 		DescriptionTask: "Allow access if user is in the registry.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
-			DataModel: "| Field | Description |\n|-------|-------------|\n| " + //nolint:lll // markdown table string is intentionally long
-				"`input.user.name` | The name of the user |\n| `data.registry` | " +
-				"A list of registered users |",
-			RegoSnippet: "To check if a value exists in a data list:\n```rego\n" +
-				"allow if input.value == data.list[_]\n```",
+			DataModel: strings.Join([]string{
+				"| Field | Description |",
+				"|-------|-------------|",
+				"| `input.user.name` | The name of the user |",
+				"| `data.registry` | A list of registered users |",
+			}, "\n"),
+			RegoSnippet: strings.Join([]string{
+				"To check if a value exists in a data list:",
+				"```rego",
+				"allow if input.value == data.list[_]",
+				"```",
+			}, "\n"),
 		},
 		Hints: []string{
 			"Compare the user's name against each entry in the registry.",
 			"Use `data.registry[_]` to iterate through the registry list.",
 			"The user name is at `input.user.name`.",
 		},
-		Solution:      "default allow := false\nallow if input.user.name == data.registry[_]",
+		Solution: `default allow := false
+allow if input.user.name == data.registry[_]`,
 		ApplyTemplate: true,
-		Template:      "package play\nimport rego.v1\n\ndefault allow := false\n\n",
+		Template: `package play
+import rego.v1
+
+default allow := false
+
+`,
 		Tests: []quest.TestCase{
 			createQuestTest(301,
 				map[string]any{"user": map[string]any{"name": "Stranger"}},
@@ -298,6 +342,7 @@ func generateQuestsJSON(dir, theme string) error {
 			GrimoireTitle:          "Policy Grimoire",
 			HintButton:             "Ask Advisor",
 			VerifyButton:           "Apply Policy",
+			Verifying:              "Verifying…",
 			MessageSuccess:         "Quest Complete!",
 			MessageFailure:         "Quest Failed",
 			PerfectScoreMessage:    "You have achieved perfection in mastering Rego policies!",

@@ -39,6 +39,8 @@ const (
 	MaxUIHintButton = 100
 	// MaxUIVerifyButton is the maximum length for verify button text.
 	MaxUIVerifyButton = 100
+	// MaxUIVerifying is the maximum length for the verifying progress text.
+	MaxUIVerifying = 100
 	// MaxUIMessageSuccess is the maximum length for success message.
 	MaxUIMessageSuccess = 200
 	// MaxUIMessageFailure is the maximum length for failure message.

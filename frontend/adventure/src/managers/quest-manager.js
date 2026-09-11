@@ -66,6 +66,9 @@ export class QuestManager {
         this.ui.resetQuestUI();
         this.ui.updateQuestFooterVisibility();
         this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.label('hintButton'));
+
+        // Re-render hints revealed in a previous session
+        this.restoreQuestHints();
         
         // Render lore
         this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
@@ -282,6 +285,41 @@ export class QuestManager {
     }
 
     /**
+     * Re-render hints (and optionally the solution) that were revealed in
+     * a previous session for the current quest, so a page reload does not
+     * hide them while their score penalty persists
+     */
+    restoreQuestHints() {
+        const saved = this.state.loadQuestHintState();
+        if (!saved || (!saved.hintsUsed && !saved.solutionViewed)) return;
+
+        const hints = Array.isArray(this.state.currentQuest?.hints) ? this.state.currentQuest.hints : [];
+        const hintTemplate = document.getElementById('hint-item-template');
+
+        this.ui.elements.hintsList.classList.remove('hidden');
+        for (let i = 0; i < saved.hintsUsed && i < hints.length; i++) {
+            const hintItem = hintTemplate.content.cloneNode(true);
+            hintItem.querySelector('code').textContent = hints[i];
+            this.ui.elements.hintsList.appendChild(hintItem);
+        }
+
+        if (saved.solutionViewed && this.state.currentQuest?.solution) {
+            const solutionItem = document.getElementById('hint-solution-template').content.cloneNode(true);
+            solutionItem.querySelector('code').textContent = this.state.currentQuest.solution;
+            this.ui.elements.hintsList.appendChild(solutionItem);
+            this.ui.elements.hintBtn.classList.add('hidden');
+        }
+
+        this.state.currentQuestHintsUsed = saved.hintsUsed;
+        this.state.currentQuestSolutionViewed = saved.solutionViewed;
+
+        if (saved.hintsUsed > 0 && !saved.solutionViewed) {
+            this.ui.updateHintButtonText(this.state.currentQuest, saved.hintsUsed, this.state.label('hintButton'));
+        }
+        this.ui.updateQuestFooterVisibility();
+    }
+
+    /**
      * Show next hint or solution
      */
     showHint() {
@@ -299,6 +337,7 @@ export class QuestManager {
             this.ui.elements.hintsList.appendChild(hintItem);
             
             this.state.currentQuestHintsUsed++;
+            this.state.persistQuestHintState();
             this.ui.updateHintButtonText(this.state.currentQuest, currentHintsCount + 1, this.state.label('hintButton'));
         } else if (this.state.currentQuest.solution) {
             // Show solution
@@ -308,6 +347,7 @@ export class QuestManager {
             this.ui.elements.hintsList.appendChild(solutionItem);
             
             this.state.currentQuestSolutionViewed = true;
+            this.state.persistQuestHintState();
             this.ui.elements.hintBtn.classList.add('hidden');
             this.ui.updateQuestFooterVisibility();
         }

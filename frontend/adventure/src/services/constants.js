@@ -70,6 +70,7 @@ export const DEFAULT_TEXT = {
     GRIMOIRE_TITLE: 'Policy Grimoire',
     HINT_BUTTON: 'Ask Advisor',
     VERIFY_BUTTON: 'Apply Policy',
+    VERIFYING: 'Verifying…',
     MESSAGE_SUCCESS: 'Quest Complete!',
     MESSAGE_FAILURE: 'Quest Failed',
     PERFECT_SCORE_MESSAGE: 'You have achieved perfection!',

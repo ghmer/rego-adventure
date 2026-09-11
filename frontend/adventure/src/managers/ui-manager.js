@@ -63,6 +63,7 @@ export class UIManager {
             verifyBtn: document.getElementById('verify-btn'),
             verifyBtnLabel: document.querySelector('#verify-btn [data-label]'),
             editorPane: document.getElementById('editor-pane'),
+            saveIndicator: document.getElementById('editor-save-indicator'),
             
             // Navigation buttons
             startAdventureBtn: document.getElementById('start-adventure'),
@@ -82,6 +83,10 @@ export class UIManager {
             restartModal: document.getElementById('restart-modal'),
             confirmRestartBtn: document.getElementById('confirm-restart-btn'),
             cancelRestartBtn: document.getElementById('cancel-restart-btn'),
+            hintModal: document.getElementById('hint-modal'),
+            hintConfirmText: document.getElementById('hint-confirm-text'),
+            confirmHintBtn: document.getElementById('confirm-hint-btn'),
+            cancelHintBtn: document.getElementById('cancel-hint-btn'),
             manualModal: document.getElementById('manual-modal'),
             closeManualBtn: document.getElementById('close-manual-btn'),
             manualContent: document.getElementById('manual-content'),
@@ -462,6 +467,28 @@ export class UIManager {
             this.elements.startScreen.classList.add('hidden');
             this.elements.gameInterface.classList.remove('hidden');
         }
+    }
+
+    /**
+     * Update the editor save indicator light
+     * @param {string} status - 'saved' (green), 'dirty' (orange, typing),
+     * or 'error' (red, writing to localStorage failed)
+     */
+    setSaveIndicator(status) {
+        const indicator = this.elements.saveIndicator;
+        if (!indicator) return;
+
+        const messages = {
+            saved: 'All changes saved',
+            dirty: 'Unsaved changes',
+            error: 'Saving failed'
+        };
+        const state = messages[status] ? status : 'saved';
+
+        indicator.classList.remove('saved', 'dirty', 'error');
+        indicator.classList.add(state);
+        indicator.title = `Editor save status: ${messages[state]}`;
+        indicator.setAttribute('aria-label', indicator.title);
     }
 
     /**

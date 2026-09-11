@@ -61,6 +61,11 @@ export class ModalManager {
         this.state = state;
         this.ui = uiManager;
 
+        // Test payloads are immutable for the lifetime of a pack load, so
+        // they are cached per pack+quest instead of refetching on every
+        // modal open
+        this.testPayloadCache = new Map();
+
         this.setupDialogHandlers();
     }
 
@@ -97,7 +102,8 @@ export class ModalManager {
             this.ui.elements.manualModal,
             this.ui.elements.testPayloadModal,
             this.ui.elements.resultModal,
-            this.ui.elements.perfectScoreModal
+            this.ui.elements.perfectScoreModal,
+            this.ui.elements.hintModal
         ];
 
         dismissibleDialogs.forEach(dialog => {
@@ -146,12 +152,52 @@ export class ModalManager {
     }
 
     /**
+     * Show the hint confirmation dialog. The dialog describes what would be
+     * revealed next (hint N of M, or the solution) and that revealing it
+     * reduces the achievable score.
+     * @param {QuestManager} questManager - Reveals on confirmation
+     */
+    showHintConfirmation(questManager) {
+        const quest = this.state.currentQuest;
+        if (!quest) return;
+
+        const totalHints = Array.isArray(quest.hints) ? quest.hints.length : 0;
+        const revealedCount = this.ui.elements.hintsList.children.length;
+
+        let text;
+        if (revealedCount < totalHints) {
+            text = `Reveal hint ${revealedCount + 1} of ${totalHints}? ` +
+                'Revealing hints reduces the points you can earn for this quest.';
+        } else if (quest.solution) {
+            text = 'Reveal the solution? This reduces the points you can earn for this quest.';
+        } else {
+            return;
+        }
+
+        this.ui.elements.hintConfirmText.textContent = text;
+        this.openDialog(this.ui.elements.hintModal);
+        this.ui.elements.cancelHintBtn.focus();
+    }
+
+    /**
+     * Close hint confirmation dialog (cancel)
+     */
+    closeHintConfirmation() {
+        this.closeDialog(this.ui.elements.hintModal);
+    }
+
+    /**
      * Show test payload modal
      */
     async showTestPayload() {
         if (this.state.currentQuest && this.state.currentQuestId > 0) {
             try {
-                const testPayloads = await fetchTestPayload(this.state.currentPackId, this.state.currentQuestId);
+                const cacheKey = `${this.state.currentPackId}:${this.state.currentQuestId}`;
+                let testPayloads = this.testPayloadCache.get(cacheKey);
+                if (!testPayloads) {
+                    testPayloads = await fetchTestPayload(this.state.currentPackId, this.state.currentQuestId);
+                    this.testPayloadCache.set(cacheKey, testPayloads);
+                }
                 this.ui.renderTestPayload(testPayloads);
                 this.openDialog(this.ui.elements.testPayloadModal);
                 this.ui.elements.closeTestPayloadBtn.focus();
@@ -161,6 +207,13 @@ export class ModalManager {
         } else {
             showToast('No test data available for this quest.', 'info');
         }
+    }
+
+    /**
+     * Clear the test payload cache (called when an adventure restarts)
+     */
+    clearTestPayloadCache() {
+        this.testPayloadCache.clear();
     }
 
     /**

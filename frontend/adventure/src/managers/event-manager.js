@@ -23,6 +23,7 @@ import { verifySolution } from '../services/api-service.js';
 import { setLocalStorage, getPackKey, buildQuestGrimoireKey, clearAllGrimoires } from '../services/storage-service.js';
 import { AuthService } from '../services/auth-service.js';
 import { handleApiError } from '../services/error-service.js';
+import { showToast } from '../services/toast-service.js';
 
 /**
  * Manages all event listeners
@@ -56,6 +57,7 @@ export class EventManager {
         this.setupRestartListeners();
         this.setupHomeListener();
         this.setupMinimizeListener();
+        this.setupKeyboardShortcuts();
     }
 
     /**
@@ -117,53 +119,104 @@ export class EventManager {
     setupQuestNavigationListeners() {
         if (this.ui.elements.questBackBtn) {
             this.ui.elements.questBackBtn.addEventListener('click', () => {
+                this.saveGrimoire();
                 this.quest.navigateToPreviousQuest();
             });
         }
 
         if (this.ui.elements.questForwardBtn) {
             this.ui.elements.questForwardBtn.addEventListener('click', () => {
+                this.saveGrimoire();
                 this.quest.navigateToNextQuest();
             });
         }
     }
 
     /**
-     * Save grimoire content to localStorage
+     * Save grimoire content to localStorage and update the save indicator.
+     * @returns {boolean} True when the content was written successfully
      */
     saveGrimoire() {
         if (this.state.currentQuestId > 0) {
             const questGrimoireKey = getPackKey(buildQuestGrimoireKey(this.state.currentQuestId), this.state.currentPackId);
-            setLocalStorage(questGrimoireKey, this.ui.elements.editor.value);
+            const saved = setLocalStorage(questGrimoireKey, this.ui.elements.editor.value);
+            this.ui.setSaveIndicator(saved ? 'saved' : 'error');
+            return saved;
         }
+        return false;
     }
 
     /**
-     * Setup editor listeners
+     * Setup editor listeners. The 1.5s debounce keeps localStorage writes
+     * off every keystroke; pagehide/visibilitychange flushes make sure the
+     * pending save cannot be lost when the page goes away.
      */
     setupEditorListeners() {
-        let saveTimeout;
-        
         // Debounced save on input
         this.ui.elements.editor.addEventListener('input', () => {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
+            this.ui.setSaveIndicator('dirty');
+            clearTimeout(this.saveTimeout);
+            this.saveTimeout = setTimeout(() => {
                 this.saveGrimoire();
             }, 1500);
         });
-        
+
         // Save immediately when editor loses focus
         this.ui.elements.editor.addEventListener('blur', () => {
-            clearTimeout(saveTimeout);
+            clearTimeout(this.saveTimeout);
             this.saveGrimoire();
+        });
+
+        // Flush pending saves when the page is hidden or closed
+        window.addEventListener('pagehide', () => {
+            clearTimeout(this.saveTimeout);
+            this.saveGrimoire();
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                clearTimeout(this.saveTimeout);
+                this.saveGrimoire();
+            }
         });
     }
 
     /**
-     * Setup hint button listener
+     * Setup editor keyboard shortcuts: Ctrl/Cmd+Enter verifies the
+     * current policy, Ctrl/Cmd+S saves it immediately. Shortcuts are
+     * suppressed while a modal dialog is open.
+     */
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (event) => {
+            if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+            if (document.querySelector('dialog[open]')) return;
+
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this.handleVerify();
+            } else if (event.key === 's' || event.key === 'S') {
+                event.preventDefault();
+                if (this.saveGrimoire()) {
+                    showToast('Policy saved.', 'info');
+                }
+            }
+        });
+    }
+
+    /**
+     * Setup hint button listener. Revealing is gated behind a
+     * confirmation dialog because it costs points.
      */
     setupHintListeners() {
         this.ui.elements.hintBtn.addEventListener('click', () => {
+            this.modal.showHintConfirmation(this.quest);
+        });
+
+        this.ui.elements.cancelHintBtn.addEventListener('click', () => {
+            this.modal.closeHintConfirmation();
+        });
+
+        this.ui.elements.confirmHintBtn.addEventListener('click', () => {
+            this.modal.closeHintConfirmation();
             this.quest.showHint();
         });
     }
@@ -228,35 +281,55 @@ export class EventManager {
      * Setup verify button listener
      */
     setupVerifyListener() {
-        this.ui.elements.verifyBtn.addEventListener('click', async () => {
-            // Save grimoire content before verifying
-            this.saveGrimoire();
-            
-            const code = this.ui.elements.editor.value;
-            if (!code.trim()) return;
-
-            this.ui.elements.verifyBtn.disabled = true;
-
-            try {
-                const result = await verifySolution(this.state.currentPackId, this.state.currentQuestId, code);
-
-                if (!result.error && result.passed) {
-                    // Award points here, in the flow that owns the state
-                    // transition; the modal only renders the outcome
-                    const pointsEarned = this.state.completeQuest(this.state.currentQuestId);
-                    this.modal.showResult(result, pointsEarned);
-
-                    // Update navigation buttons after quest completion
-                    this.quest.updateQuestNavigationButtons();
-                } else {
-                    this.modal.showResult(result);
-                }
-            } catch (e) {
-                handleApiError(e, 'verify solution');
-            } finally {
-                this.ui.elements.verifyBtn.disabled = false;
-            }
+        this.ui.elements.verifyBtn.addEventListener('click', () => {
+            this.handleVerify();
         });
+    }
+
+    /**
+     * Verify the current grimoire content. Shared by the verify button and
+     * the Ctrl/Cmd+Enter shortcut.
+     */
+    async handleVerify() {
+        if (this.ui.elements.verifyBtn.disabled) return;
+
+        // Save grimoire content before verifying
+        this.saveGrimoire();
+
+        const code = this.ui.elements.editor.value;
+        if (!code.trim()) return;
+
+        const btn = this.ui.elements.verifyBtn;
+        const label = this.ui.elements.verifyBtnLabel;
+        const originalLabel = label ? label.textContent : null;
+
+        btn.disabled = true;
+        if (label) {
+            label.textContent = this.state.label('verifying');
+        }
+
+        try {
+            const result = await verifySolution(this.state.currentPackId, this.state.currentQuestId, code);
+
+            if (!result.error && result.passed) {
+                // Award points here, in the flow that owns the state
+                // transition; the modal only renders the outcome
+                const pointsEarned = this.state.completeQuest(this.state.currentQuestId);
+                this.modal.showResult(result, pointsEarned);
+
+                // Update navigation buttons after quest completion
+                this.quest.updateQuestNavigationButtons();
+            } else {
+                this.modal.showResult(result);
+            }
+        } catch (e) {
+            handleApiError(e, 'verify solution');
+        } finally {
+            btn.disabled = false;
+            if (label && originalLabel !== null) {
+                label.textContent = originalLabel;
+            }
+        }
     }
 
     /**
