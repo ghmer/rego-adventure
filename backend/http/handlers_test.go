@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/ghmer/rego-adventure/backend/quest"
 	"github.com/gin-gonic/gin"
@@ -471,6 +472,144 @@ func TestVerifySolution_CompilationError(t *testing.T) {
 	}
 	if result["passed"] != false {
 		t.Errorf("expected passed=false for compile error, got %v", result["passed"])
+	}
+}
+
+func TestVerifySolution_CompilationErrorDetails(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	reqBody, _ := json.Marshal(VerifyRequest{
+		PackID:  "fantasy",
+		QuestID: 1,
+		RegoCode: `
+			package quest
+			default allow =
+		`,
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 (errors returned in body), got %d", w.Code)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if result["error"] != "Compilation error" {
+		t.Errorf("expected error='Compilation error', got %v", result["error"])
+	}
+
+	details, ok := result["error_details"].([]any)
+	if !ok || len(details) == 0 {
+		t.Fatal("expected non-empty error_details for compile error")
+	}
+	detail, ok := details[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error_details entries to be objects, got %T", details[0])
+	}
+	if detail["message"] == "" {
+		t.Error("expected non-empty message in error detail")
+	}
+	if line, ok := detail["line"].(float64); !ok || line < 1 {
+		t.Errorf("expected line >= 1 in error detail, got %v", detail["line"])
+	}
+}
+
+func TestVerifySolution_UndefinedResultFlag(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	// No default rule: for "guest" (test 2) the query is undefined,
+	// which must be flagged instead of being shown as a plain null.
+	reqBody, _ := json.Marshal(VerifyRequest{
+		PackID:  "fantasy",
+		QuestID: 1,
+		RegoCode: `
+			package quest
+			allow if { input.user == "admin" }
+		`,
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	results, ok := result["results"].([]any)
+	if !ok || len(results) != 2 {
+		t.Fatalf("expected 2 results, got %v", result["results"])
+	}
+	second, ok := results[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected result entry to be an object, got %T", results[1])
+	}
+	if second["undefined"] != true {
+		t.Errorf("expected undefined=true for test 2, got %v", second["undefined"])
+	}
+	if second["actual"] != nil {
+		t.Errorf("expected actual=null for undefined result, got %v", second["actual"])
+	}
+}
+
+func TestVerifySolution_TimeoutReturns408(t *testing.T) {
+	originalTimeout := verifyTimeout
+	verifyTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { verifyTimeout = originalTimeout })
+
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	// Combinatorial comprehension that cannot finish within the budget.
+	reqBody, _ := json.Marshal(VerifyRequest{
+		PackID:  "fantasy",
+		QuestID: 1,
+		RegoCode: `
+			package quest
+			allow if {
+				count([pair |
+					some i in numbers.range(1, 2000)
+					some j in numbers.range(1, 2000)
+					pair := [i, j]
+				]) > 0
+			}
+		`,
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestTimeout {
+		t.Errorf("expected status 408 for policy timeout, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if result["error"] != "Verification timed out" {
+		t.Errorf("expected error='Verification timed out', got %v", result["error"])
+	}
+	if result["message"] == "" {
+		t.Error("expected player-facing message in timeout response")
 	}
 }
 

@@ -452,6 +452,11 @@ body {
     border-bottom: 1px dashed rgba(var(--accent-rgb), 0.3);
 }
 
+/* Compile Error List (uses --error-color by default) */
+.compile-error-item {
+    color: var(--error-color);
+}
+
 /* Score Summary */
 .score-summary {
     background: rgba(var(--success-rgb), 0.1);
@@ -680,6 +685,22 @@ This theme uses a modular CSS structure:
 ### Theme-Specific CSS (in this directory)
 - **theme.css** - CSS variables (colors, fonts) and minimal theme overrides
 - **custom.css** - Special effects unique to your theme
+
+### Shared Classes Inheriting Theme Colors
+
+Some shared component classes pick up theme colors via CSS variables and
+need no extra definitions in theme.css or custom.css. Compile errors shown
+in the result modal use %%--error-color%% automatically:
+
+- **.compile-error-item** - A single compile error (line/column and message)
+  in the result modal's error list. Styling it is optional; override it in
+  theme.css only for theme-specific effects, e.g.:
+
+%%css
+.compile-error-item {
+    text-shadow: 0 0 5px var(--error-color);
+}
+%%
 
 ## Assets
 

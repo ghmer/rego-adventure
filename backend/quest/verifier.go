@@ -19,9 +19,11 @@ package quest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 
+	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/open-policy-agent/opa/v1/storage/inmem"
 )
@@ -33,13 +35,25 @@ type TestResult struct {
 	Expected any  `json:"expected"`
 	Actual   any  `json:"actual"`
 	Input    any  `json:"input"`
+	// Undefined reports that the policy query evaluated to undefined for
+	// this test, i.e. no rule produced a value (distinct from null).
+	Undefined bool `json:"undefined,omitempty"`
+}
+
+// PolicyError describes a single compile-time problem with the submitted
+// policy, including its location in the user's code.
+type PolicyError struct {
+	Line    int    `json:"line,omitempty"`
+	Col     int    `json:"col,omitempty"`
+	Message string `json:"message"`
 }
 
 // VerificationResult holds the overall result of verifying a quest solution.
 type VerificationResult struct {
-	Passed  bool         `json:"passed"`
-	Error   string       `json:"error,omitempty"`
-	Results []TestResult `json:"results"`
+	Passed  bool          `json:"passed"`
+	Error   string        `json:"error,omitempty"`
+	Details []PolicyError `json:"error_details,omitempty"`
+	Results []TestResult  `json:"results"`
 }
 
 // Verifier handles the execution of Rego policies against test cases.
@@ -135,8 +149,12 @@ func evalTestCase(ctx context.Context, pq rego.PreparedEvalQuery, test TestCase)
 		return nil, err
 	}
 
+	// An empty result set means the query evaluated to undefined: no rule
+	// produced a value. This differs from an explicit null result.
+	undefined := len(rs) == 0 || len(rs[0].Expressions) == 0
+
 	var rawActual any
-	if len(rs) > 0 && len(rs[0].Expressions) > 0 {
+	if !undefined {
 		rawActual = rs[0].Expressions[0].Value
 	}
 
@@ -152,17 +170,75 @@ func evalTestCase(ctx context.Context, pq rego.PreparedEvalQuery, test TestCase)
 
 	passed := reflect.DeepEqual(actual, expected)
 	return &TestResult{
-		TestID:   test.ID,
-		Passed:   passed,
-		Expected: expected,
-		Actual:   actual,
-		Input:    test.Payload.Input,
+		TestID:    test.ID,
+		Passed:    passed,
+		Expected:  expected,
+		Actual:    actual,
+		Input:     test.Payload.Input,
+		Undefined: undefined,
 	}, nil
 }
 
+// policyErrors extracts structured compile errors with source locations
+// from OPA errors. Compile errors arrive either as ast.Errors, as a single
+// *ast.Error, or wrapped in rego.Errors. It returns nil for errors without
+// structured details.
+func policyErrors(err error) []PolicyError {
+	var collected []*ast.Error
+
+	if batched, ok := errors.AsType[ast.Errors](err); ok {
+		for _, e := range batched {
+			if e != nil {
+				collected = append(collected, e)
+			}
+		}
+	} else if wrapped, ok := errors.AsType[rego.Errors](err); ok {
+		for _, e := range wrapped {
+			if ae, ok := errors.AsType[*ast.Error](e); ok {
+				collected = append(collected, ae)
+			}
+		}
+	} else if single, ok := errors.AsType[*ast.Error](err); ok {
+		collected = append(collected, single)
+	}
+
+	if len(collected) == 0 {
+		return nil
+	}
+
+	details := make([]PolicyError, 0, len(collected))
+	for _, e := range collected {
+		detail := PolicyError{Message: fmt.Sprintf("%s: %s", e.Code, e.Message)}
+		if e.Location != nil {
+			detail.Line = e.Location.Row
+			detail.Col = e.Location.Col
+		}
+		details = append(details, detail)
+	}
+	return details
+}
+
+// verificationError converts a compile or runtime failure into a
+// VerificationResult. Compile errors are reported as structured details
+// with line/column locations in the user's code.
+func verificationError(err error) *VerificationResult {
+	if details := policyErrors(err); len(details) > 0 {
+		return &VerificationResult{
+			Passed:  false,
+			Error:   "Compilation error",
+			Details: details,
+		}
+	}
+	return &VerificationResult{
+		Passed: false,
+		Error:  fmt.Sprintf("Runtime error: %v", err),
+	}
+}
+
 // Verify checks the user's Rego code against the provided quest's test cases.
-// Compilation and evaluation problems are reported in the result's Error
-// field; the returned error is reserved for a cancelled or timed-out context.
+// Compilation problems are reported in the result's Error field with
+// structured location details; runtime problems only in the Error field.
+// The returned error is reserved for a cancelled or timed-out context.
 func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*VerificationResult, error) {
 	results := make([]TestResult, 0, len(quest.Tests))
 	allPassed := true
@@ -178,30 +254,27 @@ func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*
 
 		key, err := dataKey(test.Payload.Data)
 		if err != nil {
-			return &VerificationResult{
-				Passed: false,
-				Error:  fmt.Sprintf("Compilation/Runtime error: %v", err),
-			}, nil
+			return verificationError(err), nil
 		}
 
 		pq, ok := prepared[key]
 		if !ok {
 			pq, err = prepareForEval(ctx, quest.Query, compiledModule, test.Payload.Data)
 			if err != nil {
-				return &VerificationResult{
-					Passed: false,
-					Error:  fmt.Sprintf("Compilation/Runtime error: %v", err),
-				}, nil
+				if ctx.Err() != nil {
+					return nil, ctx.Err()
+				}
+				return verificationError(err), nil
 			}
 			prepared[key] = pq
 		}
 
 		result, err := evalTestCase(ctx, pq, test)
 		if err != nil {
-			return &VerificationResult{
-				Passed: false,
-				Error:  fmt.Sprintf("Compilation/Runtime error: %v", err),
-			}, nil
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			return verificationError(err), nil
 		}
 
 		if !result.Passed {

@@ -56,6 +56,8 @@ export function handleApiError(error, context) {
             hint = 'Your session has expired. Please log in again.';
         } else if (error.status === 0) {
             hint = 'Please check if the server is running.';
+        } else if (error.status === 408) {
+            hint = 'Your policy took too long to evaluate. Check for unbounded loops or very large comprehensions.';
         } else if (error.status >= 500) {
             hint = 'The server encountered an error. Please try again later.';
         }

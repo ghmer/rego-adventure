@@ -19,6 +19,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -29,8 +30,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// verifyTimeout bounds a single solution verification.
-const verifyTimeout = 10 * time.Second
+// verifyTimeout bounds a single solution verification. Well-formed quest
+// policies evaluate in milliseconds; the timeout only catches pathological
+// policies (unbounded loops, oversized comprehensions).
+var verifyTimeout = 3 * time.Second
+
+// timeoutMessage explains to players why verification stopped early.
+const timeoutMessage = "Your policy took too long to evaluate. " +
+	"Check for unbounded loops, very large comprehensions, or expensive built-in functions."
+
+// verifyErrorResponse maps a verifier error to an HTTP status and JSON body.
+// A policy exceeding the evaluation budget is a client-side problem and is
+// reported as 408 instead of a generic server error.
+func verifyErrorResponse(err error) (int, gin.H) {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return http.StatusRequestTimeout, gin.H{
+			"error":   "Verification timed out",
+			"message": timeoutMessage,
+		}
+	}
+	return http.StatusInternalServerError, gin.H{"error": "Internal server error"}
+}
 
 // apiCacheControl prevents shared caches from storing responses that may be
 // authenticated; per-user (browser) caching is still allowed.
@@ -139,7 +159,8 @@ func (h *Handler) VerifySolution(c *gin.Context) {
 	result, err := h.verifier.Verify(ctx, q, req.RegoCode)
 	if err != nil {
 		slog.Error("error verifying solution", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		status, body := verifyErrorResponse(err)
+		c.JSON(status, body)
 		return
 	}
 

@@ -28,6 +28,34 @@ import { SCORING } from '../services/constants.js';
 /**
  * Manages modal dialogs
  */
+
+/**
+ * Format a structured policy error for display. Locations are 1-based
+ * line/column positions in the player's policy code.
+ * @param {Object} detail - PolicyError from the verification API
+ * @returns {string} Human-readable error line
+ */
+function formatPolicyError(detail) {
+    const message = detail.message || 'Unknown error';
+    if (detail.line > 0) {
+        const location = detail.col > 0 ? `Line ${detail.line}, Col ${detail.col}` : `Line ${detail.line}`;
+        return `${location}: ${message}`;
+    }
+    return message;
+}
+
+/**
+ * Format the "Got" part of a failed test. An undefined result means no rule
+ * produced a value, which must not be confused with an explicit null.
+ * @param {Object} test - TestResult from the verification API
+ * @returns {string} Display text for the actual value
+ */
+function formatActualValue(test) {
+    if (test.undefined) {
+        return 'undefined (no rule produced a value)';
+    }
+    return JSON.stringify(test.actual);
+}
 export class ModalManager {
     constructor(state, uiManager) {
         this.state = state;
@@ -162,6 +190,16 @@ export class ModalManager {
         if (result.error) {
             this.ui.elements.resultTitle.textContent = "Error";
             this.ui.elements.resultMessage.textContent = result.error;
+
+            if (Array.isArray(result.error_details) && result.error_details.length > 0) {
+                result.error_details.forEach(detail => {
+                    const item = document.createElement('li');
+                    item.className = 'compile-error-item';
+                    item.textContent = formatPolicyError(detail);
+                    this.ui.elements.resultTestList.appendChild(item);
+                });
+            }
+
             this.ui.elements.scoreSummary.classList.add('hidden');
         } else if (isSuccess) {
             this.ui.elements.resultTitle.textContent = this.state.label('messageSuccess');
@@ -192,7 +230,7 @@ export class ModalManager {
                 testResultDiv.classList.add(test.passed ? 'pass' : 'fail');
                 
                 testItem.querySelector('.test-text').textContent =
-                    `Test ${test.test_id}: ${test.passed ? 'Passed' : 'Failed'} (Expected: ${JSON.stringify(test.expected)}, Got: ${JSON.stringify(test.actual)})`;
+                    `Test ${test.test_id}: ${test.passed ? 'Passed' : 'Failed'} (Expected: ${JSON.stringify(test.expected)}, Got: ${formatActualValue(test)})`;
                 testItem.querySelector('.test-icon').textContent = icon;
                 
                 // Show payload for failed tests
