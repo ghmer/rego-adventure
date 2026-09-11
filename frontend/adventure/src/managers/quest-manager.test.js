@@ -18,7 +18,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuestManager } from './quest-manager.js';
 import { GameState } from '../services/state-service.js';
 import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
-import { getLocalStorage, setLocalStorage, getPackKey } from '../services/storage-service.js';
+import { getLocalStorage, getPackKey, STORAGE_KEYS } from '../services/storage-service.js';
 
 const PACK_ID = 'testpack';
 
@@ -91,8 +91,8 @@ describe('quest-manager', () => {
 
     describe('loadQuestCode', () => {
         it('prefers saved code over the template', () => {
-            setLocalStorage(getPackKey('rego_grimoire_q1', PACK_ID), 'package saved');
             const { state, ui, qm } = createFixture([{ id: 1, apply_template: true, template: 'package tpl' }]);
+            state.saveGrimoire(1, 'package saved');
             state.currentQuest = { id: 1, apply_template: true, template: 'package tpl' };
 
             qm.loadQuestCode(1);
@@ -133,8 +133,8 @@ describe('quest-manager', () => {
             expect(ui.elements.hintsList.children[0].querySelector('code').textContent).toBe('h1');
             expect(state.currentQuestHintsUsed).toBe(1);
             expect(ui.updateHintButtonText).toHaveBeenCalledWith(state.currentQuest, 1, DEFAULT_TEXT.HINT_BUTTON);
-            expect(getLocalStorage(getPackKey('rego_hints_q1', PACK_ID)))
-                .toBe(JSON.stringify({ hintsUsed: 1, solutionViewed: false }));
+            const packed = JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID)));
+            expect(packed.questHints[1]).toEqual({ hintsUsed: 1, solutionViewed: false });
 
             qm.showHint();
 
@@ -154,8 +154,8 @@ describe('quest-manager', () => {
             expect(state.currentQuestSolutionViewed).toBe(true);
             expect(ui.elements.hintsList.children[1].querySelector('code').textContent).toBe('sol');
             expect(ui.elements.hintBtn.classList.contains('hidden')).toBe(true);
-            expect(getLocalStorage(getPackKey('rego_hints_q1', PACK_ID)))
-                .toBe(JSON.stringify({ hintsUsed: 1, solutionViewed: true }));
+            const packed = JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID)));
+            expect(packed.questHints[1]).toEqual({ hintsUsed: 1, solutionViewed: true });
         });
 
         it('is a no-op for quests without hints', () => {
@@ -217,6 +217,19 @@ describe('quest-manager', () => {
             expect(ui.elements.hintsList.children).toHaveLength(0);
             expect(ui.elements.hintBtn.classList.contains('hidden')).toBe(false);
         });
+
+        it('restores hints for completed quests from the quest score', () => {
+            const { state, ui, qm } = createFixture([{ id: 1, hints: ['h1'], solution: 'sol' }]);
+            state.currentQuestHintsUsed = 1;
+            state.completeQuest(1);
+            state.currentQuestId = 2;
+
+            qm.loadQuest(1);
+
+            expect(ui.elements.hintsList.children).toHaveLength(1);
+            expect(ui.elements.hintsList.children[0].querySelector('code').textContent).toBe('h1');
+            expect(state.currentQuestHintsUsed).toBe(1);
+        });
     });
 
     describe('navigation guards', () => {
@@ -261,7 +274,7 @@ describe('quest-manager', () => {
             const { state, ui, qm } = createFixture([{ id: 1 }]);
             state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
             state.activeQuestId = 2;
-            setLocalStorage(getPackKey('rego_grimoire_q1', PACK_ID), 'package done');
+            state.saveGrimoire(1, 'package done');
 
             qm.loadQuest(1);
 
