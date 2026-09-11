@@ -35,7 +35,7 @@ import { SCORING } from '../services/constants.js';
  * @param {Object} detail - PolicyError from the verification API
  * @returns {string} Human-readable error line
  */
-function formatPolicyError(detail) {
+export function formatPolicyError(detail) {
     const message = detail.message || 'Unknown error';
     if (detail.line > 0) {
         const location = detail.col > 0 ? `Line ${detail.line}, Col ${detail.col}` : `Line ${detail.line}`;
@@ -50,12 +50,34 @@ function formatPolicyError(detail) {
  * @param {Object} test - TestResult from the verification API
  * @returns {string} Display text for the actual value
  */
-function formatActualValue(test) {
+export function formatActualValue(test) {
     if (test.undefined) {
         return 'undefined (no rule produced a value)';
     }
     return JSON.stringify(test.actual);
 }
+
+/**
+ * Build the hint confirmation text for the next reveal, or null when there
+ * is nothing left to reveal.
+ * @param {Object} quest - Current quest (hints array, solution optional)
+ * @param {number} revealedCount - Number of already revealed hints
+ * @returns {string|null} Confirmation text or null
+ */
+export function buildHintConfirmationText(quest, revealedCount) {
+    if (!quest) return null;
+
+    const totalHints = Array.isArray(quest.hints) ? quest.hints.length : 0;
+    if (revealedCount < totalHints) {
+        return `Reveal hint ${revealedCount + 1} of ${totalHints}? ` +
+            'Revealing hints reduces the points you can earn for this quest.';
+    }
+    if (quest.solution) {
+        return 'Reveal the solution? This reduces the points you can earn for this quest.';
+    }
+    return null;
+}
+
 export class ModalManager {
     constructor(state, uiManager) {
         this.state = state;
@@ -161,18 +183,9 @@ export class ModalManager {
         const quest = this.state.currentQuest;
         if (!quest) return;
 
-        const totalHints = Array.isArray(quest.hints) ? quest.hints.length : 0;
         const revealedCount = this.ui.elements.hintsList.children.length;
-
-        let text;
-        if (revealedCount < totalHints) {
-            text = `Reveal hint ${revealedCount + 1} of ${totalHints}? ` +
-                'Revealing hints reduces the points you can earn for this quest.';
-        } else if (quest.solution) {
-            text = 'Reveal the solution? This reduces the points you can earn for this quest.';
-        } else {
-            return;
-        }
+        const text = buildHintConfirmationText(quest, revealedCount);
+        if (!text) return;
 
         this.ui.elements.hintConfirmText.textContent = text;
         this.openDialog(this.ui.elements.hintModal);
