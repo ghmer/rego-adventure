@@ -74,36 +74,51 @@ func normalizeValue(v any) (any, error) {
 	case nil:
 		return nil, nil
 	case json.Number:
-		f, err := t.Float64()
-		if err != nil {
-			return nil, fmt.Errorf("normalizeValue number %s: %w", t.String(), err)
-		}
-		return f, nil
+		return normalizeNumber(t)
 	case float64, string, bool:
 		return t, nil
 	case []any:
-		out := make([]any, len(t))
-		for i, e := range t {
-			n, err := normalizeValue(e)
-			if err != nil {
-				return nil, err
-			}
-			out[i] = n
-		}
-		return out, nil
+		return normalizeSlice(t)
 	case map[string]any:
-		out := make(map[string]any, len(t))
-		for k, e := range t {
-			n, err := normalizeValue(e)
-			if err != nil {
-				return nil, err
-			}
-			out[k] = n
-		}
-		return out, nil
+		return normalizeMap(t)
 	default:
 		return t, nil
 	}
+}
+
+// normalizeNumber converts an OPA json.Number to float64.
+func normalizeNumber(n json.Number) (any, error) {
+	f, err := n.Float64()
+	if err != nil {
+		return nil, fmt.Errorf("normalizeValue number %s: %w", n.String(), err)
+	}
+	return f, nil
+}
+
+// normalizeSlice canonicalizes each element of an array value.
+func normalizeSlice(items []any) (any, error) {
+	out := make([]any, len(items))
+	for i, e := range items {
+		n, err := normalizeValue(e)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = n
+	}
+	return out, nil
+}
+
+// normalizeMap canonicalizes each value of an object.
+func normalizeMap(m map[string]any) (any, error) {
+	out := make(map[string]any, len(m))
+	for k, e := range m {
+		n, err := normalizeValue(e)
+		if err != nil {
+			return nil, err
+		}
+		out[k] = n
+	}
+	return out, nil
 }
 
 // dataKey canonicalizes a data document so tests carrying equal data share
@@ -179,43 +194,62 @@ func evalTestCase(ctx context.Context, pq rego.PreparedEvalQuery, test TestCase)
 	}, nil
 }
 
+// collectAstErrors unwraps the various error shapes OPA uses for compile
+// problems (ast.Errors, rego.Errors wrapping *ast.Error elements, or a
+// single *ast.Error) into a flat list.
+func collectAstErrors(err error) []*ast.Error {
+	if batched, ok := errors.AsType[ast.Errors](err); ok {
+		out := make([]*ast.Error, 0, len(batched))
+		for _, e := range batched {
+			if e != nil {
+				out = append(out, e)
+			}
+		}
+		return out
+	}
+
+	if wrapped, ok := errors.AsType[rego.Errors](err); ok {
+		var out []*ast.Error
+		for _, e := range wrapped {
+			if ae, ok := errors.AsType[*ast.Error](e); ok {
+				out = append(out, ae)
+			}
+		}
+		return out
+	}
+
+	if single, ok := errors.AsType[*ast.Error](err); ok {
+		return []*ast.Error{single}
+	}
+	return nil
+}
+
 // policyErrors extracts structured compile errors with source locations
 // from OPA errors. Compile errors arrive either as ast.Errors, as a single
 // *ast.Error, or wrapped in rego.Errors. It returns nil for errors without
 // structured details.
 func policyErrors(err error) []PolicyError {
-	var collected []*ast.Error
-
-	if batched, ok := errors.AsType[ast.Errors](err); ok {
-		for _, e := range batched {
-			if e != nil {
-				collected = append(collected, e)
-			}
-		}
-	} else if wrapped, ok := errors.AsType[rego.Errors](err); ok {
-		for _, e := range wrapped {
-			if ae, ok := errors.AsType[*ast.Error](e); ok {
-				collected = append(collected, ae)
-			}
-		}
-	} else if single, ok := errors.AsType[*ast.Error](err); ok {
-		collected = append(collected, single)
-	}
-
-	if len(collected) == 0 {
+	astErrs := collectAstErrors(err)
+	if len(astErrs) == 0 {
 		return nil
 	}
 
-	details := make([]PolicyError, 0, len(collected))
-	for _, e := range collected {
-		detail := PolicyError{Message: fmt.Sprintf("%s: %s", e.Code, e.Message)}
-		if e.Location != nil {
-			detail.Line = e.Location.Row
-			detail.Col = e.Location.Col
-		}
-		details = append(details, detail)
+	details := make([]PolicyError, 0, len(astErrs))
+	for _, e := range astErrs {
+		details = append(details, newPolicyError(e))
 	}
 	return details
+}
+
+// newPolicyError converts a single OPA error into a PolicyError with
+// 1-based source location.
+func newPolicyError(e *ast.Error) PolicyError {
+	detail := PolicyError{Message: fmt.Sprintf("%s: %s", e.Code, e.Message)}
+	if e.Location != nil {
+		detail.Line = e.Location.Row
+		detail.Col = e.Location.Col
+	}
+	return detail
 }
 
 // verificationError converts a compile or runtime failure into a

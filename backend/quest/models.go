@@ -146,7 +146,20 @@ func validateAlphanumericWithSpaces(s string, fieldName string) error {
 func validateQuest(quest *Quest, questIndex int) error {
 	p := fmt.Sprintf("quest %d", questIndex)
 
-	// Title
+	if err := validateQuestNarrative(quest, p); err != nil {
+		return err
+	}
+	if err := validateQuestHintsAndTemplate(quest, p); err != nil {
+		return err
+	}
+	if err := validateQuestManual(quest, p); err != nil {
+		return err
+	}
+	return validateQuestTests(quest, p)
+}
+
+// validateQuestNarrative validates title, task, and lore entries.
+func validateQuestNarrative(quest *Quest, p string) error {
 	if err := validateNonEmpty(quest.Title, p+" title"); err != nil {
 		return err
 	}
@@ -154,13 +167,13 @@ func validateQuest(quest *Quest, questIndex int) error {
 		return err
 	}
 
-	// Description
 	if err := validateNonEmpty(quest.DescriptionTask, p+" task"); err != nil {
 		return err
 	}
 	if err := validateStringLength(quest.DescriptionTask, MaxQuestDescriptionTask, p+" task"); err != nil {
 		return err
 	}
+
 	if len(quest.DescriptionLore) == 0 {
 		return fmt.Errorf("%s must have at least one lore entry", p)
 	}
@@ -169,8 +182,11 @@ func validateQuest(quest *Quest, questIndex int) error {
 			return err
 		}
 	}
+	return nil
+}
 
-	// Hints, solution, template
+// validateQuestHintsAndTemplate validates hint entries, solution, and template.
+func validateQuestHintsAndTemplate(quest *Quest, p string) error {
 	for i, hint := range quest.Hints {
 		if err := validateStringLength(hint, MaxQuestHint, fmt.Sprintf("%s hint[%d]", p, i)); err != nil {
 			return err
@@ -186,8 +202,11 @@ func validateQuest(quest *Quest, questIndex int) error {
 			return err
 		}
 	}
+	return nil
+}
 
-	// Manual
+// validateQuestManual validates manual content and the external link scheme.
+func validateQuestManual(quest *Quest, p string) error {
 	if err := validateStringLength(
 		quest.Manual.DataModel, MaxManualDataModel, p+" manual.data_model"); err != nil {
 		return err
@@ -205,8 +224,11 @@ func validateQuest(quest *Quest, questIndex int) error {
 			return err
 		}
 	}
+	return nil
+}
 
-	// Tests
+// validateQuestTests validates that each test carries a bounded payload.
+func validateQuestTests(quest *Quest, p string) error {
 	if len(quest.Tests) == 0 {
 		return fmt.Errorf("%s must have at least one test case", p)
 	}
@@ -219,7 +241,6 @@ func validateQuest(quest *Quest, questIndex int) error {
 			return fmt.Errorf("%s test[%d] payload exceeds maximum size of %d bytes", p, i, MaxTestPayloadBytes)
 		}
 	}
-
 	return nil
 }
 
@@ -236,7 +257,6 @@ func validateExternalLinkScheme(link string, prefix string) error {
 	return nil
 }
 
-// validateQuestPack validates the entire quest pack structure.
 // validateUILabels checks presence and length of the customizable UI labels.
 func validateUILabels(labels UILabels) error {
 	type uiLabel struct {
@@ -269,45 +289,69 @@ func validateUILabels(labels UILabels) error {
 }
 
 func validateQuestPack(pack *QuestPack) error {
-	// Metadata
-	if err := validateNonEmpty(pack.Meta.Title, "pack title"); err != nil {
+	if err := validatePackMeta(pack.Meta); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.Meta.Title, MaxPackTitle, "pack title"); err != nil {
+	if err := validatePackObjectives(pack.Meta); err != nil {
 		return err
 	}
-	if err := validateNonEmpty(pack.Meta.Description, "pack description"); err != nil {
-		return err
-	}
-	if err := validateStringLength(pack.Meta.Description, MaxPackDescription, "pack description"); err != nil {
-		return err
-	}
-	if err := validateNonEmpty(pack.Meta.Genre, "pack genre"); err != nil {
-		return err
-	}
-	if err := validateStringLength(pack.Meta.Genre, MaxPackGenre, "pack genre"); err != nil {
-		return err
-	}
-	if err := validateAlphanumericWithSpaces(pack.Meta.Genre, "pack genre"); err != nil {
-		return err
-	}
-	if pack.Meta.InitialObjective != "" {
-		if err := validateStringLength(pack.Meta.InitialObjective, MaxPackObjective, "pack initial_objective"); err != nil {
-			return err
-		}
-	}
-	if pack.Meta.FinalObjective != "" {
-		if err := validateStringLength(pack.Meta.FinalObjective, MaxPackObjective, "pack final_objective"); err != nil {
-			return err
-		}
-	}
-
-	// UI Labels
 	if err := validateUILabels(pack.UILabels); err != nil {
 		return err
 	}
+	if err := validateNarrativeLists(pack); err != nil {
+		return err
+	}
+	if len(pack.Quests) == 0 {
+		return fmt.Errorf("pack must have at least one quest")
+	}
+	for i := range pack.Quests {
+		if err := validateQuest(&pack.Quests[i], i+1); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	// Narrative (prologue / epilogue)
+// validatePackMeta validates the pack metadata fields.
+func validatePackMeta(meta MetaData) error {
+	if err := validateNonEmpty(meta.Title, "pack title"); err != nil {
+		return err
+	}
+	if err := validateStringLength(meta.Title, MaxPackTitle, "pack title"); err != nil {
+		return err
+	}
+	if err := validateNonEmpty(meta.Description, "pack description"); err != nil {
+		return err
+	}
+	if err := validateStringLength(meta.Description, MaxPackDescription, "pack description"); err != nil {
+		return err
+	}
+	if err := validateNonEmpty(meta.Genre, "pack genre"); err != nil {
+		return err
+	}
+	if err := validateStringLength(meta.Genre, MaxPackGenre, "pack genre"); err != nil {
+		return err
+	}
+	return validateAlphanumericWithSpaces(meta.Genre, "pack genre")
+}
+
+// validatePackObjectives validates the optional initial/final objectives.
+func validatePackObjectives(meta MetaData) error {
+	if meta.InitialObjective != "" {
+		if err := validateStringLength(meta.InitialObjective, MaxPackObjective, "pack initial_objective"); err != nil {
+			return err
+		}
+	}
+	if meta.FinalObjective != "" {
+		if err := validateStringLength(meta.FinalObjective, MaxPackObjective, "pack final_objective"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateNarrativeLists validates the prologue and epilogue entries.
+func validateNarrativeLists(pack *QuestPack) error {
 	if len(pack.Prologue) == 0 {
 		return fmt.Errorf("pack must have at least one prologue entry")
 	}
@@ -324,16 +368,5 @@ func validateQuestPack(pack *QuestPack) error {
 			return err
 		}
 	}
-
-	// Quests
-	if len(pack.Quests) == 0 {
-		return fmt.Errorf("pack must have at least one quest")
-	}
-	for i := range pack.Quests {
-		if err := validateQuest(&pack.Quests[i], i+1); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }

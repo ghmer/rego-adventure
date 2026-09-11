@@ -17,6 +17,7 @@
 package http
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -122,6 +123,20 @@ func BodySizeLimit() gin.HandlerFunc {
 	}
 }
 
+// Auth-rejection reasons. Their strings double as the HTTP response
+// messages and must stay byte-stable for API clients.
+//
+//nolint:staticcheck // user-facing response messages
+var (
+	errInvalidClaims     = errors.New("Invalid claims")
+	errInvalidAudClaim   = errors.New("Invalid audience claim")
+	errInvalidAudience   = errors.New("Invalid audience")
+	errInvalidIssuer     = errors.New("Invalid issuer")
+	errInvalidToken      = errors.New("Invalid token")
+	errInvalidAuthHeader = errors.New("Invalid authorization header format")
+	errMissingAuthHeader = errors.New("Authorization header required")
+)
+
 // Auth creates an authentication middleware
 func Auth(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -130,53 +145,65 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		tokenString, err := bearerToken(c.GetHeader("Authorization"))
+		if err != nil {
+			abortUnauthorized(c, err)
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
-			return
-		}
-
-		tokenString := parts[1]
 		token, err := jwt.Parse(tokenString, cfg.JWKS.Keyfunc,
 			jwt.WithValidMethods(cfg.Auth.AllowedAlgorithms),
 		)
-
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			abortUnauthorized(c, errInvalidToken)
 			return
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			// Verify Audience
-			aud, err := claims.GetAudience()
-			if err != nil {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid audience claim"})
-				return
-			}
-
-			foundAud := slices.Contains(aud, cfg.Auth.Audience)
-			if !foundAud {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid audience"})
-				return
-			}
-
-			// Verify Issuer
-			iss, err := claims.GetIssuer()
-			if err != nil || iss != cfg.Auth.Issuer {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid issuer"})
-				return
-			}
-		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid claims"})
+		if err := validateClaims(token, cfg); err != nil {
+			abortUnauthorized(c, err)
 			return
 		}
 
 		c.Next()
 	}
+}
+
+// bearerToken extracts the token from an "Authorization: Bearer <token>"
+// header value.
+func bearerToken(header string) (string, error) {
+	if header == "" {
+		return "", errMissingAuthHeader
+	}
+	parts := strings.Split(header, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return "", errInvalidAuthHeader
+	}
+	return parts[1], nil
+}
+
+// validateClaims verifies the audience and issuer claims of a parsed token.
+func validateClaims(token *jwt.Token, cfg *config.Config) error {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return errInvalidClaims
+	}
+
+	aud, err := claims.GetAudience()
+	if err != nil {
+		return errInvalidAudClaim
+	}
+	if !slices.Contains(aud, cfg.Auth.Audience) {
+		return errInvalidAudience
+	}
+
+	iss, err := claims.GetIssuer()
+	if err != nil || iss != cfg.Auth.Issuer {
+		return errInvalidIssuer
+	}
+	return nil
+}
+
+// abortUnauthorized rejects the request with a 401 and the given reason.
+func abortUnauthorized(c *gin.Context, reason error) {
+	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": reason.Error()})
 }

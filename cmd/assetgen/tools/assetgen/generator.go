@@ -51,9 +51,39 @@ func GenerateTheme(themeName, outputDir string) error {
 	}
 
 	baseDir := filepath.Join(outputDir, themeName)
-	assetsDir := filepath.Join(baseDir, "assets")
+	if err := generateAssets(filepath.Join(baseDir, "assets")); err != nil {
+		return err
+	}
 
-	// Ensure assets directory exists
+	steps := []struct {
+		name string
+		run  func() error
+	}{
+		{"quests.json", func() error { return generateQuestsJSON(baseDir, themeName) }},
+		{"theme.css", func() error { return generateThemeCSS(baseDir) }},
+		{"custom.css", func() error { return generateCustomCSS(baseDir) }},
+		{"README.md", func() error { return generateREADME(baseDir, themeName) }},
+	}
+	for _, step := range steps {
+		if err := step.run(); err != nil {
+			return fmt.Errorf("error generating %s: %w", step.name, err)
+		}
+		fmt.Printf("Generated %s\n", step.name)
+	}
+
+	fmt.Printf("\nQuest pack '%s' created successfully in %s\n", themeName, baseDir)
+	fmt.Printf("\nNext steps:\n")
+	fmt.Printf("1. Replace bg-music.m4a with your theme's background music\n")
+	fmt.Printf("2. Customize the quest content in quests.json\n")
+	fmt.Printf("3. Adjust colors and styling in theme.css\n")
+	fmt.Printf("4. Add theme-specific effects in custom.css\n")
+	fmt.Printf("5. Replace placeholder images in assets/ with theme-appropriate artwork\n")
+	return nil
+}
+
+// generateAssets creates the assets directory with placeholder images and
+// the placeholder background music file.
+func generateAssets(assetsDir string) error {
 	if err := os.MkdirAll(assetsDir, 0750); err != nil {
 		return fmt.Errorf("error creating directory: %w", err)
 	}
@@ -80,34 +110,6 @@ func GenerateTheme(themeName, outputDir string) error {
 		return fmt.Errorf("error creating placeholder audio: %w", err)
 	}
 	fmt.Printf("Generated bg-music.m4a (placeholder - replace with actual audio)\n")
-
-	if err := generateQuestsJSON(baseDir, themeName); err != nil {
-		return fmt.Errorf("error generating quests.json: %w", err)
-	}
-	fmt.Printf("Generated quests.json\n")
-
-	if err := generateThemeCSS(baseDir); err != nil {
-		return fmt.Errorf("error generating theme.css: %w", err)
-	}
-	fmt.Printf("Generated theme.css\n")
-
-	if err := generateCustomCSS(baseDir); err != nil {
-		return fmt.Errorf("error generating custom.css: %w", err)
-	}
-	fmt.Printf("Generated custom.css\n")
-
-	if err := generateREADME(baseDir, themeName); err != nil {
-		return fmt.Errorf("error generating README.md: %w", err)
-	}
-	fmt.Printf("Generated README.md\n")
-
-	fmt.Printf("\nQuest pack '%s' created successfully in %s\n", themeName, baseDir)
-	fmt.Printf("\nNext steps:\n")
-	fmt.Printf("1. Replace bg-music.m4a with your theme's background music\n")
-	fmt.Printf("2. Customize the quest content in quests.json\n")
-	fmt.Printf("3. Adjust colors and styling in theme.css\n")
-	fmt.Printf("4. Add theme-specific effects in custom.css\n")
-	fmt.Printf("5. Replace placeholder images in assets/ with theme-appropriate artwork\n")
 	return nil
 }
 
