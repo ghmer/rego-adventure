@@ -22,7 +22,8 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
-import { DEFAULT_TEXT } from '../services/constants.js';
+import { DEFAULT_TEXT, ErrorLevel } from '../services/constants.js';
+import { showToast } from '../services/toast-service.js';
 
 /**
  * Manages all DOM elements and UI rendering
@@ -235,6 +236,7 @@ export class UIManager {
             const dataModelSection = clone.querySelector('[data-section="data-model"]');
             const content = dataModelSection.querySelector('.manual-section-content');
             content.innerHTML = this.parseMarkdown(manual.data_model);
+            this.enhanceDataModelFields(content);
             this.elements.manualContent.appendChild(dataModelSection);
         }
         
@@ -254,6 +256,88 @@ export class UIManager {
                 this.elements.manualContent.appendChild(linkSection);
             }
         }
+    }
+
+    /**
+     * Make Field entries of the Data Model table copyable.
+     * Wraps the field code in the first table column with a button that
+     * copies the field path to the clipboard when clicked.
+     * @param {HTMLElement} content - Rendered Data Model section content
+     */
+    enhanceDataModelFields(content) {
+        const fieldCells = content.querySelectorAll('tbody tr td:first-child');
+        fieldCells.forEach(cell => {
+            const code = cell.querySelector('code');
+            if (!code) return;
+            
+            const fieldPath = code.textContent.trim();
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'copy-field-btn';
+            button.setAttribute('aria-label', `Copy ${fieldPath} to clipboard`);
+            button.title = `Copy ${fieldPath} to clipboard`;
+            
+            const icon = document.createElement('i');
+            icon.className = 'fa-regular fa-copy';
+            icon.setAttribute('aria-hidden', 'true');
+            
+            button.appendChild(code);
+            button.appendChild(icon);
+            
+            button.addEventListener('click', () => this.copyToClipboard(fieldPath, button));
+            cell.appendChild(button);
+        });
+    }
+
+    /**
+     * Copy text to the clipboard and give visual feedback on the trigger button
+     * @param {string} text - Text to copy
+     * @param {HTMLButtonElement} button - Button that triggered the copy
+     */
+    async copyToClipboard(text, button) {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.setAttribute('readonly', '');
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                textarea.remove();
+            }
+            
+            this.showCopyFeedback(button);
+            showToast(`Copied ${text} to clipboard`, ErrorLevel.INFO);
+        } catch (err) {
+            console.error('Failed to copy field to clipboard:', err);
+            showToast(`Could not copy ${text}`, ErrorLevel.ERROR);
+        }
+    }
+
+    /**
+     * Briefly show a success state on the copy button
+     * @param {HTMLButtonElement} button - Copy button to give feedback on
+     */
+    showCopyFeedback(button) {
+        if (button.dataset.copyFeedback === 'true') return;
+        
+        const icon = button.querySelector('i');
+        if (!icon) return;
+        
+        const originalIconClass = icon.className;
+        button.dataset.copyFeedback = 'true';
+        icon.className = 'fa-solid fa-check';
+        button.classList.add('copy-success');
+        
+        setTimeout(() => {
+            icon.className = originalIconClass;
+            button.classList.remove('copy-success');
+            delete button.dataset.copyFeedback;
+        }, 1500);
     }
 
     /**

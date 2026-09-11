@@ -534,6 +534,45 @@ dialog#result-modal[open] {
     padding: 0;
 }
 
+/* Copyable Data Model field buttons */
+.manual-content .copy-field-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.manual-content .copy-field-btn:focus-visible {
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+.manual-content .copy-field-btn:hover code {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.manual-content .copy-field-btn i {
+    font-size: 0.75em;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast) ease;
+}
+
+.manual-content .copy-field-btn:hover i,
+.manual-content .copy-field-btn:focus-visible i {
+    opacity: 1;
+}
+
+.manual-content .copy-field-btn.copy-success i {
+    color: var(--success-color);
+    opacity: 1;
+}
+
 /* Result Modal */
 .result-modal-content {
     padding: 2rem;
