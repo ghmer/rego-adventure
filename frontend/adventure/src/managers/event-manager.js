@@ -196,7 +196,7 @@ export class EventManager {
             } else if (event.key === 's' || event.key === 'S') {
                 event.preventDefault();
                 if (this.saveGrimoire()) {
-                    showToast('Policy saved locally.', 'info');
+                    showToast('Policy saved.', 'info');
                 }
             }
         });

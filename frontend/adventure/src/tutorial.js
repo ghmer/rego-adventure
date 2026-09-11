@@ -280,7 +280,7 @@ export class TutorialSystem {
                 element: '#logout-btn',
                 popover: {
                     title: 'Logout',
-                    description: 'Sign out of your session here. Your adventure progress is saved locally and will be there when you return.',
+                    description: 'Sign out of your session here. Your adventure progress is saved in your Browser and will be there when you return.',
                     side: 'bottom',
                     align: 'center'
                 }
