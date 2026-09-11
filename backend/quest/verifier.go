@@ -26,6 +26,7 @@ import (
 	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/open-policy-agent/opa/v1/storage/inmem"
+	"github.com/open-policy-agent/opa/v1/topdown"
 )
 
 // TestResult holds the outcome of a single test case verification.
@@ -244,22 +245,59 @@ func policyErrors(err error) []PolicyError {
 // newPolicyError converts a single OPA error into a PolicyError with
 // 1-based source location.
 func newPolicyError(e *ast.Error) PolicyError {
-	detail := PolicyError{Message: fmt.Sprintf("%s: %s", e.Code, e.Message)}
-	if e.Location != nil {
-		detail.Line = e.Location.Row
-		detail.Col = e.Location.Col
+	return newDetail(e.Code, e.Message, e.Location)
+}
+
+// newDetail builds a PolicyError from a code, message, and optional
+// 1-based source location.
+func newDetail(code, message string, loc *ast.Location) PolicyError {
+	detail := PolicyError{Message: fmt.Sprintf("%s: %s", code, message)}
+	if loc != nil {
+		detail.Line = loc.Row
+		detail.Col = loc.Col
 	}
 	return detail
 }
 
+// evalErrors extracts structured runtime errors with source locations
+// from topdown evaluation errors (e.g. eval_conflict_error). Evaluation
+// errors arrive either wrapped in rego.Errors or as a single
+// *topdown.Error. It returns nil for errors without structured details.
+func evalErrors(err error) []PolicyError {
+	if wrapped, ok := errors.AsType[rego.Errors](err); ok {
+		details := make([]PolicyError, 0, len(wrapped))
+		for _, e := range wrapped {
+			if te, ok := errors.AsType[*topdown.Error](e); ok {
+				details = append(details, newDetail(te.Code, te.Message, te.Location))
+			}
+		}
+		if len(details) > 0 {
+			return details
+		}
+	}
+
+	if single, ok := errors.AsType[*topdown.Error](err); ok {
+		return []PolicyError{newDetail(single.Code, single.Message, single.Location)}
+	}
+	return nil
+}
+
 // verificationError converts a compile or runtime failure into a
-// VerificationResult. Compile errors are reported as structured details
-// with line/column locations in the user's code.
+// VerificationResult. Compile and runtime errors are reported as
+// structured details with line/column locations in the user's code;
+// the Error field carries the error class.
 func verificationError(err error) *VerificationResult {
 	if details := policyErrors(err); len(details) > 0 {
 		return &VerificationResult{
 			Passed:  false,
 			Error:   "Compilation error",
+			Details: details,
+		}
+	}
+	if details := evalErrors(err); len(details) > 0 {
+		return &VerificationResult{
+			Passed:  false,
+			Error:   "Runtime error",
 			Details: details,
 		}
 	}
@@ -270,9 +308,9 @@ func verificationError(err error) *VerificationResult {
 }
 
 // Verify checks the user's Rego code against the provided quest's test cases.
-// Compilation problems are reported in the result's Error field with
-// structured location details; runtime problems only in the Error field.
-// The returned error is reserved for a cancelled or timed-out context.
+// Compilation and runtime problems are reported in the result's Error field
+// with structured location details; the returned error is reserved for a
+// cancelled or timed-out context.
 func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*VerificationResult, error) {
 	results := make([]TestResult, 0, len(quest.Tests))
 	allPassed := true

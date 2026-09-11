@@ -3,6 +3,7 @@ package quest
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -260,8 +261,53 @@ func TestVerifier_Verify_UnsafeBuiltins(t *testing.T) {
 	}
 }
 
-func TestVerifier_Verify_UndefinedResult(t *testing.T) {
+func TestVerifier_Verify_RuntimeConflictErrorDetails(t *testing.T) {
 	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: true,
+				Payload:         TestPayload{Input: map[string]any{}},
+			},
+		},
+	}
+
+	// Two complete rules with conflicting constant outputs are accepted by
+	// the compiler and only conflict when evaluated.
+	regoCode := `
+		package quest
+		allow := true
+		allow := false
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	if result.Error != "Runtime error" {
+		t.Errorf("expected Error='Runtime error', got %q", result.Error)
+	}
+	if len(result.Details) == 0 {
+		t.Fatal("expected structured details for runtime conflict error")
+	}
+	detail := result.Details[0]
+	if detail.Line < 1 {
+		t.Errorf("expected line >= 1, got %d", detail.Line)
+	}
+	if !strings.Contains(detail.Message, "eval_conflict_error") {
+		t.Errorf("expected eval_conflict_error in message, got %q", detail.Message)
+	}
+	if strings.Contains(detail.Message, "quest.rego") {
+		t.Errorf("expected synthetic filename to be stripped from message, got %q", detail.Message)
+	}
+}
+
+func TestVerifier_Verify_UndefinedResult(t *testing.T) {	verifier := NewVerifier()
 	ctx := context.Background()
 
 	quest := &Quest{
