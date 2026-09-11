@@ -64,6 +64,10 @@ const (
 	MaxQuestSolution = 5000
 	// MaxQuestTemplate is the maximum length for quest template.
 	MaxQuestTemplate = 10000
+	// MaxQuestSupportModules is the maximum number of support modules per quest.
+	MaxQuestSupportModules = 5
+	// MaxQuestSupportModule is the maximum length for each support module.
+	MaxQuestSupportModule = 10000
 
 	// MaxManualDataModel is the maximum length for manual data model.
 	MaxManualDataModel = 2000

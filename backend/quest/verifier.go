@@ -42,8 +42,11 @@ type TestResult struct {
 }
 
 // PolicyError describes a single compile-time problem with the submitted
-// policy, including its location in the user's code.
+// policy, including its location in the user's code. The file attribute
+// names the module the error came from (quest.rego for the player's code,
+// support_<n>.rego for quest support modules).
 type PolicyError struct {
+	File    string `json:"file,omitempty"`
 	Line    int    `json:"line,omitempty"`
 	Col     int    `json:"col,omitempty"`
 	Message string `json:"message"`
@@ -136,20 +139,22 @@ func dataKey(data map[string]any) (string, error) {
 	return string(b), nil
 }
 
-// prepareForEval parses and compiles the user's module (plus the optional
-// data store) once, producing a query that can be evaluated repeatedly
-// with different inputs.
-func prepareForEval(ctx context.Context, query string, compiledModule func(*rego.Rego),
+// prepareForEval parses and compiles the user's module (plus any quest
+// support modules and the optional data store) once, producing a query that
+// can be evaluated repeatedly with different inputs. All modules share the
+// same evaluation context, so the unsafe-builtins block applies to them as
+// well.
+func prepareForEval(ctx context.Context, query string, modules []func(*rego.Rego),
 	data map[string]any) (rego.PreparedEvalQuery, error) {
 	options := []func(*rego.Rego){
 		rego.Query(query),
-		compiledModule,
 		rego.UnsafeBuiltins(map[string]struct{}{
 			"http.send":          {},
 			"net.lookup_ip_addr": {},
 			"opa.runtime":        {},
 		}),
 	}
+	options = append(options, modules...)
 
 	if data != nil {
 		options = append(options, rego.Store(inmem.NewFromObject(data)))
@@ -249,10 +254,12 @@ func newPolicyError(e *ast.Error) PolicyError {
 }
 
 // newDetail builds a PolicyError from a code, message, and optional
-// 1-based source location.
+// source location. The location's file name is preserved so that errors
+// can be attributed to the module they came from.
 func newDetail(code, message string, loc *ast.Location) PolicyError {
 	detail := PolicyError{Message: fmt.Sprintf("%s: %s", code, message)}
 	if loc != nil {
+		detail.File = loc.File
 		detail.Line = loc.Row
 		detail.Col = loc.Col
 	}
@@ -315,7 +322,14 @@ func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*
 	results := make([]TestResult, 0, len(quest.Tests))
 	allPassed := true
 
-	compiledModule := rego.Module("quest.rego", regoCode)
+	// The player's module keeps its fixed name (quest.rego) so that compile
+	// error locations remain stable in the editor. Support modules are named
+	// support_<n>.rego in the order they are declared.
+	modules := make([]func(*rego.Rego), 0, len(quest.SupportModules)+1)
+	modules = append(modules, rego.Module("quest.rego", regoCode))
+	for i, code := range quest.SupportModules {
+		modules = append(modules, rego.Module(fmt.Sprintf("support_%d.rego", i+1), code))
+	}
 
 	prepared := make(map[string]rego.PreparedEvalQuery)
 
@@ -331,7 +345,7 @@ func (v *Verifier) Verify(ctx context.Context, quest *Quest, regoCode string) (*
 
 		pq, ok := prepared[key]
 		if !ok {
-			pq, err = prepareForEval(ctx, quest.Query, compiledModule, test.Payload.Data)
+			pq, err = prepareForEval(ctx, quest.Query, modules, test.Payload.Data)
 			if err != nil {
 				if ctx.Err() != nil {
 					return nil, ctx.Err()

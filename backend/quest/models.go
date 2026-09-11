@@ -44,6 +44,10 @@ type Quest struct {
 	ApplyTemplate   bool       `json:"apply_template"`
 	Template        string     `json:"template"`
 	Query           string     `json:"query"`
+	// SupportModules are optional hidden Rego modules (e.g. a policy under
+	// test) compiled alongside the player's policy during verification.
+	// Each entry must be a complete Rego module including its package.
+	SupportModules []string `json:"support_modules,omitempty"`
 }
 
 // TestCase represents a validation scenario for a quest.
@@ -155,6 +159,9 @@ func validateQuest(quest *Quest, questIndex int) error {
 	if err := validateQuestManual(quest, p); err != nil {
 		return err
 	}
+	if err := validateQuestSupportModules(quest, p); err != nil {
+		return err
+	}
 	return validateQuestTests(quest, p)
 }
 
@@ -221,6 +228,23 @@ func validateQuestManual(quest *Quest, p string) error {
 	}
 	if quest.Manual.ExternalLink != "" {
 		if err := validateExternalLinkScheme(quest.Manual.ExternalLink, p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateQuestSupportModules validates the optional support modules that
+// are compiled alongside the player's policy during verification.
+func validateQuestSupportModules(quest *Quest, p string) error {
+	if len(quest.SupportModules) > MaxQuestSupportModules {
+		return fmt.Errorf("%s has %d support modules, maximum is %d", p, len(quest.SupportModules), MaxQuestSupportModules)
+	}
+	for i, module := range quest.SupportModules {
+		if err := validateNonEmpty(module, fmt.Sprintf("%s support_modules[%d]", p, i)); err != nil {
+			return err
+		}
+		if err := validateStringLength(module, MaxQuestSupportModule, fmt.Sprintf("%s support_modules[%d]", p, i)); err != nil {
 			return err
 		}
 	}

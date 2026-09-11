@@ -44,6 +44,8 @@ const VALIDATION_LIMITS = {
     QUEST_HINT: 500,
     QUEST_SOLUTION: 5000,
     QUEST_TEMPLATE: 10000,
+    QUEST_SUPPORT_MODULE: 10000,
+    QUEST_SUPPORT_MODULES_MAX: 5,
     
     // Manual
     MANUAL_DATA_MODEL: 2000,
@@ -296,6 +298,9 @@ function switchToQuest(questIndex) {
         questView.querySelector('#addTestBtn').addEventListener('click', () => {
             addTestItem(questIndex);
         });
+        questView.querySelector('#addSupportModuleBtn').addEventListener('click', () => {
+            addSupportModuleItem(questIndex);
+        });
     }
     
     // Render quest data
@@ -476,10 +481,11 @@ function renderQuestDetails(questIndex, questView) {
     
     // Setup change listeners
     setupQuestFormListeners(questView, questIndex);
-    
-    // Render lore, hints, tests
+
+    // Render lore, hints, support modules, tests
     renderLore(questIndex, questView);
     renderHints(questIndex, questView);
+    renderSupportModules(questIndex, questView);
     renderTests(questIndex, questView);
 }
 
@@ -527,14 +533,56 @@ function renderTests(questIndex, questView) {
 }
 
 // ============================================================================
+// SUPPORT MODULES
+// ============================================================================
+// Support modules are hidden Rego modules compiled alongside the player's
+// policy during verification. Each entry must be a complete Rego module
+// with its own package declaration.
+
+function renderSupportModules(questIndex, questView) {
+    const container = questView.querySelector('#supportModulesList');
+    container.innerHTML = '';
+
+    const quest = questData.quests[questIndex];
+    if (!Array.isArray(quest.support_modules)) quest.support_modules = [];
+
+    quest.support_modules.forEach((module, index) => {
+        const div = createCodeListItem(module, () => removeSupportModuleItem(questIndex, index), (value) => {
+            questData.quests[questIndex].support_modules[index] = value;
+        }, VALIDATION_LIMITS.QUEST_SUPPORT_MODULE);
+        container.appendChild(div);
+    });
+}
+
+function addSupportModuleItem(questIndex) {
+    const quest = questData.quests[questIndex];
+    if (!Array.isArray(quest.support_modules)) quest.support_modules = [];
+
+    if (quest.support_modules.length >= VALIDATION_LIMITS.QUEST_SUPPORT_MODULES_MAX) {
+        alert(`A quest can have at most ${VALIDATION_LIMITS.QUEST_SUPPORT_MODULES_MAX} support modules`);
+        return;
+    }
+
+    quest.support_modules.push('package under_test\n\n');
+    const questView = document.getElementById(`view-quest-${questIndex}`);
+    renderSupportModules(questIndex, questView);
+}
+
+function removeSupportModuleItem(questIndex, moduleIndex) {
+    questData.quests[questIndex].support_modules.splice(moduleIndex, 1);
+    const questView = document.getElementById(`view-quest-${questIndex}`);
+    renderSupportModules(questIndex, questView);
+}
+
+// ============================================================================
 // HELPER FUNCTIONS FOR CREATING ELEMENTS
 // ============================================================================
-function createListItem(text, onRemove, onChange, maxLength) {
+function createListItem(text, onRemove, onChange, maxLength, cssClass) {
     const div = document.createElement('div');
     div.className = 'list-item';
     
     const textarea = document.createElement('textarea');
-    textarea.className = 'form-control';
+    textarea.className = cssClass || 'form-control';
     textarea.rows = 2;
     textarea.value = text;
     if (maxLength) {
@@ -556,6 +604,12 @@ function createListItem(text, onRemove, onChange, maxLength) {
     div.appendChild(actionsDiv);
     
     return div;
+}
+
+// Like createListItem, but rendered as a monospace code editor. Used for
+// content that must be valid Rego, e.g. support modules.
+function createCodeListItem(text, onRemove, onChange, maxLength) {
+    return createListItem(text, onRemove, onChange, maxLength, 'form-control code-editor');
 }
 
 function createTestItem(test, questIndex, testIndex) {
@@ -645,6 +699,7 @@ function addQuest() {
         solution: '',
         apply_template: false,
         template: '',
+        support_modules: [],
         tests: []
     };
     
@@ -891,6 +946,18 @@ function validateData() {
             if (testIds.length !== uniqueTestIds.size) {
                 alert(`Quest ${quest.id}: Test IDs must be unique!`);
                 return false;
+            }
+        }
+        if (Array.isArray(quest.support_modules)) {
+            if (quest.support_modules.length > VALIDATION_LIMITS.QUEST_SUPPORT_MODULES_MAX) {
+                alert(`Quest ${quest.id}: at most ${VALIDATION_LIMITS.QUEST_SUPPORT_MODULES_MAX} support modules are allowed!`);
+                return false;
+            }
+            for (let j = 0; j < quest.support_modules.length; j++) {
+                if (!quest.support_modules[j] || quest.support_modules[j].trim() === '') {
+                    alert(`Quest ${quest.id}: support module ${j} cannot be empty!`);
+                    return false;
+                }
             }
         }
     }

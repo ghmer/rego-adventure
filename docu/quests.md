@@ -41,6 +41,7 @@ Each element in the `quests` array is a `quest` specification with the following
 - `apply_template`: Boolean flag that controls whether the template code should replace the contents of the Policy Grimoire code window
 - `template`: String containing the template code to be displayed in the Policy Grimoire code window.
   - **Behavior**: If `apply_template` is set to `true`, the code in the Policy Grimoire code window is replaced with the `template` code. If `template` is defined but `apply_template` is not set to `true`, the current content of the editor is retained.
+- `support_modules`: Optional array of hidden Rego modules that are compiled alongside the player's policy during verification. Intended for quests where the player writes test rules against a fixed "policy under test". Each entry must be a complete Rego module including its own `package` declaration (e.g., `"package under_test"`). Support modules are referenced from the player's code via their package path (e.g., `data.under_test.allow`) and share the same evaluation context as the player's policy, including the unsafe-builtins block. Compile errors in a support module are reported with `file: "support_<n>.rego"`, where `<n>` is the 1-based position in the array.
 - `tests`: Array of automated validation scenarios, each with:
   - `id`: Numeric test identifier
   - `payload`: Object reflecting the `input` data received by Rego
@@ -84,6 +85,7 @@ All text fields in the quest JSON structure are validated against maximum length
 - `quest.hints` array items: 500 characters each (optional)
 - `quest.solution`: 5000 characters (optional)
 - `quest.template`: 10000 characters (optional)
+- `quest.support_modules`: maximum of 5 modules per quest, 10000 characters each (optional)
 - `quest.query`: No explicit limit (required field)
 
 ### Manual Field Limits

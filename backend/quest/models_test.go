@@ -891,3 +891,109 @@ func TestValidateQuest_ValidQuery(t *testing.T) {
 		})
 	}
 }
+
+// ==================== Support Modules ====================
+
+func TestValidateQuest_SupportModules(t *testing.T) {
+	quest := createValidQuest()
+	quest.SupportModules = []string{
+		"package under_test\n\nallow if input.user == \"admin\"",
+		"package under_test.extra\n\nvalue := 42",
+	}
+
+	err := validateQuest(&quest, 1)
+	if err != nil {
+		t.Errorf("validateQuest with valid support modules should pass: %v", err)
+	}
+}
+
+func TestValidateQuest_TooManySupportModules(t *testing.T) {
+	quest := createValidQuest()
+	quest.SupportModules = make([]string, MaxQuestSupportModules+1)
+	for i := range quest.SupportModules {
+		quest.SupportModules[i] = "package under_test\n\nvalue := 42"
+	}
+
+	err := validateQuest(&quest, 1)
+	if err == nil {
+		t.Error("Expected error for too many support modules")
+		return
+	}
+	if !strings.Contains(err.Error(), "support modules") {
+		t.Errorf("Expected error to mention support modules, got: %v", err)
+	}
+}
+
+func TestValidateQuest_EmptySupportModule(t *testing.T) {
+	quest := createValidQuest()
+	quest.SupportModules = []string{""}
+
+	err := validateQuest(&quest, 1)
+	if err == nil {
+		t.Error("Expected error for empty support module")
+		return
+	}
+	if !strings.Contains(err.Error(), "support_modules[0]") {
+		t.Errorf("Expected error to reference support_modules[0], got: %v", err)
+	}
+}
+
+func TestValidateQuest_SupportModuleTooLong(t *testing.T) {
+	quest := createValidQuest()
+	quest.SupportModules = []string{strings.Repeat("x", MaxQuestSupportModule+1)}
+
+	err := validateQuest(&quest, 1)
+	if err == nil {
+		t.Error("Expected error for oversized support module")
+		return
+	}
+	if !strings.Contains(err.Error(), "support_modules[0]") {
+		t.Errorf("Expected error to reference support_modules[0], got: %v", err)
+	}
+}
+
+func TestQuest_SupportModules_JSONRoundTrip(t *testing.T) {
+	quest := createValidQuest()
+	quest.SupportModules = []string{"package under_test\n\nallow if input.user == \"admin\""}
+
+	data, err := json.Marshal(&quest)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	if !strings.Contains(string(data), "support_modules") {
+		t.Error("Expected serialized quest to include support_modules")
+	}
+
+	var decoded Quest
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(decoded.SupportModules) != 1 {
+		t.Fatalf("Expected 1 support module after round trip, got %d", len(decoded.SupportModules))
+	}
+	if decoded.SupportModules[0] != quest.SupportModules[0] {
+		t.Errorf("Support module not preserved correctly: got %q", decoded.SupportModules[0])
+	}
+}
+
+func TestQuest_SupportModules_JSONOmittedWhenEmpty(t *testing.T) {
+	// Quests without support modules must serialize without the field, so
+	// existing quest packs stay valid.
+	quest := createValidQuest()
+
+	data, err := json.Marshal(&quest)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	if strings.Contains(string(data), "support_modules") {
+		t.Error("Expected support_modules to be omitted for quests without support modules")
+	}
+
+	var decoded Quest
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if decoded.SupportModules != nil {
+		t.Errorf("Expected nil SupportModules for legacy quest packs, got %v", decoded.SupportModules)
+	}
+}
