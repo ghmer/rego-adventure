@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ghmer/rego-adventure/backend/quest"
+	"github.com/ghmer/rego-adventure/v2/backend/quest"
 )
 
 // verifyQuestPack processes and verifies all quests in a pack

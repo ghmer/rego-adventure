@@ -1,4 +1,4 @@
-module github.com/ghmer/rego-adventure
+module github.com/ghmer/rego-adventure/v2
 
 go 1.27.0
 

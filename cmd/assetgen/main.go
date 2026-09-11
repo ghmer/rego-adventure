@@ -21,7 +21,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/ghmer/rego-adventure/cmd/assetgen/tools/assetgen"
+	"github.com/ghmer/rego-adventure/v2/cmd/assetgen/tools/assetgen"
 )
 
 func main() {

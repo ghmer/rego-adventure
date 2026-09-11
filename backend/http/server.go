@@ -20,7 +20,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/ghmer/rego-adventure/backend/config"
+	"github.com/ghmer/rego-adventure/v2/backend/config"
 
 	"github.com/gin-gonic/gin"
 )
