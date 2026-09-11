@@ -123,18 +123,15 @@ func BodySizeLimit() gin.HandlerFunc {
 	}
 }
 
-// Auth-rejection reasons. Their strings double as the HTTP response
-// messages and must stay byte-stable for API clients.
-//
-//nolint:staticcheck // user-facing response messages
+// Auth-rejection reasons. Sent to clients via abortUnauthorized.
 var (
-	errInvalidClaims     = errors.New("Invalid claims")
-	errInvalidAudClaim   = errors.New("Invalid audience claim")
-	errInvalidAudience   = errors.New("Invalid audience")
-	errInvalidIssuer     = errors.New("Invalid issuer")
-	errInvalidToken      = errors.New("Invalid token")
-	errInvalidAuthHeader = errors.New("Invalid authorization header format")
-	errMissingAuthHeader = errors.New("Authorization header required")
+	errInvalidClaims     = errors.New("invalid claims")
+	errInvalidAudClaim   = errors.New("invalid audience claim")
+	errInvalidAudience   = errors.New("invalid audience")
+	errInvalidIssuer     = errors.New("invalid issuer")
+	errInvalidToken      = errors.New("invalid token")
+	errInvalidAuthHeader = errors.New("invalid authorization header format")
+	errMissingAuthHeader = errors.New("authorization header required")
 )
 
 // Auth creates an authentication middleware
