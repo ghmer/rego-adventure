@@ -127,6 +127,44 @@ func TestVerifier_Verify_CompilationError(t *testing.T) {
 	}
 }
 
+func TestVerifier_Verify_CompilationErrorDetails(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{{ID: 1}},
+	}
+
+	// Invalid Rego syntax
+	regoCode := `package quest
+
+default allow :=
+`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	if result.Error != "Compilation error" {
+		t.Errorf("expected Error='Compilation error', got %q", result.Error)
+	}
+	if len(result.Details) == 0 {
+		t.Fatal("expected structured error details for compile error")
+	}
+	detail := result.Details[0]
+	if detail.Line < 1 {
+		t.Errorf("expected line >= 1, got %d", detail.Line)
+	}
+	if detail.Col < 0 {
+		t.Errorf("expected col >= 0, got %d", detail.Col)
+	}
+	if detail.Message == "" {
+		t.Error("expected non-empty error message")
+	}
+}
+
 func TestVerifier_Verify_WithData(t *testing.T) {
 	verifier := NewVerifier()
 	ctx := context.Background()
@@ -213,6 +251,88 @@ func TestVerifier_Verify_UnsafeBuiltins(t *testing.T) {
 	// We expect an error message indicating the builtin is unsafe or not allowed
 	if result.Error == "" {
 		t.Error("Expected error message regarding unsafe builtin")
+	}
+
+	// Unsafe builtins are rejected at compile time and must carry
+	// structured details with the location of the offending call.
+	if len(result.Details) == 0 {
+		t.Error("Expected structured details for unsafe builtin compile error")
+	}
+}
+
+func TestVerifier_Verify_UndefinedResult(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: false,
+				Payload:         TestPayload{Input: map[string]any{"user": "guest"}},
+			},
+		},
+	}
+
+	// No default rule: for "guest" the query evaluates to undefined.
+	regoCode := `
+		package quest
+		allow if { input.user == "admin" }
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	r := result.Results[0]
+	if r.Passed {
+		t.Error("expected test to fail (undefined != false)")
+	}
+	if !r.Undefined {
+		t.Error("expected Undefined=true for result with no matching rule")
+	}
+	if r.Actual != nil {
+		t.Errorf("expected Actual=nil for undefined result, got %v", r.Actual)
+	}
+}
+
+func TestVerifier_Verify_ExplicitNull(t *testing.T) {
+	verifier := NewVerifier()
+	ctx := context.Background()
+
+	quest := &Quest{
+		Query: "data.quest.value",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: nil,
+				Payload:         TestPayload{Input: map[string]any{}},
+			},
+		},
+	}
+
+	// The rule explicitly produces null, which must not be reported as undefined.
+	regoCode := `
+		package quest
+		value := null
+	`
+
+	result, err := verifier.Verify(ctx, quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	if !result.Passed {
+		t.Errorf("expected explicit null to match expected null, error: %s", result.Error)
+	}
+	r := result.Results[0]
+	if r.Undefined {
+		t.Error("explicit null result must not be flagged as undefined")
+	}
+	if r.Actual != nil {
+		t.Errorf("expected Actual=nil for explicit null, got %v", r.Actual)
 	}
 }
 

@@ -623,6 +623,11 @@ dialog#result-modal[open] {
     border-bottom: none;
 }
 
+.result-test-list .compile-error-item {
+    color: var(--error-color);
+    word-break: break-word;
+}
+
 .result-test-list .test-result {
     display: flex;
     align-items: center;
