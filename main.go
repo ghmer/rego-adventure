@@ -18,11 +18,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	nethttp "net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/ghmer/rego-adventure/backend/config"
@@ -82,6 +85,10 @@ func main() {
 	addr := fmt.Sprintf("0.0.0.0:%s", cfg.Port)
 	slog.Info("starting server", "address", addr)
 
+	// Handle SIGINT/SIGTERM so containers can stop us gracefully
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	server := &nethttp.Server{
 		Addr:    addr,
 		Handler: srv.Router(),
@@ -89,8 +96,10 @@ func main() {
 		// hold connections open indefinitely (slowloris)
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	if err := server.ListenAndServe(); err != nil {
-		slog.Error("failed to start server", "error", err)
+	if err := http.RunWithGracefulShutdown(ctx, server, http.DefaultShutdownTimeout); err != nil {
+		slog.Error("server exited", "error", err)
 		os.Exit(1)
 	}
+
+	slog.Info("server stopped gracefully")
 }
