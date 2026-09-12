@@ -268,8 +268,9 @@ body.effects-disabled #music-btn.music-playing {
     font-size: 1.2rem;
 }
 
-/* Check Manual and Test Payload Button Styling */
+/* Check Manual, Support Modules and Test Payload Button Styling */
 #check-manual-btn,
+#check-support-modules-btn,
 #check-test-payload-btn {
     height: 64px;
     border-radius: var(--radius-lg);

@@ -24,6 +24,7 @@ import DOMPurify from 'dompurify';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { DEFAULT_TEXT, ErrorLevel } from '../services/constants.js';
 import { showToast } from '../services/toast-service.js';
+import { regoHighlighter } from '../services/rego-highlighter.js';
 
 /**
  * Manages all DOM elements and UI rendering
@@ -105,6 +106,10 @@ export class UIManager {
             closeTestPayloadBtn: document.getElementById('close-test-payload-btn'),
             testPayloadData: document.getElementById('test-payload-data'),
             checkTestPayloadBtn: document.getElementById('check-test-payload-btn'),
+            supportModulesModal: document.getElementById('support-modules-modal'),
+            closeSupportModulesBtn: document.getElementById('close-support-modules-btn'),
+            supportModulesContent: document.getElementById('support-modules-content'),
+            checkSupportModulesBtn: document.getElementById('check-support-modules-btn'),
             resultModal: document.getElementById('result-modal'),
             resultIcon: document.getElementById('result-icon'),
             resultTitle: document.getElementById('result-title'),
@@ -189,6 +194,25 @@ export class UIManager {
         this.elements.questCounter.textContent = `Quest ${quest.id}/${totalQuests}`;
         this.elements.questTitle.textContent = quest.title;
         this.elements.questTask.textContent = quest.description_task;
+        this.updateSupportModulesButton(quest);
+    }
+
+    /**
+     * Enable the support modules button only when the current quest
+     * ships support modules. The button itself stays visible at all
+     * times so the toolbar layout never jumps between quests.
+     * @param {Object|null} quest - Quest object (support_modules optional)
+     */
+    updateSupportModulesButton(quest) {
+        const button = this.elements.checkSupportModulesBtn;
+        if (!button) return;
+
+        const hasModules = Array.isArray(quest?.support_modules) && quest.support_modules.length > 0;
+        button.disabled = !hasModules;
+        button.title = hasModules
+            ? 'View the support modules attached to this quest'
+            : 'No support modules for this quest';
+        button.setAttribute('aria-disabled', String(!hasModules));
     }
 
     /**
@@ -404,6 +428,34 @@ export class UIManager {
             }
             
             this.elements.testPayloadData.appendChild(testCase);
+        });
+    }
+
+    /**
+     * Render support modules in the modal. Each module is shown with its
+     * package path in the heading and its Rego source highlighted with the
+     * same tokenizer the editor uses.
+     * @param {Array<string>} modules - Rego module sources
+     */
+    renderSupportModules(modules) {
+        this.elements.supportModulesContent.innerHTML = '';
+        const template = document.getElementById('support-module-template');
+        const highlight = regoHighlighter();
+
+        modules.forEach((module, index) => {
+            if (typeof module !== 'string' || module.trim() === '') return;
+
+            const packageMatch = module.match(/package\s+([A-Za-z0-9_.]+)/);
+            const packagePath = packageMatch ? packageMatch[1] : 'unknown';
+            const title = modules.length > 1
+                ? `Module ${index + 1} — data.${packagePath}`
+                : `Policy under test — data.${packagePath}`;
+
+            const card = template.content.cloneNode(true);
+            card.querySelector('.support-module-title').textContent = title;
+            card.querySelector('.support-module-code code').innerHTML = highlight(module);
+
+            this.elements.supportModulesContent.appendChild(card);
         });
     }
 

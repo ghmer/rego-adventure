@@ -118,7 +118,8 @@ export class TutorialSystem {
                 element: '#quest-title',
                 popover: {
                     title: 'Quest Title',
-                    description: 'This shows the current quest you\'re working on. Each adventure has multiple quests to complete.',
+                    description: 'This shows the current quest you\'re working on. Each adventure has multiple quests to complete. '
+                        + 'Navigate with the buttons, the arrow keys, or Enter; press Esc to leave the tour at any point.',
                     side: 'bottom',
                     align: 'center'
                 }
@@ -181,7 +182,7 @@ export class TutorialSystem {
                 element: '#editor-save-indicator',
                 popover: {
                     title: 'Save Indicator',
-                    description: 'This light shows the save state of your policy: green means all changes are saved, orange means you are still typing, and red means saving failed.',
+                    description: 'This light shows the save state of your policy: green means all changes are saved, orange means you are still typing, and red means saving failed. Saving happens automatically, but you can also press Ctrl/Cmd+S to save at any time.',
                     side: 'bottom',
                     align: 'center'
                 }
@@ -191,6 +192,15 @@ export class TutorialSystem {
                 popover: {
                     title: 'Manual',
                     description: 'Click here to view helpful documentation, data models, and code snippets for the current quest.',
+                    side: 'bottom',
+                    align: 'center'
+                }
+            },
+            {
+                element: '#check-support-modules-btn',
+                popover: {
+                    title: 'Support Modules',
+                    description: 'Some quests come with an additional Rego module that compiles alongside your policy - for example a policy under test. When this button is active, click it to read the module\'s code; you will usually need it to solve the quest.',
                     side: 'bottom',
                     align: 'center'
                 }
@@ -208,7 +218,7 @@ export class TutorialSystem {
                 element: '#verify-btn',
                 popover: {
                     title: 'Apply Policy',
-                    description: 'When you\'re ready, click here to test your solution. You\'ll see if your policy passes all the tests.',
+                    description: 'When you\'re ready, click here to test your solution. You\'ll see if your policy passes all the tests. Keyboard shortcut: Ctrl/Cmd+Enter applies the policy without leaving the editor.',
                     side: 'top',
                     align: 'center'
                 }
@@ -387,9 +397,29 @@ export class TutorialSystem {
             // Highlighted elements are not clickable during the tour,
             // matching the old pointer-events: none behavior
             disableActiveInteraction: true,
+            // Keyboard control: driver.js already binds Escape (exit),
+            // ArrowLeft/ArrowRight (previous/next) and a Tab focus trap.
+            allowKeyboardControl: true,
+            // driver.js focuses the first focusable element in the popover
+            // after each step, which is the close button - so Enter/Space
+            // would destroy the tour. Focus the primary (Next/Finish)
+            // button instead, so Enter/Space advance as expected. The
+            // deferred call runs after driver's own focus logic, which
+            // otherwise re-focuses the close button right after the hook.
+            onPopoverRender: (popover) => {
+                requestAnimationFrame(() => popover.nextButton.focus());
+            },
             onDestroyed: () => {
                 this.driverObj = null;
                 this.restoreHiddenElements();
+                // Hand keyboard focus to the primary call to action so
+                // keyboard and screen-reader users land on the obvious
+                // next step (only when the button is actually visible,
+                // i.e. on the prologue screen)
+                const startBtn = document.getElementById('start-adventure');
+                if (startBtn && !startBtn.classList.contains('hidden')) {
+                    startBtn.focus();
+                }
             }
         });
 

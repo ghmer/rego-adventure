@@ -123,6 +123,7 @@ export class ModalManager {
         const dismissibleDialogs = [
             this.ui.elements.manualModal,
             this.ui.elements.testPayloadModal,
+            this.ui.elements.supportModulesModal,
             this.ui.elements.resultModal,
             this.ui.elements.perfectScoreModal,
             this.ui.elements.hintModal
@@ -234,6 +235,25 @@ export class ModalManager {
      */
     closeTestPayload() {
         this.closeDialog(this.ui.elements.testPayloadModal);
+    }
+
+    /**
+     * Show support modules modal
+     */
+    showSupportModules() {
+        const quest = this.state.currentQuest;
+        if (Array.isArray(quest?.support_modules) && quest.support_modules.length > 0) {
+            this.ui.renderSupportModules(quest.support_modules);
+            this.openDialog(this.ui.elements.supportModulesModal);
+            this.ui.elements.closeSupportModulesBtn.focus();
+        }
+    }
+
+    /**
+     * Close support modules modal
+     */
+    closeSupportModules() {
+        this.closeDialog(this.ui.elements.supportModulesModal);
     }
 
     /**
