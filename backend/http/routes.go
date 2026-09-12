@@ -207,7 +207,7 @@ func (s *Server) serveSafeFile(
 
 // createSPAHandler creates a handler for SPA routing
 func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
-	// Read index.html once at handler creation; log but don't fatal — the
+	// Read index.html once at handler creation; log but don't fatal - the
 	// handler returns 500 if the file is missing.
 	indexHTML, indexHTMLErr := fs.ReadFile(subFS, "index.html")
 	if indexHTMLErr != nil {
@@ -249,7 +249,7 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 		// Try to open the file from sub FS
 		file, err := subFS.Open(cleanPath)
 		if err != nil {
-			// File doesn't exist — serve index.html for SPA client-side routing
+			// File doesn't exist - serve index.html for SPA client-side routing
 			serveIndex(c)
 			return
 		}

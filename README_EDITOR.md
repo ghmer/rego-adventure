@@ -81,7 +81,7 @@ Each test needs:
 - Unique ID within the quest
 - Payload object (becomes `input` in Rego)
 - Data object (becomes `data` in Rego, optional)
-- Expected value (any JSON value the query must return — boolean, string, number, array, or object)
+- Expected value (any JSON value the query must return - boolean, string, number, array, or object)
 
 The editor validates that quest IDs and test IDs are unique before saving.
 

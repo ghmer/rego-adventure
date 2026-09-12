@@ -35,7 +35,7 @@
     gap: 1rem;
 }
 
-/* Minimized state: collapse the game board — top stays at 5vh so header never moves */
+/* Minimized state: collapse the game board - top stays at 5vh so header never moves */
 .app-container.minimized {
     height: auto;
 }

@@ -11,7 +11,7 @@ The Rego Adventure application implements **OIDC/OAuth2 Authorization Code Flow*
 - **Stateless Backend**: JWT-based authentication with JWKS signature validation
 - **Modern Frontend**: Uses the `oidc-client-ts` library for seamless authentication flows
 
-When authentication is disabled, the application runs in open mode—no user login required.
+When authentication is disabled, the application runs in open mode-no user login required.
 
 ## Architecture
 
@@ -43,14 +43,14 @@ Note: the backend never exchanges the authorization code. The code-for-token exc
 
 You'll need to set these environment variables to enable and configure authentication:
 
-| Variable             | Required     | Description                                    | Example                                                                        |
-| -------------------- | ------------ | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| Variable             | Required             | Description                                    | Example                                                                        |
+| -------------------- | -------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
 | `AUTH_ENABLED`       | No (default `false`) | Enable/disable authentication                  | `true` or `false`                                                              |
-| `AUTH_ISSUER`        | When enabled | OIDC issuer URL (must match token `iss` claim) | `https://keycloak.example.com/realms/myrealm`                                  |
-| `AUTH_DISCOVERY_URL` | When enabled | OIDC discovery endpoint URL                    | `https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration` |
-| `AUTH_CLIENT_ID`     | When enabled | OAuth2 client identifier                       | `rego-adventure`                                                               |
-| `AUTH_AUDIENCE`      | When enabled | Expected audience in JWT tokens                | `rego-adventure`                                                               |
-| `DOMAIN`             | Yes          | Application domain (used for CORS)             | `https://adventure.example.com`                                                |
+| `AUTH_ISSUER`        | When enabled         | OIDC issuer URL (must match token `iss` claim) | `https://keycloak.example.com/realms/myrealm`                                  |
+| `AUTH_DISCOVERY_URL` | When enabled         | OIDC discovery endpoint URL                    | `https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration` |
+| `AUTH_CLIENT_ID`     | When enabled         | OAuth2 client identifier                       | `rego-adventure`                                                               |
+| `AUTH_AUDIENCE`      | When enabled         | Expected audience in JWT tokens                | `rego-adventure`                                                               |
+| `DOMAIN`             | Yes                  | Application domain (used for CORS)             | `https://adventure.example.com`                                                |
 
 ## Keycloak Configuration
 
