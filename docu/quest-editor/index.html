@@ -197,13 +197,17 @@
                 </div>
             </div>
 
-            <!-- Quest Detail View (Template) -->
+            <!-- Quest Detail View (Template)
+                 This view is cloned once per quest. Cloned elements must not
+                 carry id attributes (duplicate ids are invalid HTML); use
+                 data-field / data-tab attributes instead, which app.js
+                 queries via questView.querySelector(...). -->
             <div class="content-view quest-view" id="view-quest-template">
                 <div class="content-header">
-                    <h2 id="questViewTitle">Quest Details</h2>
-                    <button class="btn btn-danger" id="deleteQuestBtn" title="Delete this quest"><i class="fas fa-trash"></i> Delete Quest</button>
+                    <h2 data-field="questViewTitle">Quest Details</h2>
+                    <button class="btn btn-danger" data-field="deleteQuestBtn" title="Delete this quest"><i class="fas fa-trash"></i> Delete Quest</button>
                 </div>
-                
+
                 <!-- Tabs -->
                 <div class="tabs">
                     <button class="tab-btn active" data-tab="details" title="Edit quest details"><i class="fas fa-edit"></i> Details</button>
@@ -215,89 +219,89 @@
                 </div>
 
                 <!-- Tab Content -->
-                <div class="tab-content active" id="tab-details">
+                <div class="tab-content active" data-tab="details">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="quest-id">Quest ID</label>
-                            <input type="number" id="quest-id" class="form-control">
+                            <label>Quest ID</label>
+                            <input type="number" data-field="quest-id" class="form-control">
                         </div>
                         <div class="form-group">
-                            <label for="quest-title">Title</label>
-                            <input type="text" id="quest-title" class="form-control" data-field="quest-title">
+                            <label>Title</label>
+                            <input type="text" class="form-control" data-field="quest-title">
                         </div>
                         <div class="form-group full-width">
-                            <label for="quest-query">Query</label>
-                            <input type="text" id="quest-query" class="form-control" placeholder="data.play.allow">
+                            <label>Query</label>
+                            <input type="text" data-field="quest-query" class="form-control" placeholder="data.play.allow">
                         </div>
                         <div class="form-group full-width">
-                            <label for="quest-description_task">Description Task</label>
-                            <textarea id="quest-description_task" class="form-control" rows="3" data-field="quest-description_task"></textarea>
+                            <label>Description Task</label>
+                            <textarea data-field="quest-description_task" class="form-control" rows="3"></textarea>
                         </div>
                         <div class="form-group full-width">
-                            <label for="quest-solution">Solution</label>
-                            <textarea id="quest-solution" class="form-control" rows="4" data-field="quest-solution"></textarea>
+                            <label>Solution</label>
+                            <textarea data-field="quest-solution" class="form-control" rows="4"></textarea>
                         </div>
                         <div class="form-group checkbox-group">
-                            <input type="checkbox" id="quest-apply_template">
-                            <label for="quest-apply_template">Apply Template</label>
+                            <input type="checkbox" data-field="quest-apply_template">
+                            <label>Apply Template</label>
                         </div>
                         <div class="form-group full-width">
-                            <label for="quest-template">Template</label>
-                            <textarea id="quest-template" class="form-control" rows="5" data-field="quest-template"></textarea>
+                            <label>Template</label>
+                            <textarea data-field="quest-template" class="form-control" rows="5"></textarea>
                         </div>
                     </div>
                 </div>
 
-                <div class="tab-content" id="tab-lore">
+                <div class="tab-content" data-tab="lore">
                     <div class="tab-header">
                         <p>Story and background information for this quest</p>
-                        <button class="btn btn-secondary" id="addLoreBtn" title="Add a new lore item"><i class="fas fa-plus"></i> Add Lore Item</button>
+                        <button class="btn btn-secondary" data-field="addLoreBtn" title="Add a new lore item"><i class="fas fa-plus"></i> Add Lore Item</button>
                     </div>
-                    <div id="loreList" class="item-list"></div>
+                    <div data-field="loreList" class="item-list"></div>
                 </div>
 
-                <div class="tab-content" id="tab-hints">
+                <div class="tab-content" data-tab="hints">
                     <div class="tab-header">
                         <p>Helpful hints to guide players through this quest</p>
-                        <button class="btn btn-secondary" id="addHintBtn" title="Add a new hint"><i class="fas fa-plus"></i> Add Hint</button>
+                        <button class="btn btn-secondary" data-field="addHintBtn" title="Add a new hint"><i class="fas fa-plus"></i> Add Hint</button>
                     </div>
-                    <div id="hintsList" class="item-list"></div>
+                    <div data-field="hintsList" class="item-list"></div>
                 </div>
 
-                <div class="tab-content" id="tab-manual">
+                <div class="tab-content" data-tab="manual">
                     <div class="tab-header">
                         <p>Manual configuration for policy verification</p>
                     </div>
                     <div class="form-grid">
                         <div class="form-group full-width">
-                            <label for="quest-manual-data_model">Data Model</label>
-                            <textarea id="quest-manual-data_model" class="form-control code-editor" rows="4" data-field="quest-manual-data_model"></textarea>
+                            <label>Data Model</label>
+                            <textarea data-field="quest-manual-data_model" class="form-control code-editor" rows="4"></textarea>
                         </div>
                         <div class="form-group full-width">
-                            <label for="quest-manual-rego_snippet">Rego Snippet</label>
-                            <textarea id="quest-manual-rego_snippet" class="form-control code-editor" rows="6" data-field="quest-manual-rego_snippet"></textarea>
+                            <label>Rego Snippet</label>
+                            <textarea data-field="quest-manual-rego_snippet" class="form-control code-editor" rows="6"></textarea>
                         </div>
                         <div class="form-group full-width">
-                            <label for="quest-manual-external_link">External Link</label>
-                            <input type="url" id="quest-manual-external_link" class="form-control" data-field="quest-manual-external_link">
+                            <label>External Link</label>
+                            <input type="url" data-field="quest-manual-external_link" class="form-control">
                         </div>
                     </div>
                 </div>
 
-                <div class="tab-content" id="tab-support">
+                <div class="tab-content" data-tab="support">
                     <div class="tab-header">
                         <p>Hidden Rego modules compiled alongside the player's policy during verification (e.g. the policy under test). Each module must be a complete Rego module with its own package declaration.</p>
-                        <button class="btn btn-secondary" id="addSupportModuleBtn" title="Add a new support module"><i class="fas fa-plus"></i> Add Support Module</button>
+                        <button class="btn btn-secondary" data-field="addSupportModuleBtn" title="Add a new support module"><i class="fas fa-plus"></i> Add Support Module</button>
                     </div>
-                    <div id="supportModulesList" class="item-list"></div>
+                    <div data-field="supportModulesList" class="item-list"></div>
                 </div>
 
-                <div class="tab-content" id="tab-tests">
+                <div class="tab-content" data-tab="tests">
                     <div class="tab-header">
                         <p>Test cases to verify quest solutions</p>
-                        <button class="btn btn-secondary" id="addTestBtn" title="Add a new test case"><i class="fas fa-plus"></i> Add Test</button>
+                        <button class="btn btn-secondary" data-field="addTestBtn" title="Add a new test case"><i class="fas fa-plus"></i> Add Test</button>
                     </div>
-                    <div id="testsList" class="item-list"></div>
+                    <div data-field="testsList" class="item-list"></div>
                 </div>
             </div>
         </main>
