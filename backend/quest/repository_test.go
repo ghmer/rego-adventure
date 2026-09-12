@@ -64,94 +64,96 @@ func TestLoadPack_ValidationFailure(t *testing.T) {
 	}
 }
 
-func TestLoadPack_ValidationScenarios(t *testing.T) {
-	tests := []struct {
-		name        string
-		modifyPack  func(*QuestPack)
-		expectError bool
-	}{
-		{
-			name:        "Valid Pack",
-			modifyPack:  func(p *QuestPack) {},
-			expectError: false,
+// loadPackValidationScenarios enumerates pack mutations and whether the
+// modified pack must fail validation.
+var loadPackValidationScenarios = []struct {
+	name        string
+	modifyPack  func(*QuestPack)
+	expectError bool
+}{
+	{
+		name:        "Valid Pack",
+		modifyPack:  func(_ *QuestPack) {},
+		expectError: false,
+	},
+	{
+		name: "Empty Pack Title",
+		modifyPack: func(p *QuestPack) {
+			p.Meta.Title = ""
 		},
-		{
-			name: "Empty Pack Title",
-			modifyPack: func(p *QuestPack) {
-				p.Meta.Title = ""
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "Pack Title Too Long",
+		modifyPack: func(p *QuestPack) {
+			p.Meta.Title = string(make([]byte, MaxPackTitle+1))
 		},
-		{
-			name: "Pack Title Too Long",
-			modifyPack: func(p *QuestPack) {
-				p.Meta.Title = string(make([]byte, MaxPackTitle+1))
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "Invalid Genre Characters",
+		modifyPack: func(p *QuestPack) {
+			p.Meta.Genre = "Sci-Fi & Fantasy" // & is not allowed
 		},
-		{
-			name: "Invalid Genre Characters",
-			modifyPack: func(p *QuestPack) {
-				p.Meta.Genre = "Sci-Fi & Fantasy" // & is not allowed
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "Empty Prologue",
+		modifyPack: func(p *QuestPack) {
+			p.Prologue = []string{}
 		},
-		{
-			name: "Empty Prologue",
-			modifyPack: func(p *QuestPack) {
-				p.Prologue = []string{}
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "Empty Epilogue",
+		modifyPack: func(p *QuestPack) {
+			p.Epilogue = []string{}
 		},
-		{
-			name: "Empty Epilogue",
-			modifyPack: func(p *QuestPack) {
-				p.Epilogue = []string{}
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "No Quests",
+		modifyPack: func(p *QuestPack) {
+			p.Quests = []Quest{}
 		},
-		{
-			name: "No Quests",
-			modifyPack: func(p *QuestPack) {
-				p.Quests = []Quest{}
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "Quest Missing Title",
+		modifyPack: func(p *QuestPack) {
+			p.Quests[0].Title = ""
 		},
-		{
-			name: "Quest Missing Title",
-			modifyPack: func(p *QuestPack) {
-				p.Quests[0].Title = ""
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "Quest Missing Task Description",
+		modifyPack: func(p *QuestPack) {
+			p.Quests[0].DescriptionTask = ""
 		},
-		{
-			name: "Quest Missing Task Description",
-			modifyPack: func(p *QuestPack) {
-				p.Quests[0].DescriptionTask = ""
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "Quest No Tests",
+		modifyPack: func(p *QuestPack) {
+			p.Quests[0].Tests = []TestCase{}
 		},
-		{
-			name: "Quest No Tests",
-			modifyPack: func(p *QuestPack) {
-				p.Quests[0].Tests = []TestCase{}
-			},
-			expectError: true,
+		expectError: true,
+	},
+	{
+		name: "Quest Test Payload Too Large",
+		modifyPack: func(p *QuestPack) {
+			// Create a large payload
+			largeInput := make(map[string]any)
+			largeString := string(make([]byte, MaxTestPayloadBytes))
+			largeInput["data"] = largeString
+			p.Quests[0].Tests[0].Payload.Input = largeInput
 		},
-		{
-			name: "Quest Test Payload Too Large",
-			modifyPack: func(p *QuestPack) {
-				// Create a large payload
-				largeInput := make(map[string]any)
-				largeString := string(make([]byte, MaxTestPayloadBytes))
-				largeInput["data"] = largeString
-				p.Quests[0].Tests[0].Payload.Input = largeInput
-			},
-			expectError: true,
-		},
-	}
+		expectError: true,
+	},
+}
 
-	for _, tt := range tests {
+func TestLoadPack_ValidationScenarios(t *testing.T) {
+	for _, tt := range loadPackValidationScenarios {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := NewQuestRepository()
 			pack := createValidQuestPack()
@@ -211,14 +213,24 @@ func TestGetAllPacks(t *testing.T) {
 	repo := NewQuestRepository()
 	pack1 := createValidQuestPack()
 	pack1.ID = "pack1"
-	data1, _ := json.Marshal(pack1)
+	data1, err := json.Marshal(pack1)
+	if err != nil {
+		t.Fatalf("Failed to marshal pack1: %v", err)
+	}
 
 	pack2 := createValidQuestPack()
 	pack2.ID = "pack2"
-	data2, _ := json.Marshal(pack2)
+	data2, err := json.Marshal(pack2)
+	if err != nil {
+		t.Fatalf("Failed to marshal pack2: %v", err)
+	}
 
-	repo.LoadPack("pack1", data1)
-	repo.LoadPack("pack2", data2)
+	if err := repo.LoadPack("pack1", data1); err != nil {
+		t.Fatalf("LoadPack pack1 failed: %v", err)
+	}
+	if err := repo.LoadPack("pack2", data2); err != nil {
+		t.Fatalf("LoadPack pack2 failed: %v", err)
+	}
 
 	packs := repo.GetAllPacks()
 	if len(packs) != 2 {

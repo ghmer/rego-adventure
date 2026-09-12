@@ -19,6 +19,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	nethttp "net/http"
 	"strings"
@@ -30,7 +31,7 @@ import (
 // freePort reserves a port so a server can bind to it and returns its address.
 func freePort(t *testing.T) string {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to reserve port: %v", err)
 	}
@@ -56,8 +57,9 @@ func newTestServer(t *testing.T, handler nethttp.Handler) *nethttp.Server {
 	t.Helper()
 	addr := freePort(t)
 	return &nethttp.Server{
-		Addr:    addr,
-		Handler: handler,
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 }
 
@@ -83,11 +85,15 @@ func TestRunWithGracefulShutdown_StopsOnContextCancel(t *testing.T) {
 	}
 
 	// A request must succeed while running.
-	resp, err := nethttp.Get("http://" + server.Addr + "/")
+	resp, err := getTestURL(t, "http://"+server.Addr+"/")
 	if err != nil {
 		t.Fatalf("request against running server failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("failed to close response body: %v", err)
+		}
+	}()
 	if resp.StatusCode != nethttp.StatusOK {
 		t.Fatalf("unexpected status: %d", resp.StatusCode)
 	}
@@ -104,8 +110,10 @@ func TestRunWithGracefulShutdown_StopsOnContextCancel(t *testing.T) {
 	}
 
 	// The server must no longer accept connections.
-	if conn, err := net.DialTimeout("tcp", server.Addr, 200*time.Millisecond); err == nil {
-		conn.Close()
+	if conn, err := dialTimeout(server.Addr, 200*time.Millisecond); err == nil {
+		if err := conn.Close(); err != nil {
+			t.Errorf("failed to close probe connection: %v", err)
+		}
 		t.Fatal("server still accepts connections after shutdown")
 	}
 }
@@ -114,15 +122,20 @@ func TestRunWithGracefulShutdown_StopsOnContextCancel(t *testing.T) {
 // ListenAndServe surfaces its error instead of blocking forever.
 func TestRunWithGracefulShutdown_ReturnsListenError(t *testing.T) {
 	// Occupy the port first so the server cannot bind.
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
-	defer l.Close()
+	defer func() {
+		if err := l.Close(); err != nil {
+			t.Errorf("failed to close occupying listener: %v", err)
+		}
+	}()
 
 	server := &nethttp.Server{
-		Addr:    l.Addr().String(),
-		Handler: nethttp.HandlerFunc(func(nethttp.ResponseWriter, *nethttp.Request) {}),
+		Addr:              l.Addr().String(),
+		Handler:           nethttp.HandlerFunc(func(nethttp.ResponseWriter, *nethttp.Request) {}),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	err = RunWithGracefulShutdown(context.Background(), server, DefaultShutdownTimeout)
@@ -156,9 +169,11 @@ func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 	// Open a connection that will hang inside the handler.
 	reqDone := make(chan error, 1)
 	go func() {
-		resp, err := nethttp.Get("http://" + server.Addr + "/")
+		resp, err := getTestURL(t, "http://"+server.Addr+"/")
 		if err == nil {
-			resp.Body.Close()
+			if cerr := resp.Body.Close(); cerr != nil {
+				t.Errorf("failed to close response body: %v", cerr)
+			}
 		}
 		reqDone <- err
 	}()
@@ -200,7 +215,7 @@ func TestGracefulShutdown_DrainsInFlightRequests(t *testing.T) {
 	}))
 
 	go func() {
-		//nolint:errcheck // test server
+		//nolint:errcheck,gosec // test server; a listen error here fails the waitUntilListening check below
 		server.ListenAndServe()
 	}()
 	if !waitUntilListening(t, server.Addr, 2*time.Second) {
@@ -210,9 +225,11 @@ func TestGracefulShutdown_DrainsInFlightRequests(t *testing.T) {
 	// Fire a slow request, then shut down while it is still in flight.
 	reqDone := make(chan error, 1)
 	go func() {
-		resp, err := nethttp.Get("http://" + server.Addr + "/")
+		resp, err := getTestURL(t, "http://"+server.Addr+"/")
 		if err == nil {
-			resp.Body.Close()
+			if cerr := resp.Body.Close(); cerr != nil {
+				t.Errorf("failed to close response body: %v", cerr)
+			}
 		}
 		reqDone <- err
 	}()
@@ -241,9 +258,11 @@ func waitUntilListening(t *testing.T, addr string, timeout time.Duration) bool {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		conn, err := (&net.Dialer{Timeout: 100 * time.Millisecond}).DialContext(context.Background(), "tcp", addr)
 		if err == nil {
-			conn.Close()
+			if cerr := conn.Close(); cerr != nil {
+				t.Errorf("failed to close probe connection: %v", cerr)
+			}
 			return true
 		}
 		if errors.Is(err, net.ErrClosed) {
@@ -252,4 +271,20 @@ func waitUntilListening(t *testing.T, addr string, timeout time.Duration) bool {
 		time.Sleep(20 * time.Millisecond)
 	}
 	return false
+}
+
+// getTestURL performs a GET against a test server URL with the test's
+// context, so the request cannot outlive the test.
+func getTestURL(t *testing.T, url string) (*nethttp.Response, error) {
+	t.Helper()
+	req, err := nethttp.NewRequestWithContext(context.Background(), nethttp.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	return nethttp.DefaultClient.Do(req)
+}
+
+// dialTimeout dials addr with a bounded wait and returns the connection.
+func dialTimeout(addr string, timeout time.Duration) (net.Conn, error) {
+	return (&net.Dialer{Timeout: timeout}).DialContext(context.Background(), "tcp", addr)
 }
