@@ -200,6 +200,9 @@
                     <div class="grimoire-controls">
                         <button id="check-manual-btn" class="action-btn secondary" aria-label="Show manual"
                             title="View quest manual and documentation"><i class="fa-solid fa-book"></i></button>
+                        <button id="check-support-modules-btn" class="action-btn secondary" aria-label="Show support modules"
+                            title="View the support modules attached to this quest" disabled>
+                            <i class="fa-solid fa-puzzle-piece"></i></button>
                         <button id="check-test-payload-btn" class="action-btn secondary" aria-label="Show test payload"
                             title="View test cases for this quest"><i class="fa-solid fa-vial"></i></button>
                     </div>
@@ -282,6 +285,20 @@
                 <p>Your policy will be tested against the following test cases. Each test provides <code>input</code>
                     data and optionally <code>data</code> for the OPA store.</p>
                 <div id="test-payload-data"></div>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Support Modules Modal -->
+    <dialog id="support-modules-modal" class="modal" aria-labelledby="support-modules-title">
+        <div class="modal-content surface-bg">
+            <div class="modal-header">
+                <h2 id="support-modules-title">Support Modules</h2>
+                <button id="close-support-modules-btn" class="close-btn" aria-label="Close Support Modules Modal"
+                    title="Close the support modules">&times;</button>
+            </div>
+            <div id="support-modules-content" class="support-modules-content">
+                <!-- Support module content populated via JS -->
             </div>
         </div>
     </dialog>
@@ -411,6 +428,13 @@
                 </div>
                 <pre class="test-case-data-content"></pre>
             </div>
+        </div>
+    </template>
+
+    <template id="support-module-template">
+        <div class="support-module-card">
+            <h4 class="support-module-title"></h4>
+            <pre class="support-module-code"><code></code></pre>
         </div>
     </template>
 
