@@ -1,11 +1,12 @@
 bin/
 .git/
+.github/
 .gitignore
 Dockerfile
 build.sh
 *.md
 docu/
-frontend/adventure/node_modules/
+**/node_modules/
 frontend/adventure/package.json
 frontend/adventure/package-lock.json
 frontend/adventure/eslint.config.js

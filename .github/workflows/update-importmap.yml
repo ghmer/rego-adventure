@@ -10,6 +10,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# Two Dependabot PRs racing on `git push` would fail or interleave commits;
+# synchronize events supersede each other, so cancel rather than queue.
+concurrency:
+  group: importmap-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
+
 jobs:
   importmap:
     if: github.actor == 'dependabot[bot]'
