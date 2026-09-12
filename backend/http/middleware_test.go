@@ -17,6 +17,7 @@
 package http
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
@@ -45,7 +46,7 @@ func TestSecurityHeaders_AreSet(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	router.ServeHTTP(w, req)
 
 	expectedHeaders := map[string]string{
@@ -70,7 +71,7 @@ func TestSecurityHeaders_CSPIsPresent(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	router.ServeHTTP(w, req)
 
 	csp := w.Header().Get("Content-Security-Policy")
@@ -94,7 +95,7 @@ func TestSecurityHeaders_CSPFrameAncestorsNone(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	router.ServeHTTP(w, req)
 
 	csp := w.Header().Get("Content-Security-Policy")
@@ -119,7 +120,7 @@ func TestSecurityHeaders_CSPAddsIssuerOriginWhenAuthEnabled(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	router.ServeHTTP(w, req)
 
 	csp := w.Header().Get("Content-Security-Policy")
@@ -143,7 +144,7 @@ func TestSecurityHeaders_CSPSkipsInvalidIssuer(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	router.ServeHTTP(w, req)
 
 	csp := w.Header().Get("Content-Security-Policy")
@@ -163,7 +164,7 @@ func TestBodySizeLimit_SmallBodyAccepted(t *testing.T) {
 
 	body := strings.Repeat("a", 1024) // 1KB body
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/test", strings.NewReader(body))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/test", strings.NewReader(body))
 	req.Header.Set("Content-Type", "text/plain")
 	router.ServeHTTP(w, req)
 
@@ -188,7 +189,7 @@ func TestBodySizeLimit_LargeBodyRejected(t *testing.T) {
 
 	body := strings.Repeat("a", 2*1024*1024) // 2MB body, exceeds 1MB limit
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/test", strings.NewReader(body))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/test", strings.NewReader(body))
 	req.Header.Set("Content-Type", "text/plain")
 	router.ServeHTTP(w, req)
 
@@ -211,7 +212,7 @@ func TestBodySizeLimit_CallsNext(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	router.ServeHTTP(w, req)
 
 	if !handlerCalled {
@@ -296,7 +297,7 @@ func serveAuthRequest(t *testing.T, cfg *config.Config, authHeader string) *http
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	if authHeader != "" {
 		req.Header.Set("Authorization", authHeader)
 	}

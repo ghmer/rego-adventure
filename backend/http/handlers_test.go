@@ -18,6 +18,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -115,7 +116,7 @@ func TestGetPacks_EmptyRepository(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -138,7 +139,7 @@ func TestGetPacks_WithPacks(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -168,7 +169,7 @@ func TestGetPacks_HasCacheControlHeader(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs", nil)
 	router.ServeHTTP(w, req)
 
 	cc := w.Header().Get("Cache-Control")
@@ -185,7 +186,7 @@ func TestGetPack_Found(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs/fantasy", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/fantasy", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -206,7 +207,7 @@ func TestGetPack_NotFound(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs/nonexistent", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/nonexistent", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusNotFound {
@@ -220,7 +221,7 @@ func TestGetPack_HasCacheControlHeader(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs/fantasy", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/fantasy", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Header().Get("Cache-Control") == "" {
@@ -236,7 +237,7 @@ func TestGetTestPayload_Valid(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs/fantasy/quests/1/test-payload", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/fantasy/quests/1/test-payload", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -258,7 +259,7 @@ func TestGetTestPayload_QuestNotFound(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs/fantasy/quests/999/test-payload", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/fantasy/quests/999/test-payload", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusNotFound {
@@ -271,7 +272,7 @@ func TestGetTestPayload_PackNotFound(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs/nonexistent/quests/1/test-payload", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/nonexistent/quests/1/test-payload", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusNotFound {
@@ -285,7 +286,8 @@ func TestGetTestPayload_InvalidQuestID(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs/fantasy/quests/notanumber/test-payload", nil)
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/notanumber/test-payload", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusBadRequest {
@@ -299,7 +301,7 @@ func TestGetTestPayload_HasCacheControlHeader(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/packs/fantasy/quests/1/test-payload", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/fantasy/quests/1/test-payload", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Header().Get("Cache-Control") == "" {
@@ -325,7 +327,7 @@ func TestVerifySolution_ValidAndPassing(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -357,7 +359,7 @@ func TestVerifySolution_ValidButFailing(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -386,7 +388,7 @@ func TestVerifySolution_QuestNotFound(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -406,7 +408,7 @@ func TestVerifySolution_PackNotFound(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -420,7 +422,8 @@ func TestVerifySolution_InvalidJSON(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBufferString("{invalid-json"))
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodPost, "/verify", bytes.NewBufferString("{invalid-json"))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -434,7 +437,7 @@ func TestVerifySolution_EmptyBody(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", nil)
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -458,7 +461,7 @@ func TestVerifySolution_CompilationError(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -490,7 +493,7 @@ func TestVerifySolution_CompilationErrorDetails(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -539,7 +542,7 @@ func TestVerifySolution_UndefinedResultFlag(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -593,7 +596,7 @@ func TestVerifySolution_TimeoutReturns408(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
@@ -620,7 +623,7 @@ func TestHealthCheck_ReturnsOK(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -643,7 +646,7 @@ func TestHealthCheck_ReportsQuestPackCount(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -669,7 +672,7 @@ func TestHealthCheck_HasTimestamp(t *testing.T) {
 	router := newTestRouter(repo)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
 	router.ServeHTTP(w, req)
 
 	var result map[string]any
