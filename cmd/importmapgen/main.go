@@ -9,7 +9,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -102,17 +101,22 @@ func buildImportMap(deps map[string]string, subpaths map[string][]string) ([]byt
 // versions imported through the import map.
 func syncCdnJsVersions(indexContent []byte, deps map[string]string) []byte {
 	return cdnjsLinkRe.ReplaceAllFunc(indexContent, func(match []byte) []byte {
-		sub := cdnjsLinkRe.FindSubmatch(match)
-		currentVersion := string(sub[2])
-
-		// The version group can match empty (URL without a version
-		// segment); bytes.Replace with an empty old would insert the new
-		// version at offset 0 and corrupt the URL
-		if currentVersion == "" {
+		loc := cdnjsLinkRe.FindSubmatchIndex(match)
+		if loc == nil {
 			return match
 		}
 
-		newVersion, ok := deps[string(sub[1])]
+		// Group 2 spans the version segment.
+		versionStart, versionEnd := loc[4], loc[5]
+
+		// The version group can match empty (URL without a version
+		// segment); splicing at an empty range would insert the new
+		// version at the start of the URL and corrupt it
+		if versionStart == versionEnd {
+			return match
+		}
+
+		newVersion, ok := deps[string(match[loc[2]:loc[3]])]
 		if !ok {
 			return match
 		}
@@ -124,12 +128,17 @@ func syncCdnJsVersions(indexContent []byte, deps map[string]string) []byte {
 			// interpolating an unvalidated string into the URL.
 			return match
 		}
-		newVersion = cleaned
-		if newVersion == currentVersion {
+
+		// Splice by index instead of a substring replace, so a version
+		// that also appears in the library slug or path is not mismatched.
+		if string(match[versionStart:versionEnd]) == cleaned {
 			return match
 		}
-
-		return bytes.Replace(match, sub[2], []byte(newVersion), 1)
+		out := make([]byte, 0, len(match)-(versionEnd-versionStart)+len(cleaned))
+		out = append(out, match[:versionStart]...)
+		out = append(out, cleaned...)
+		out = append(out, match[versionEnd:]...)
+		return out
 	})
 }
 
@@ -161,33 +170,33 @@ func main() {
 	// 1. Read package.json
 	pkgContent, err := os.ReadFile(pkgPath) // #nosec G304
 	if err != nil {
-		fmt.Printf("Error reading %s: %v\n", pkgPath, err)
+		fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", pkgPath, err)
 		os.Exit(1)
 	}
 
 	var pkg PackageJSON
 	if err := json.Unmarshal(pkgContent, &pkg); err != nil {
-		fmt.Printf("Error parsing %s: %v\n", pkgPath, err)
+		fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", pkgPath, err)
 		os.Exit(1)
 	}
 
 	// 2. Read index.html
 	indexContent, err := os.ReadFile(indexPath) // #nosec G304
 	if err != nil {
-		fmt.Printf("Error reading %s: %v\n", indexPath, err)
+		fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", indexPath, err)
 		os.Exit(1)
 	}
 
 	// 3. Rewrite import map and synced cdnjs links
 	newIndexContent, err := updateIndexHTML(indexContent, pkg)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	// 4. Write index.html
 	if err := os.WriteFile(indexPath, newIndexContent, 0600); err != nil { // #nosec G703 -- writes user-provided path
-		fmt.Printf("Error writing %s: %v\n", indexPath, err)
+		fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", indexPath, err)
 		os.Exit(1)
 	}
 	fmt.Printf("Updated import map in %s\n", indexPath)

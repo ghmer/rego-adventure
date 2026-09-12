@@ -145,6 +145,21 @@ func TestUpdateIndexHTMLNoVersionChurn(t *testing.T) {
 	}
 }
 
+func TestSyncCdnJsVersionsSplicesByVersionPosition(t *testing.T) {
+	// The library slug contains the same digits as the old version; a
+	// substring replace would rewrite the slug instead of the version.
+	html := `<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/foo1.9/1.8.0/style.css">`
+	deps := map[string]string{
+		"foo1.9": "1.9.0",
+	}
+
+	out := syncCdnJsVersions([]byte(html), deps)
+
+	if !strings.Contains(string(out), "ajax/libs/foo1.9/1.9.0/style.css") {
+		t.Errorf("version segment should be rewritten in place, got:\n%s", out)
+	}
+}
+
 func TestUpdateIndexHTMLErrorsWithoutImportMap(t *testing.T) {
 	_, err := updateIndexHTML([]byte("<html><head></head></html>"), buildPkg(testDeps, nil))
 	if err == nil {
