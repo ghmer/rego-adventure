@@ -54,6 +54,11 @@ func verifyQuestPack(ctx context.Context, verifier *quest.Verifier, pack *quest.
 		}
 
 		if result.Error != "" {
+			// The quest's solution failed to compile or run, so none of its
+			// test cases were executed. Count them towards the total without
+			// counting any as passed, so the pack summary reflects the
+			// failure instead of silently dropping the quest from the count.
+			totalTests += len(q.Tests)
 			fmt.Printf("  Quest error: %s\n", result.Error)
 		}
 		fmt.Printf("  Quest %d result: %d/%d tests passed\n\n", q.ID, passedCount, len(result.Results))
