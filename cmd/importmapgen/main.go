@@ -42,6 +42,23 @@ var cdnjsLinkRe = regexp.MustCompile(`https://cdnjs\.cloudflare\.com/ajax/libs/(
 
 var importMapRe = regexp.MustCompile(`(?s)<script type="importmap">.*?</script>`)
 
+// versionRe matches a strict semver version: two or three numeric
+// components, an optional prerelease suffix, and optional build metadata.
+// Range notation (>=1.2, 1.x, *), dist-tags, and anything carrying URL or
+// HTML metacharacters must fail here, because versions are interpolated
+// verbatim into esm.sh URLs and rewritten cdnjs links in index.html.
+var versionRe = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)(\.(0|[1-9]\d*))?(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+
+// cleanVersion strips the common npm range prefixes (~, ^) and validates
+// the remainder as a strict semver version.
+func cleanVersion(ver string) (string, error) {
+	version := strings.TrimLeft(ver, "~^")
+	if !versionRe.MatchString(version) {
+		return "", fmt.Errorf("version %q is not a strict semver version (expected x.y[.z], optionally with -prerelease)", ver)
+	}
+	return version, nil
+}
+
 var pkgPath string
 var indexPath string
 
@@ -52,7 +69,10 @@ func buildImportMap(deps map[string]string, subpaths map[string][]string) ([]byt
 
 	for lib, ver := range deps {
 		// Strip common version prefixes like ~ and ^
-		version := strings.TrimLeft(ver, "~^")
+		version, err := cleanVersion(ver)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", lib, err)
+		}
 		imports[lib] = fmt.Sprintf("https://esm.sh/%s@%s", lib, version)
 
 		for _, sub := range subpaths[lib] {
@@ -97,7 +117,14 @@ func syncCdnJsVersions(indexContent []byte, deps map[string]string) []byte {
 			return match
 		}
 
-		newVersion = strings.TrimLeft(newVersion, "~^")
+		cleaned, err := cleanVersion(newVersion)
+		if err != nil {
+			// buildImportMap rejects invalid versions before this runs;
+			// be defensive and leave the link untouched rather than
+			// interpolating an unvalidated string into the URL.
+			return match
+		}
+		newVersion = cleaned
 		if newVersion == currentVersion {
 			return match
 		}

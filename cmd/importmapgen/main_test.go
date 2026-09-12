@@ -91,6 +91,46 @@ func TestUpdateIndexHTMLToleratesRangePrefixes(t *testing.T) {
 	}
 }
 
+func TestUpdateIndexHTMLAcceptsPrereleaseVersions(t *testing.T) {
+	deps := map[string]string{
+		"driver.js": "1.9.0-beta.1",
+	}
+	out, err := updateIndexHTML([]byte(testHTML), buildPkg(deps, nil))
+	if err != nil {
+		t.Fatalf("updateIndexHTML returned error: %v", err)
+	}
+
+	if !strings.Contains(string(out), "esm.sh/driver.js@1.9.0-beta.1") {
+		t.Errorf("prerelease versions should be emitted verbatim, got:\n%s", out)
+	}
+}
+
+func TestUpdateIndexHTMLRejectsInvalidVersions(t *testing.T) {
+	invalid := []string{
+		">=1.2.0",
+		"1.x",
+		"*",
+		"latest",
+		"workspace:*",
+		"",
+		"1.0\"><script>alert(1)</script>",
+		"1.0/../../etc",
+	}
+	for _, ver := range invalid {
+		deps := map[string]string{"driver.js": ver}
+		if _, err := updateIndexHTML([]byte(testHTML), buildPkg(deps, nil)); err == nil {
+			t.Errorf("expected error for invalid version %q", ver)
+		}
+	}
+}
+
+func TestBuildImportMapErrorsOnInvalidVersion(t *testing.T) {
+	deps := map[string]string{"yace": ">=1.1.0"}
+	if _, err := buildImportMap(deps, nil); err == nil {
+		t.Fatal("expected error for a non-semver dependency version")
+	}
+}
+
 func TestUpdateIndexHTMLNoVersionChurn(t *testing.T) {
 	deps := map[string]string{
 		"driver.js": "1.8.0",
