@@ -49,6 +49,7 @@ export class EventManager {
         this.setupHintListeners();
         this.setupManualListeners();
         this.setupTestPayloadListeners();
+        this.setupSupportModulesListeners();
         this.setupResultModalListeners();
         this.setupPerfectScoreListeners();
         this.setupVerifyListener();
@@ -245,6 +246,21 @@ export class EventManager {
 
         this.ui.elements.closeTestPayloadBtn.addEventListener('click', () => {
             this.modal.closeTestPayload();
+        });
+    }
+
+    /**
+     * Setup support modules modal listeners. The button stays disabled
+     * unless the current quest ships support modules, so a click can only
+     * happen when there is something to show.
+     */
+    setupSupportModulesListeners() {
+        this.ui.elements.checkSupportModulesBtn.addEventListener('click', () => {
+            this.modal.showSupportModules();
+        });
+
+        this.ui.elements.closeSupportModulesBtn.addEventListener('click', () => {
+            this.modal.closeSupportModules();
         });
     }
 

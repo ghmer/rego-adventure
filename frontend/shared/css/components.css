@@ -397,31 +397,41 @@ button[onclick*="login"]:hover {
 /* Rego token colors. Only theme variables from the assetgen template are
    used (accent, secondary-accent, success, info, text-rgb) so every quest
    pack theme colors the editor automatically. No bold/italic: the token
-   layer must match the textarea's glyph widths exactly. */
-#rego-editor .ra-comment {
+   layer must match the textarea's glyph widths exactly. The same token
+   classes color Rego code rendered in the support modules modal. */
+#rego-editor .ra-comment,
+.support-modules-content .ra-comment {
     color: rgba(var(--text-rgb), 0.55);
 }
 
-#rego-editor .ra-keyword {
+#rego-editor .ra-keyword,
+.support-modules-content .ra-keyword {
     color: var(--accent-color);
 }
 
-#rego-editor .ra-string {
+#rego-editor .ra-string,
+.support-modules-content .ra-string {
     color: var(--success-color);
 }
 
 #rego-editor .ra-number,
 #rego-editor .ra-constant,
-#rego-editor .ra-root {
+#rego-editor .ra-root,
+.support-modules-content .ra-number,
+.support-modules-content .ra-constant,
+.support-modules-content .ra-root {
     color: var(--info-color);
 }
 
 #rego-editor .ra-operator,
-#rego-editor .ra-call {
+#rego-editor .ra-call,
+.support-modules-content .ra-operator,
+.support-modules-content .ra-call {
     color: var(--secondary-accent);
 }
 
-#rego-editor .ra-placeholder {
+#rego-editor .ra-placeholder,
+.support-modules-content .ra-placeholder {
     color: var(--text-color);
     opacity: 0.5;
 }
@@ -848,6 +858,52 @@ dialog#result-modal[open] {
     line-height: 1.4;
     font-family: var(--font-code);
     color: var(--text-color);
+}
+
+/* Support Modules Modal Content */
+.support-modules-content {
+    text-align: left;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.support-modules-content > p {
+    margin-bottom: 1em;
+}
+
+.support-module-card {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1em;
+    margin-bottom: 1em;
+    border-radius: var(--radius-lg);
+    border-left: 4px solid var(--accent-color);
+}
+
+.support-module-title {
+    margin: 0 0 0.75em 0;
+    color: var(--accent-color);
+    font-size: 1.1em;
+    font-family: var(--font-heading);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.support-module-code {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 0.75em;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin: 0;
+    font-size: 0.9em;
+    line-height: 1.4;
+    font-family: var(--font-code);
+    color: var(--text-color);
+    tab-size: 4;
+}
+
+.support-module-code code {
+    background: transparent;
+    padding: 0;
 }
 
 /* ============================================

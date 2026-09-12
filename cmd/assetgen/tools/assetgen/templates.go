@@ -572,7 +572,8 @@ dialog#result-modal[open] {
 
 /* Check Manual Button */
 #check-manual-btn,
-#check-test-payload-btn {
+#check-test-payload-btn,
+#check-support-modules-btn {
     border-radius: 0;
 }
 
