@@ -90,7 +90,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	pack, _ := repo.GetPack(packID)
+	pack, ok := repo.GetPack(packID)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "Error: loaded quest pack not found in repository")
+		os.Exit(1)
+	}
 	fmt.Printf("Testing quest pack: %s\n\n", pack.Meta.Title)
 
 	verifier := quest.NewVerifier()
