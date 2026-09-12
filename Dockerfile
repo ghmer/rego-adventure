@@ -21,23 +21,18 @@ FROM alpine:3.24
 
 WORKDIR /app
 
-# Install ca-certificates
-RUN apk add --no-cache ca-certificates
+# Runtime dependencies and the non-root user in one layer; the fixed UID
+# keeps ownership metadata stable across rebuilds.
+RUN apk add --no-cache ca-certificates \
+    && adduser -D -u 10001 appuser
 
-# Copy the entire frontend directory
-COPY frontend ./frontend
+# Copy the entire frontend directory, owned by the runtime user.
+# The app only reads these files, so no post-copy chown layer is needed.
+COPY --chown=appuser:appuser frontend ./frontend
 
-# Copy the binary
-COPY --from=builder /app/bin/rego-adventure ./rego-adventure
-
-# Ensure the binary is executable
-RUN chmod +x rego-adventure
-
-# Create a non-root user
-RUN adduser -D -u 10001 appuser
-
-# Set ownership of the application directory
-RUN chown -R appuser:appuser /app
+# Copy the binary. go build emits a mode-0755 executable, so no chmod
+# layer is needed either.
+COPY --from=builder --chown=appuser:appuser /app/bin/rego-adventure ./rego-adventure
 
 # Switch to non-root user
 USER appuser
