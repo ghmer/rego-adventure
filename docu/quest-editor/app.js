@@ -218,10 +218,7 @@ function loadEditor() {
 
 function saveJSON() {
     if (!questData) return;
-    
-    // Collect current form data
-    collectFormData();
-    
+
     // Validate
     if (!validateData()) {
         alert('Please fix validation errors before saving');
@@ -276,29 +273,33 @@ function switchToQuest(questIndex) {
         questView.id = `view-quest-${questIndex}`;
         questView.style.display = '';
         document.querySelector('.main-content').appendChild(questView);
-        
+
         // Initialize maxlength attributes for quest fields
         initializeQuestMaxLengthAttributes(questView);
-        
+
         // Setup tab switching for this quest view
-        setupQuestTabs(questView, questIndex);
-        
+        setupQuestTabs(questView);
+
+        // Form listeners only need to be attached once per view; attaching
+        // them on every render would stack duplicate handlers.
+        setupQuestFormListeners(questView, questIndex);
+
         // Setup delete button
-        questView.querySelector('#deleteQuestBtn').addEventListener('click', () => {
+        questView.querySelector('[data-field="deleteQuestBtn"]').addEventListener('click', () => {
             deleteQuest(questIndex);
         });
-        
+
         // Setup add buttons
-        questView.querySelector('#addLoreBtn').addEventListener('click', () => {
+        questView.querySelector('[data-field="addLoreBtn"]').addEventListener('click', () => {
             addLoreItem(questIndex);
         });
-        questView.querySelector('#addHintBtn').addEventListener('click', () => {
+        questView.querySelector('[data-field="addHintBtn"]').addEventListener('click', () => {
             addHintItem(questIndex);
         });
-        questView.querySelector('#addTestBtn').addEventListener('click', () => {
+        questView.querySelector('[data-field="addTestBtn"]').addEventListener('click', () => {
             addTestItem(questIndex);
         });
-        questView.querySelector('#addSupportModuleBtn').addEventListener('click', () => {
+        questView.querySelector('[data-field="addSupportModuleBtn"]').addEventListener('click', () => {
             addSupportModuleItem(questIndex);
         });
     }
@@ -324,29 +325,29 @@ function initializeQuestMaxLengthAttributes(questView) {
         'quest-manual-rego_snippet': VALIDATION_LIMITS.MANUAL_REGO_SNIPPET,
         'quest-manual-external_link': VALIDATION_LIMITS.MANUAL_EXTERNAL_LINK
     };
-    
-    Object.entries(questFields).forEach(([id, maxLength]) => {
-        const el = questView.querySelector(`#${id}`);
+
+    Object.entries(questFields).forEach(([field, maxLength]) => {
+        const el = questView.querySelector(`[data-field="${field}"]`);
         if (el) el.maxLength = maxLength;
     });
 }
 
-function setupQuestTabs(questView, questIndex) {
+function setupQuestTabs(questView) {
     const tabBtns = questView.querySelectorAll('.tab-btn');
     const tabContents = questView.querySelectorAll('.tab-content');
-    
+
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const tabName = btn.dataset.tab;
-            
+
             // Update buttons
             tabBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
+
             // Update content
             tabContents.forEach(content => {
                 content.classList.remove('active');
-                if (content.id === `tab-${tabName}`) {
+                if (content.dataset.tab === tabName) {
                     content.classList.add('active');
                 }
             });
@@ -459,28 +460,25 @@ function renderQuestNav() {
 
 function renderQuestDetails(questIndex, questView) {
     const quest = questData.quests[questIndex];
-    
+
     // Update title
-    questView.querySelector('#questViewTitle').textContent = `Quest ${quest.id}: ${quest.title || 'Untitled'}`;
-    
+    questView.querySelector('[data-field="questViewTitle"]').textContent = `Quest ${quest.id}: ${quest.title || 'Untitled'}`;
+
     // Populate form fields
-    questView.querySelector('#quest-id').value = quest.id || '';
-    questView.querySelector('#quest-title').value = quest.title || '';
-    questView.querySelector('#quest-query').value = quest.query || 'data.play.allow';
-    questView.querySelector('#quest-description_task').value = quest.description_task || '';
-    questView.querySelector('#quest-solution').value = quest.solution || '';
-    questView.querySelector('#quest-apply_template').checked = quest.apply_template || false;
-    questView.querySelector('#quest-template').value = quest.template || '';
-    
+    questView.querySelector('[data-field="quest-id"]').value = quest.id || '';
+    questView.querySelector('[data-field="quest-title"]').value = quest.title || '';
+    questView.querySelector('[data-field="quest-query"]').value = quest.query || 'data.play.allow';
+    questView.querySelector('[data-field="quest-description_task"]').value = quest.description_task || '';
+    questView.querySelector('[data-field="quest-solution"]').value = quest.solution || '';
+    questView.querySelector('[data-field="quest-apply_template"]').checked = quest.apply_template || false;
+    questView.querySelector('[data-field="quest-template"]').value = quest.template || '';
+
     // Manual fields
     if (quest.manual) {
-        questView.querySelector('#quest-manual-data_model').value = quest.manual.data_model || '';
-        questView.querySelector('#quest-manual-rego_snippet').value = quest.manual.rego_snippet || '';
-        questView.querySelector('#quest-manual-external_link').value = quest.manual.external_link || '';
+        questView.querySelector('[data-field="quest-manual-data_model"]').value = quest.manual.data_model || '';
+        questView.querySelector('[data-field="quest-manual-rego_snippet"]').value = quest.manual.rego_snippet || '';
+        questView.querySelector('[data-field="quest-manual-external_link"]').value = quest.manual.external_link || '';
     }
-    
-    // Setup change listeners
-    setupQuestFormListeners(questView, questIndex);
 
     // Render lore, hints, support modules, tests
     renderLore(questIndex, questView);
@@ -490,12 +488,12 @@ function renderQuestDetails(questIndex, questView) {
 }
 
 function renderLore(questIndex, questView) {
-    const container = questView.querySelector('#loreList');
+    const container = questView.querySelector('[data-field="loreList"]');
     container.innerHTML = '';
-    
+
     const quest = questData.quests[questIndex];
     if (!quest.description_lore) quest.description_lore = [];
-    
+
     quest.description_lore.forEach((item, index) => {
         const div = createListItem(item, () => removeLoreItem(questIndex, index), (value) => {
             questData.quests[questIndex].description_lore[index] = value;
@@ -505,12 +503,12 @@ function renderLore(questIndex, questView) {
 }
 
 function renderHints(questIndex, questView) {
-    const container = questView.querySelector('#hintsList');
+    const container = questView.querySelector('[data-field="hintsList"]');
     container.innerHTML = '';
-    
+
     const quest = questData.quests[questIndex];
     if (!quest.hints) quest.hints = [];
-    
+
     quest.hints.forEach((item, index) => {
         const div = createListItem(item, () => removeHintItem(questIndex, index), (value) => {
             questData.quests[questIndex].hints[index] = value;
@@ -520,12 +518,12 @@ function renderHints(questIndex, questView) {
 }
 
 function renderTests(questIndex, questView) {
-    const container = questView.querySelector('#testsList');
+    const container = questView.querySelector('[data-field="testsList"]');
     container.innerHTML = '';
-    
+
     const quest = questData.quests[questIndex];
     if (!quest.tests) quest.tests = [];
-    
+
     quest.tests.forEach((test, index) => {
         const div = createTestItem(test, questIndex, index);
         container.appendChild(div);
@@ -540,7 +538,7 @@ function renderTests(questIndex, questView) {
 // with its own package declaration.
 
 function renderSupportModules(questIndex, questView) {
-    const container = questView.querySelector('#supportModulesList');
+    const container = questView.querySelector('[data-field="supportModulesList"]');
     container.innerHTML = '';
 
     const quest = questData.quests[questIndex];
@@ -862,17 +860,17 @@ function setupFormListeners() {
 
 function setupQuestFormListeners(questView, questIndex) {
     const fields = [
-        { id: 'quest-id', key: 'id', type: 'number' },
-        { id: 'quest-title', key: 'title', type: 'text' },
-        { id: 'quest-query', key: 'query', type: 'text' },
-        { id: 'quest-description_task', key: 'description_task', type: 'text' },
-        { id: 'quest-solution', key: 'solution', type: 'text' },
-        { id: 'quest-apply_template', key: 'apply_template', type: 'checkbox' },
-        { id: 'quest-template', key: 'template', type: 'text' }
+        { field: 'quest-id', key: 'id', type: 'number' },
+        { field: 'quest-title', key: 'title', type: 'text' },
+        { field: 'quest-query', key: 'query', type: 'text' },
+        { field: 'quest-description_task', key: 'description_task', type: 'text' },
+        { field: 'quest-solution', key: 'solution', type: 'text' },
+        { field: 'quest-apply_template', key: 'apply_template', type: 'checkbox' },
+        { field: 'quest-template', key: 'template', type: 'text' }
     ];
-    
-    fields.forEach(({ id, key, type }) => {
-        const el = questView.querySelector(`#${id}`);
+
+    fields.forEach(({ field, key, type }) => {
+        const el = questView.querySelector(`[data-field="${field}"]`);
         if (el) {
             el.addEventListener('change', () => {
                 if (type === 'number') {
@@ -882,26 +880,26 @@ function setupQuestFormListeners(questView, questIndex) {
                 } else {
                     questData.quests[questIndex][key] = el.value;
                 }
-                
+
                 // Update title in navigation if changed
                 if (key === 'title' || key === 'id') {
                     renderQuestNav();
-                    questView.querySelector('#questViewTitle').textContent = 
+                    questView.querySelector('[data-field="questViewTitle"]').textContent =
                         `Quest ${questData.quests[questIndex].id}: ${questData.quests[questIndex].title || 'Untitled'}`;
                 }
             });
         }
     });
-    
+
     // Manual fields
     const manualFields = [
-        { id: 'quest-manual-data_model', key: 'data_model' },
-        { id: 'quest-manual-rego_snippet', key: 'rego_snippet' },
-        { id: 'quest-manual-external_link', key: 'external_link' }
+        { field: 'quest-manual-data_model', key: 'data_model' },
+        { field: 'quest-manual-rego_snippet', key: 'rego_snippet' },
+        { field: 'quest-manual-external_link', key: 'external_link' }
     ];
-    
-    manualFields.forEach(({ id, key }) => {
-        const el = questView.querySelector(`#${id}`);
+
+    manualFields.forEach(({ field, key }) => {
+        const el = questView.querySelector(`[data-field="${field}"]`);
         if (el) {
             el.addEventListener('change', () => {
                 if (!questData.quests[questIndex].manual) {
@@ -919,11 +917,6 @@ function setupQuestFormListeners(questView, questIndex) {
 function updateQuestCount() {
     const count = questData.quests ? questData.quests.length : 0;
     document.getElementById('questCount').textContent = `${count} quest${count !== 1 ? 's' : ''}`;
-}
-
-function collectFormData() {
-    // Data is collected in real-time via change listeners
-    // This function is kept for compatibility
 }
 
 function validateData() {
