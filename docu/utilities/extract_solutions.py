@@ -20,32 +20,13 @@ This script:
 1. Finds all quests.json files in frontend/quests/*/
 2. Parses each JSON file
 3. Extracts the "solution" field along with quest metadata (id, title) from every quest
-4. Properly unescapes the solution text (handling \n, \", etc.)
-5. Formats output as markdown with quest headers
-6. Appends solutions to solution-{genre}.md files
+4. Formats output as markdown with quest headers
+5. Appends solutions to solution-{genre}.md files
 """
 
 import json
 import sys
 from pathlib import Path
-
-
-def unescape_solution(solution_text):
-    """
-    Properly unescape JSON string content.
-    
-    Python's json.loads() already handles most escape sequences,
-    but we ensure the text is properly decoded.
-    
-    Args:
-        solution_text: The solution string from JSON
-        
-    Returns:
-        Properly unescaped string with actual newlines, quotes, etc.
-    """
-    # The json module already handles unescaping when parsing,
-    # so we just need to return the text as-is
-    return solution_text
 
 
 def extract_solutions_from_file(quest_file_path):
@@ -71,8 +52,8 @@ def extract_solutions_from_file(quest_file_path):
                     quest_id = quest.get('id', 'Unknown')
                     quest_title = quest.get('title', 'Untitled Quest')
                     
-                    # Unescape the solution text
-                    solution = unescape_solution(quest['solution'])
+                    # json.load() already unescaped the string content
+                    solution = quest['solution']
                     
                     # Store as tuple with metadata
                     solutions.append((quest_id, quest_title, solution))
