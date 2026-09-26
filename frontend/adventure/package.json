@@ -13,10 +13,10 @@
   "devDependencies": {
     "dompurify": "3.4.15",
     "driver.js": "1.8.0",
-    "marked": "18.0.13",
+    "marked": "18.0.14",
     "canvas-confetti": "1.9.4",
     "oidc-client-ts": "3.5.0",
-    "yace": "1.1.0"
+    "yace": "1.1.1"
   },
   "repository": {
     "type": "git",
