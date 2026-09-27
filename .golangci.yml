@@ -23,6 +23,7 @@ linters:
     - testifylint
     - misspell
     - nolintlint
+    - modernize
   settings:
     funlen:
       lines: 85

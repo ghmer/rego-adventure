@@ -108,8 +108,8 @@ func (c *Config) parseTrustedProxies() error {
 		return nil
 	}
 
-	rawProxies := strings.Split(trustedProxiesEnv, ",")
-	for _, proxy := range rawProxies {
+	rawProxies := strings.SplitSeq(trustedProxiesEnv, ",")
+	for proxy := range rawProxies {
 		proxy = strings.TrimSpace(proxy)
 		if proxy == "" {
 			continue
@@ -177,7 +177,7 @@ func (c *Config) parseAllowedAlgorithms() error {
 		return nil
 	}
 
-	for _, alg := range strings.Split(raw, ",") {
+	for alg := range strings.SplitSeq(raw, ",") {
 		alg = strings.TrimSpace(alg)
 		if alg == "" {
 			continue
