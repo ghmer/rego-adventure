@@ -17,8 +17,7 @@
 package http
 
 import (
-	"log/slog"
-	"os"
+	"fmt"
 
 	"github.com/ghmer/rego-adventure/v2/backend/config"
 
@@ -32,8 +31,9 @@ type Server struct {
 	handler *Handler
 }
 
-// New creates a new server instance
-func New(cfg *config.Config, handler *Handler) *Server {
+// New creates a new server instance. Proxy configuration errors are
+// returned instead of exiting, so the caller decides how to fail.
+func New(cfg *config.Config, handler *Handler) (*Server, error) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
@@ -43,17 +43,15 @@ func New(cfg *config.Config, handler *Handler) *Server {
 	// Add structured logging middleware
 	r.Use(StructuredLogger())
 
-	// Configure trusted proxies
-	if len(cfg.TrustedProxies) > 0 {
-		if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
-			slog.Error("failed to set trusted proxies", "error", err)
-			os.Exit(1)
-		}
-	} else {
-		if err := r.SetTrustedProxies(nil); err != nil {
-			slog.Error("failed to set trusted proxies to nil", "error", err)
-			os.Exit(1)
-		}
+	// Configure trusted proxies: nil disables proxy trust entirely, so
+	// client IPs are taken from the socket address rather than spoofable
+	// headers.
+	proxies := cfg.TrustedProxies
+	if len(proxies) == 0 {
+		proxies = nil
+	}
+	if err := r.SetTrustedProxies(proxies); err != nil {
+		return nil, fmt.Errorf("configuring trusted proxies: %w", err)
 	}
 
 	// Disable automatic redirects that cause loops
@@ -64,7 +62,7 @@ func New(cfg *config.Config, handler *Handler) *Server {
 		router:  r,
 		config:  cfg,
 		handler: handler,
-	}
+	}, nil
 }
 
 // Router returns the configured Gin router

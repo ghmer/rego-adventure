@@ -69,6 +69,12 @@ func main() {
 		}
 	}
 
+	// Make an empty quests directory impossible to overlook: the app
+	// would serve an unusable frontpage with no packs.
+	if questRepo.GetNumberOfPacks() == 0 {
+		slog.Warn("no quest packs loaded", "quests_dir", questsDir)
+	}
+
 	// Initialize Verifier
 	verifier := quest.NewVerifier()
 
@@ -76,7 +82,11 @@ func main() {
 	handler := http.NewHandler(questRepo, verifier)
 
 	// Setup Server
-	srv := http.New(cfg, handler)
+	srv, err := http.New(cfg, handler)
+	if err != nil {
+		slog.Error("failed to create server", "error", err)
+		os.Exit(1)
+	}
 	srv.SetupRoutes()
 
 	// Start Server

@@ -148,6 +148,15 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		// Load() guarantees a JWKS when auth is enabled, but hand-built
+		// configs (tests, embedders) may not carry one; reject instead of
+		// panicking on a nil method value.
+		if cfg.JWKS == nil {
+			slog.Error("authentication enabled but JWKS is not initialized")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
 		token, err := jwt.Parse(tokenString, cfg.JWKS.Keyfunc,
 			jwt.WithValidMethods(cfg.Auth.AllowedAlgorithms),
 			// Access tokens are short-lived credentials; a token without an

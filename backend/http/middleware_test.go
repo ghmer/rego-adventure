@@ -381,3 +381,15 @@ func TestAuth_RejectsTokenWithoutExpiration(t *testing.T) {
 		t.Errorf("expected 401 for token without exp claim, got %d", w.Code)
 	}
 }
+
+func TestAuth_Returns500WhenJWKSIsMissing(t *testing.T) {
+	// Auth enabled but the JWKS never initialized: a nil method value
+	// would panic; the middleware must reject with 500 instead.
+	s := newAuthTestServer(t, []string{"RS256"})
+	s.cfg.JWKS = nil
+
+	w := serveAuthRequest(t, s.cfg, "Bearer "+s.signRS256(t))
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for missing JWKS, got %d", w.Code)
+	}
+}

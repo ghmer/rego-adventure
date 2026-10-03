@@ -18,6 +18,7 @@ package quest
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -36,6 +37,10 @@ func TestValidateStringLength_Valid(t *testing.T) {
 		{"Exact length", strings.Repeat("a", 50), 50, "field"},
 		{"Under max", "hello", 100, "field"},
 		{"Unicode chars", "héllo wörld", 50, "field"},
+		// 50 two-byte runes: 100 bytes, exactly 50 characters. Byte-based
+		// counting would reject this at the limit it should pass.
+		{"Multibyte at limit", strings.Repeat("é", 50), 50, "field"},
+		{"Astrall runes under max", strings.Repeat("🙂", 10), 10, "field"},
 	}
 
 	for _, tt := range tests {
@@ -59,6 +64,9 @@ func TestValidateStringLength_ExceedsMax(t *testing.T) {
 		{"One over", "hello", 4, "field", 5},
 		{"Way over", strings.Repeat("a", 200), 100, "field", 200},
 		{"Single char over", "ab", 1, "field", 2},
+		// Two runes over, but still under max+1 bytes: proves rune counting
+		// in the rejection direction too.
+		{"Multibyte one rune over", strings.Repeat("é", 3), 2, "field", 3},
 	}
 
 	for _, tt := range tests {
@@ -70,6 +78,9 @@ func TestValidateStringLength_ExceedsMax(t *testing.T) {
 			// Check error message contains expected info
 			if err != nil && !strings.Contains(err.Error(), tt.fieldName) {
 				t.Errorf("error should contain field name %q, got: %v", tt.fieldName, err)
+			}
+			if err != nil && !strings.Contains(err.Error(), fmt.Sprintf("got %d", tt.wantLength)) {
+				t.Errorf("error should report the rune count %d, got: %v", tt.wantLength, err)
 			}
 		})
 	}
@@ -199,6 +210,24 @@ func TestValidateQuest_Valid(t *testing.T) {
 	err := validateQuest(&quest, 1)
 	if err != nil {
 		t.Errorf("validateQuest with valid quest returned error: %v", err)
+	}
+}
+
+func TestValidateQuest_MissingQuery(t *testing.T) {
+	quest := createValidQuest()
+	quest.Query = ""
+	err := validateQuest(&quest, 1)
+	if err == nil || !strings.Contains(err.Error(), "query") {
+		t.Errorf("expected empty query validation error, got: %v", err)
+	}
+}
+
+func TestValidateQuest_WhitespaceQuery(t *testing.T) {
+	quest := createValidQuest()
+	quest.Query = "   "
+	err := validateQuest(&quest, 1)
+	if err == nil || !strings.Contains(err.Error(), "query") {
+		t.Errorf("expected whitespace-only query validation error, got: %v", err)
 	}
 }
 
