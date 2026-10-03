@@ -150,6 +150,9 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 
 		token, err := jwt.Parse(tokenString, cfg.JWKS.Keyfunc,
 			jwt.WithValidMethods(cfg.Auth.AllowedAlgorithms),
+			// Access tokens are short-lived credentials; a token without an
+			// exp claim would otherwise be accepted forever.
+			jwt.WithExpirationRequired(),
 		)
 		if err != nil || !token.Valid {
 			abortUnauthorized(c, errInvalidToken)

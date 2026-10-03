@@ -21,12 +21,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	nethttp "net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	"github.com/ghmer/rego-adventure/v2/backend/config"
 	"github.com/ghmer/rego-adventure/v2/backend/http"
@@ -89,13 +87,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	server := &nethttp.Server{
-		Addr:    addr,
-		Handler: srv.Router(),
-		// Bound the time to read request headers so slow clients cannot
-		// hold connections open indefinitely (slowloris)
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	server := http.NewTestServer(addr, srv.Router())
 	if err := http.RunWithGracefulShutdown(ctx, server, http.DefaultShutdownTimeout); err != nil {
 		slog.Error("server exited", "error", err)
 		os.Exit(1)

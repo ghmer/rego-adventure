@@ -142,6 +142,12 @@ type VerifyRequest struct {
 func (h *Handler) VerifySolution(c *gin.Context) {
 	var req VerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// A body beyond the MaxBytesReader limit is a size problem, not a
+		// syntax problem; report it as 413 so clients can tell them apart.
+		if _, oversized := errors.AsType[*http.MaxBytesError](err); oversized {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "Request body too large"})
+			return
+		}
 		slog.Warn("error binding JSON", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
