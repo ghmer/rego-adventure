@@ -20,7 +20,7 @@
  */
 
 import { showConfetti, triggerResultEffect, cleanupEffects } from '../effects.js';
-import { fetchTestPayload } from '../services/api-service.js';
+import { fetchTestPayload, fetchSupportModules } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
 import { SCORING } from '../services/constants.js';
@@ -60,19 +60,20 @@ export function formatActualValue(test) {
 /**
  * Build the hint confirmation text for the next reveal, or null when there
  * is nothing left to reveal.
- * @param {Object} quest - Current quest (hints array, solution optional)
+ * @param {Object} quest - Current quest (hints_count and has_solution are
+ * derived by the backend; the pack payload carries no hint/solution content)
  * @param {number} revealedCount - Number of already revealed hints
  * @returns {string|null} Confirmation text or null
  */
 export function buildHintConfirmationText(quest, revealedCount) {
     if (!quest) return null;
 
-    const totalHints = Array.isArray(quest.hints) ? quest.hints.length : 0;
+    const totalHints = quest.hints_count ?? 0;
     if (revealedCount < totalHints) {
         return `Reveal hint ${revealedCount + 1} of ${totalHints}? ` +
             'Revealing hints reduces the points you can earn for this quest.';
     }
-    if (quest.solution) {
+    if (quest.has_solution) {
         return 'Reveal the solution? This reduces the points you can earn for this quest.';
     }
     return null;
@@ -83,10 +84,11 @@ export class ModalManager {
         this.state = state;
         this.ui = uiManager;
 
-        // Test payloads are immutable for the lifetime of a pack load, so
-        // they are cached per pack+quest instead of refetching on every
-        // modal open
+        // Test payloads and support module sources are immutable for the
+        // lifetime of a pack load, so they are cached per pack+quest
+        // instead of refetching on every modal open
         this.testPayloadCache = new Map();
+        this.supportModulesCache = new Map();
 
         this.setupDialogHandlers();
     }
@@ -184,7 +186,7 @@ export class ModalManager {
         const quest = this.state.currentQuest;
         if (!quest) return;
 
-        const revealedCount = this.ui.elements.hintsList.children.length;
+        const revealedCount = this.state.currentQuestHintsUsed;
         const text = buildHintConfirmationText(quest, revealedCount);
         if (!text) return;
 
@@ -238,14 +240,26 @@ export class ModalManager {
     }
 
     /**
-     * Show support modules modal
+     * Show support modules modal. The sources are not part of the pack
+     * payload and are fetched when the player opens the modal.
      */
-    showSupportModules() {
+    async showSupportModules() {
         const quest = this.state.currentQuest;
-        if (Array.isArray(quest?.support_modules) && quest.support_modules.length > 0) {
-            this.ui.renderSupportModules(quest.support_modules);
+        if (!quest?.has_support_modules || this.state.currentQuestId <= 0) return;
+
+        try {
+            const cacheKey = `${this.state.currentPackId}:${this.state.currentQuestId}`;
+            let modules = this.supportModulesCache.get(cacheKey);
+            if (!modules) {
+                const data = await fetchSupportModules(this.state.currentPackId, this.state.currentQuestId);
+                modules = data.support_modules ?? [];
+                this.supportModulesCache.set(cacheKey, modules);
+            }
+            this.ui.renderSupportModules(modules);
             this.openDialog(this.ui.elements.supportModulesModal);
             this.ui.elements.closeSupportModulesBtn.focus();
+        } catch (error) {
+            handleApiError(error, 'load support modules');
         }
     }
 

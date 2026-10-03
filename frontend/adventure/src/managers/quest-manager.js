@@ -20,6 +20,8 @@
  */
 
 import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
+import { fetchQuestHint, fetchQuestSolution } from '../services/api-service.js';
+import { handleApiError } from '../services/error-service.js';
 
 /**
  * Manages quest loading and navigation
@@ -28,6 +30,86 @@ export class QuestManager {
     constructor(state, uiManager) {
         this.state = state;
         this.ui = uiManager;
+
+        // Hint texts and the solution are revealed through the API, not
+        // shipped with the pack payload. They are immutable per pack load,
+        // so fetched texts are cached per pack+quest. The in-flight flag
+        // collapses double clicks while a fetch is running; restorePromise
+        // lets showHint wait for an in-flight restore instead of racing it.
+        this.revealCache = new Map();
+        this.hintRequestInFlight = false;
+        this.restorePromise = null;
+    }
+
+    /**
+     * Get (or create) the reveal cache entry for a quest
+     * @param {number} questId - The quest identifier
+     * @returns {Object} { hints: string[], solution: string|null }
+     */
+    getCachedReveals(questId) {
+        const key = `${this.state.currentPackId}:${questId}`;
+        let entry = this.revealCache.get(key);
+        if (!entry) {
+            entry = { hints: [], solution: null };
+            this.revealCache.set(key, entry);
+        }
+        return entry;
+    }
+
+    /**
+     * Load a single hint text by its 1-based ID, from cache when available
+     * @param {number} questId - The quest identifier
+     * @param {number} hintId - The 1-based hint identifier
+     * @returns {Promise<string>} The hint text
+     * @throws {ApiError} If the request fails
+     */
+    async loadHintText(questId, hintId) {
+        const cache = this.getCachedReveals(questId);
+        const cached = cache.hints[hintId - 1];
+        if (typeof cached === 'string') return cached;
+
+        const data = await fetchQuestHint(this.state.currentPackId, questId, hintId);
+        cache.hints[hintId - 1] = data.hint;
+        return data.hint;
+    }
+
+    /**
+     * Load the solution text, from cache when available
+     * @param {number} questId - The quest identifier
+     * @returns {Promise<string>} The solution code
+     * @throws {ApiError} If the request fails
+     */
+    async loadSolutionText(questId) {
+        const cache = this.getCachedReveals(questId);
+        if (cache.solution !== null) return cache.solution;
+
+        const data = await fetchQuestSolution(this.state.currentPackId, questId);
+        cache.solution = data.solution;
+        return data.solution;
+    }
+
+    /**
+     * Append a revealed hint item to the hints list
+     * @param {string} text - The hint text
+     */
+    appendHintItem(text) {
+        const template = document.getElementById('hint-item-template');
+        const hintItem = template.content.cloneNode(true);
+        hintItem.querySelector('code').textContent = text;
+        this.ui.elements.hintsList.classList.remove('hidden');
+        this.ui.elements.hintsList.appendChild(hintItem);
+    }
+
+    /**
+     * Append the revealed solution item to the hints list
+     * @param {string} text - The solution code
+     */
+    appendSolutionItem(text) {
+        const template = document.getElementById('hint-solution-template');
+        const solutionItem = template.content.cloneNode(true);
+        solutionItem.querySelector('code').textContent = text;
+        this.ui.elements.hintsList.classList.remove('hidden');
+        this.ui.elements.hintsList.appendChild(solutionItem);
     }
 
     /**
@@ -288,70 +370,102 @@ export class QuestManager {
     /**
      * Re-render hints (and optionally the solution) that were revealed in
      * a previous session for the given quest, so a page reload does not
-     * hide them while their score penalty persists
+     * hide them while their score penalty persists. Hint texts are fetched
+     * from the API (cached after the first fetch). The promise is stored
+     * on restorePromise so a concurrent showHint waits for it.
      * @param {number} questId - The quest identifier
+     * @returns {Promise<void>} Resolves when the restore has been applied
      */
     restoreQuestHints(questId) {
-        const saved = this.state.loadQuestHintState(questId);
-        if (!saved || (!saved.hintsUsed && !saved.solutionViewed)) return;
+        this.restorePromise = (async () => {
+            const saved = this.state.loadQuestHintState(questId);
+            if (!saved || (!saved.hintsUsed && !saved.solutionViewed)) return;
 
-        const hints = Array.isArray(this.state.currentQuest?.hints) ? this.state.currentQuest.hints : [];
-        const hintTemplate = document.getElementById('hint-item-template');
+            const totalHints = this.state.currentQuest?.hints_count ?? 0;
+            const hintsToRestore = Math.min(saved.hintsUsed, totalHints);
 
-        this.ui.elements.hintsList.classList.remove('hidden');
-        for (let i = 0; i < saved.hintsUsed && i < hints.length; i++) {
-            const hintItem = hintTemplate.content.cloneNode(true);
-            hintItem.querySelector('code').textContent = hints[i];
-            this.ui.elements.hintsList.appendChild(hintItem);
-        }
+            try {
+                const cache = this.getCachedReveals(questId);
+                const loads = [];
+                for (let i = 0; i < hintsToRestore; i++) {
+                    loads.push(this.loadHintText(questId, i + 1));
+                }
+                await Promise.all(loads);
+                // The user may have navigated elsewhere while hints were loading
+                if (this.state.currentQuestId !== questId) return;
 
-        if (saved.solutionViewed && this.state.currentQuest?.solution) {
-            const solutionItem = document.getElementById('hint-solution-template').content.cloneNode(true);
-            solutionItem.querySelector('code').textContent = this.state.currentQuest.solution;
-            this.ui.elements.hintsList.appendChild(solutionItem);
-            this.ui.elements.hintBtn.classList.add('hidden');
-        }
+                for (let i = 0; i < hintsToRestore; i++) {
+                    this.appendHintItem(cache.hints[i]);
+                }
 
-        this.state.currentQuestHintsUsed = saved.hintsUsed;
-        this.state.currentQuestSolutionViewed = saved.solutionViewed;
+                if (saved.solutionViewed && this.state.currentQuest?.has_solution) {
+                    const solution = await this.loadSolutionText(questId);
+                    if (this.state.currentQuestId !== questId) return;
+                    this.appendSolutionItem(solution);
+                    this.ui.elements.hintBtn.classList.add('hidden');
+                }
 
-        if (saved.hintsUsed > 0 && !saved.solutionViewed) {
-            this.ui.updateHintButtonText(this.state.currentQuest, saved.hintsUsed, this.state.label('hintButton'));
-        }
-        this.ui.updateQuestFooterVisibility();
+                this.state.currentQuestHintsUsed = saved.hintsUsed;
+                this.state.currentQuestSolutionViewed = saved.solutionViewed;
+
+                if (saved.hintsUsed > 0 && !saved.solutionViewed) {
+                    this.ui.updateHintButtonText(this.state.currentQuest, saved.hintsUsed, this.state.label('hintButton'));
+                }
+                this.ui.updateQuestFooterVisibility();
+            } catch (error) {
+                handleApiError(error, 'restore hints');
+            }
+        })();
+        return this.restorePromise;
     }
 
     /**
-     * Show next hint or solution
+     * Show the next hint or the solution. Both are fetched from the API:
+     * the pack payload only describes how many hints exist and whether a
+     * solution is available.
      */
-    showHint() {
-        if (!this.state.currentQuest || !this.state.currentQuest.hints) return;
-        
-        this.ui.elements.hintsList.classList.remove('hidden');
-        const currentHintsCount = this.ui.elements.hintsList.children.length;
-        const totalHints = this.state.currentQuest.hints.length;
-        
-        if (currentHintsCount < totalHints) {
-            // Show next hint
-            const template = document.getElementById('hint-item-template');
-            const hintItem = template.content.cloneNode(true);
-            hintItem.querySelector('code').textContent = this.state.currentQuest.hints[currentHintsCount];
-            this.ui.elements.hintsList.appendChild(hintItem);
-            
-            this.state.currentQuestHintsUsed++;
-            this.state.persistQuestHintState();
-            this.ui.updateHintButtonText(this.state.currentQuest, currentHintsCount + 1, this.state.label('hintButton'));
-        } else if (this.state.currentQuest.solution) {
-            // Show solution
-            const template = document.getElementById('hint-solution-template');
-            const solutionItem = template.content.cloneNode(true);
-            solutionItem.querySelector('code').textContent = this.state.currentQuest.solution;
-            this.ui.elements.hintsList.appendChild(solutionItem);
-            
-            this.state.currentQuestSolutionViewed = true;
-            this.state.persistQuestHintState();
-            this.ui.elements.hintBtn.classList.add('hidden');
-            this.ui.updateQuestFooterVisibility();
+    async showHint() {
+        const quest = this.state.currentQuest;
+        if (!quest || this.hintRequestInFlight) return;
+
+        this.hintRequestInFlight = true;
+        try {
+            const questId = this.state.currentQuestId;
+            if (this.restorePromise) {
+                // A restore in progress renders revealed hints itself;
+                // wait for it so the same hint is never rendered twice
+                await this.restorePromise;
+                if (this.state.currentQuestId !== questId) return;
+            }
+            const hintsUsed = this.state.currentQuestHintsUsed;
+            const totalHints = quest.hints_count ?? 0;
+
+            if (hintsUsed < totalHints) {
+                // Show next hint
+                const text = await this.loadHintText(questId, hintsUsed + 1);
+                if (this.state.currentQuestId !== questId) return;
+                if (this.state.currentQuestHintsUsed !== hintsUsed) return;
+                this.appendHintItem(text);
+
+                this.state.currentQuestHintsUsed++;
+                this.state.persistQuestHintState();
+                this.ui.updateHintButtonText(quest, hintsUsed + 1, this.state.label('hintButton'));
+            } else if (quest.has_solution && !this.state.currentQuestSolutionViewed) {
+                // Show solution
+                const solution = await this.loadSolutionText(questId);
+                if (this.state.currentQuestId !== questId) return;
+                if (this.state.currentQuestSolutionViewed) return;
+                this.appendSolutionItem(solution);
+
+                this.state.currentQuestSolutionViewed = true;
+                this.state.persistQuestHintState();
+                this.ui.elements.hintBtn.classList.add('hidden');
+                this.ui.updateQuestFooterVisibility();
+            }
+        } catch (error) {
+            handleApiError(error, 'reveal hint');
+        } finally {
+            this.hintRequestInFlight = false;
         }
     }
 }

@@ -143,6 +143,55 @@ export async function fetchTestPayload(packId, questId) {
 }
 
 /**
+ * Fetch a single hint by its 1-based ID. Hint texts are not part of the
+ * pack payload; the frontend asks for them one at a time.
+ * @param {string} packId - The pack identifier
+ * @param {number} questId - The quest identifier
+ * @param {number} hintId - The 1-based hint identifier
+ * @returns {Promise<Object>} Object with the hint text ({ hint })
+ * @throws {ApiError} If the request fails
+ */
+export async function fetchQuestHint(packId, questId, hintId) {
+    const response = await fetchWithAuth(
+        `${API.BASE_URL}/packs/${packId}/quests/${questId}/hints/${hintId}`
+    );
+    await ensureOk(response, 'Failed to fetch hint');
+    return await response.json();
+}
+
+/**
+ * Fetch the reference solution of a quest. Solutions are not part of the
+ * pack payload; the frontend asks for them explicitly.
+ * @param {string} packId - The pack identifier
+ * @param {number} questId - The quest identifier
+ * @returns {Promise<Object>} Object with the solution code ({ solution })
+ * @throws {ApiError} If the request fails
+ */
+export async function fetchQuestSolution(packId, questId) {
+    const response = await fetchWithAuth(
+        `${API.BASE_URL}/packs/${packId}/quests/${questId}/solution`
+    );
+    await ensureOk(response, 'Failed to fetch solution');
+    return await response.json();
+}
+
+/**
+ * Fetch the hidden support modules of a quest (e.g. the policy under test).
+ * Support module sources are not part of the pack payload.
+ * @param {string} packId - The pack identifier
+ * @param {number} questId - The quest identifier
+ * @returns {Promise<Object>} Object with the module sources ({ support_modules })
+ * @throws {ApiError} If the request fails
+ */
+export async function fetchSupportModules(packId, questId) {
+    const response = await fetchWithAuth(
+        `${API.BASE_URL}/packs/${packId}/quests/${questId}/support-modules`
+    );
+    await ensureOk(response, 'Failed to fetch support modules');
+    return await response.json();
+}
+
+/**
  * Verify a Rego solution against quest test cases
  * @param {string} packId - The pack identifier
  * @param {number} questId - The quest identifier

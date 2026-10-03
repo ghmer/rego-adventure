@@ -76,6 +76,9 @@ func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID strin
 				DescriptionTask: "Write a Rego policy",
 				DescriptionLore: []string{"In the land of OPA..."},
 				Query:           "data.quest.allow",
+				Hints:           []string{"Think about roles.", "Compare the user string."},
+				Solution:        "package quest\n\ndefault allow = false\n\nallow if input.user == \"admin\"\n",
+				SupportModules:  []string{"package helpers\n\nimport rego.v1\n\nhelper if input.user != \"\"\n"},
 				Manual: quest.Manual{
 					DataModel:    `{"type": "object"}`,
 					RegoSnippet:  "package quest",
@@ -94,6 +97,27 @@ func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID strin
 						ExpectedOutcome: false,
 						Payload: quest.TestPayload{
 							Input: map[string]any{"user": "guest"},
+						},
+					},
+				},
+			},
+			{
+				ID:              2,
+				Title:           "Quest 2",
+				DescriptionTask: "Write another Rego policy",
+				DescriptionLore: []string{"Beyond the mountains..."},
+				Query:           "data.quest.allow",
+				Manual: quest.Manual{
+					DataModel:    `{"type": "object"}`,
+					RegoSnippet:  "package quest",
+					ExternalLink: "https://www.openpolicyagent.org/docs",
+				},
+				Tests: []quest.TestCase{
+					{
+						ID:              1,
+						ExpectedOutcome: true,
+						Payload: quest.TestPayload{
+							Input: map[string]any{"user": "root"},
 						},
 					},
 				},
@@ -307,6 +331,354 @@ func TestGetTestPayload_HasCacheControlHeader(t *testing.T) {
 
 	if w.Header().Get("Cache-Control") == "" {
 		t.Error("expected Cache-Control header to be set")
+	}
+}
+
+// ==================== Pack Secret Gating Tests ====================
+
+func TestGetPack_WithholdsSecrets(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/fantasy", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	// The bulk pack payload must not contain solution, hint texts, or
+	// hidden support modules - these are revealed by dedicated endpoints.
+	body := w.Body.String()
+	for _, secret := range []string{"Think about roles", "Compare the user string", "default allow", "package helpers"} {
+		if strings.Contains(body, secret) {
+			t.Errorf("pack payload leaks secret %q", secret)
+		}
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	quests, ok := result["quests"].([]any)
+	if !ok || len(quests) != 2 {
+		t.Fatalf("expected 2 quests, got %v", result["quests"])
+	}
+	first, ok := quests[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected quest entry to be an object, got %T", quests[0])
+	}
+	for _, key := range []string{"solution", "hints", "support_modules"} {
+		if _, exists := first[key]; exists {
+			t.Errorf("quest payload must not contain key %q", key)
+		}
+	}
+	if count, ok := first["hints_count"].(float64); !ok || int(count) != 2 {
+		t.Errorf("expected hints_count=2, got %v", first["hints_count"])
+	}
+	if first["has_solution"] != true {
+		t.Errorf("expected has_solution=true, got %v", first["has_solution"])
+	}
+
+	second, ok := quests[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected quest entry to be an object, got %T", quests[1])
+	}
+	if count, ok := second["hints_count"].(float64); !ok || int(count) != 0 {
+		t.Errorf("expected hints_count=0, got %v", second["hints_count"])
+	}
+	if second["has_solution"] != false {
+		t.Errorf("expected has_solution=false, got %v", second["has_solution"])
+	}
+}
+
+// ==================== GetQuestHint Tests ====================
+
+func TestGetQuestHint_Valid(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/fantasy/quests/1/hints/1", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if result["hint"] != "Think about roles." {
+		t.Errorf("expected first hint text, got %v", result["hint"])
+	}
+}
+
+func TestGetQuestHint_SecondHint(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/packs/fantasy/quests/1/hints/2", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if result["hint"] != "Compare the user string." {
+		t.Errorf("expected second hint text, got %v", result["hint"])
+	}
+}
+
+func TestGetQuestHint_OutOfRange(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	for _, hintID := range []string{"3", "0", "-1"} {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequestWithContext(context.Background(),
+			http.MethodGet, "/packs/fantasy/quests/1/hints/"+hintID, nil)
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected status 404 for hint ID %q, got %d", hintID, w.Code)
+		}
+	}
+}
+
+func TestGetQuestHint_InvalidHintID(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/1/hints/notanumber", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestGetQuestHint_QuestNotFound(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/999/hints/1", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestGetQuestHint_PackNotFound(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/nonexistent/quests/1/hints/1", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestGetQuestHint_QuestWithoutHints(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/2/hints/1", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404 for quest without hints, got %d", w.Code)
+	}
+}
+
+// ==================== GetQuestSolution Tests ====================
+
+func TestGetQuestSolution_Valid(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/1/solution", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	solution, ok := result["solution"].(string)
+	if !ok || !strings.Contains(solution, "default allow = false") {
+		t.Errorf("expected solution Rego code, got %v", result["solution"])
+	}
+}
+
+func TestGetQuestSolution_QuestWithoutSolution(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/2/solution", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404 for quest without solution, got %d", w.Code)
+	}
+}
+
+func TestGetQuestSolution_QuestNotFound(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/999/solution", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestGetQuestSolution_PackNotFound(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/nonexistent/quests/1/solution", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+// ==================== GetQuestSupportModules Tests ====================
+
+func TestGetQuestSupportModules_Valid(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/1/support-modules", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	modules, ok := result["support_modules"].([]any)
+	if !ok || len(modules) != 1 {
+		t.Fatalf("expected 1 support module, got %v", result["support_modules"])
+	}
+	if module, ok := modules[0].(string); !ok || !strings.Contains(module, "package helpers") {
+		t.Errorf("expected support module source, got %v", modules[0])
+	}
+}
+
+func TestGetQuestSupportModules_QuestWithoutModules(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/2/support-modules", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404 for quest without support modules, got %d", w.Code)
+	}
+}
+
+func TestGetQuestSupportModules_QuestNotFound(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/fantasy/quests/999/support-modules", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestGetQuestSupportModules_PackNotFound(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	router := newTestRouter(repo)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/packs/nonexistent/quests/1/support-modules", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestRevealEndpoints_HaveNoStoreCacheControl(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	for _, path := range []string{
+		"/packs/fantasy/quests/1/hints/1",
+		"/packs/fantasy/quests/1/solution",
+		"/packs/fantasy/quests/1/support-modules",
+	} {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200 for %s, got %d", path, w.Code)
+		}
+		if cc := w.Header().Get("Cache-Control"); cc != "no-store" {
+			t.Errorf("expected Cache-Control no-store for %s, got %q", path, cc)
+		}
 	}
 }
 

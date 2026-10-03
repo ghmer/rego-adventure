@@ -56,6 +56,10 @@ func verifyErrorResponse(err error) (int, gin.H) {
 // authenticated; per-user (browser) caching is still allowed.
 const apiCacheControl = "private, max-age=300"
 
+// revealCacheControl keeps revealed hints and solutions out of every cache:
+// their delivery is part of the game's scoring semantics.
+const revealCacheControl = "no-store"
+
 // Handler handles HTTP requests for quest operations.
 type Handler struct {
 	questRepo *quest.QuestRepository
@@ -75,6 +79,9 @@ func (h *Handler) RegisterRoutes(r gin.IRouter) {
 	r.GET("/packs", h.GetPacks)
 	r.GET("/packs/:pack_id", h.GetPack)
 	r.GET("/packs/:pack_id/quests/:quest_id/test-payload", h.GetTestPayload)
+	r.GET("/packs/:pack_id/quests/:quest_id/hints/:hint_id", h.GetQuestHint)
+	r.GET("/packs/:pack_id/quests/:quest_id/solution", h.GetQuestSolution)
+	r.GET("/packs/:pack_id/quests/:quest_id/support-modules", h.GetQuestSupportModules)
 	r.POST("/verify", h.VerifySolution)
 }
 
@@ -95,7 +102,9 @@ func (h *Handler) GetPacks(c *gin.Context) {
 	c.JSON(http.StatusOK, simplified)
 }
 
-// GetPack retrieves the complete quest-pack for the chosen adventure
+// GetPack retrieves the complete quest-pack for the chosen adventure. The
+// response is a client-facing projection: solutions, hint texts, and hidden
+// support modules are withheld and revealed only through dedicated endpoints.
 func (h *Handler) GetPack(c *gin.Context) {
 	packID := c.Param("pack_id")
 	pack, found := h.questRepo.GetPack(packID)
@@ -105,30 +114,95 @@ func (h *Handler) GetPack(c *gin.Context) {
 	}
 	// Add cache headers to reduce repeated serialization overhead
 	c.Header("Cache-Control", apiCacheControl)
-	c.JSON(http.StatusOK, pack)
+	c.JSON(http.StatusOK, pack.PublicView())
+}
+
+// questFromParams resolves the pack_id and quest_id path parameters to a
+// quest, writing the corresponding error response and reporting failure.
+func (h *Handler) questFromParams(c *gin.Context) (*quest.Quest, bool) {
+	packID := c.Param("pack_id")
+	questID, err := strconv.Atoi(c.Param("quest_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quest ID"})
+		return nil, false
+	}
+	q, found := h.questRepo.GetQuestByID(packID, questID)
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Quest not found"})
+		return nil, false
+	}
+	return q, true
 }
 
 // GetTestPayload retrieves the configured tests for a given adventure and quest
 func (h *Handler) GetTestPayload(c *gin.Context) {
-	packID := c.Param("pack_id")
-	questID := c.Param("quest_id")
-
-	// Convert questID to int
-	qid, err := strconv.Atoi(questID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quest ID"})
-		return
-	}
-
-	quest, found := h.questRepo.GetQuestByID(packID, qid)
-	if !found {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Quest not found"})
+	q, ok := h.questFromParams(c)
+	if !ok {
 		return
 	}
 
 	// Extract test payload data
 	c.Header("Cache-Control", apiCacheControl)
-	c.JSON(http.StatusOK, quest.GetTestPayloads())
+	c.JSON(http.StatusOK, q.GetTestPayloads())
+}
+
+// GetQuestHint reveals a single hint by its 1-based ID. Hint texts are not
+// part of the pack payload; the frontend asks for them one at a time.
+func (h *Handler) GetQuestHint(c *gin.Context) {
+	q, ok := h.questFromParams(c)
+	if !ok {
+		return
+	}
+
+	hintID, err := strconv.Atoi(c.Param("hint_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid hint ID"})
+		return
+	}
+
+	hint, found := q.HintByID(hintID)
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hint not found"})
+		return
+	}
+
+	c.Header("Cache-Control", revealCacheControl)
+	c.JSON(http.StatusOK, gin.H{"hint": hint})
+}
+
+// GetQuestSolution reveals the quest's reference solution. Solutions are not
+// part of the pack payload; the frontend asks for them explicitly.
+func (h *Handler) GetQuestSolution(c *gin.Context) {
+	q, ok := h.questFromParams(c)
+	if !ok {
+		return
+	}
+
+	if q.Solution == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Solution not found"})
+		return
+	}
+
+	c.Header("Cache-Control", revealCacheControl)
+	c.JSON(http.StatusOK, gin.H{"solution": q.Solution})
+}
+
+// GetQuestSupportModules reveals the quest's hidden support modules (e.g.
+// the policy under test). The sources are not part of the pack payload; the
+// frontend fetches them when the player opens the support modules modal.
+func (h *Handler) GetQuestSupportModules(c *gin.Context) {
+	q, ok := h.questFromParams(c)
+	if !ok {
+		return
+	}
+
+	if len(q.SupportModules) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Support modules not found"})
+		return
+	}
+
+	c.Header("Cache-Control", revealCacheControl)
+	c.JSON(http.StatusOK, gin.H{"support_modules": q.SupportModules})
 }
 
 // VerifyRequest contains the data needed to verify a quest solution.
