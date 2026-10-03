@@ -52,15 +52,12 @@ func splitAddr(t *testing.T, addr string) (string, string) {
 	return "127.0.0.1", port
 }
 
-// newTestServer returns an unstarted server bound to a free port.
+// newTestServer returns an unstarted server bound to a free port, built
+// with the production timeout budget.
 func newTestServer(t *testing.T, handler nethttp.Handler) *nethttp.Server {
 	t.Helper()
 	addr := freePort(t)
-	return &nethttp.Server{
-		Addr:              addr,
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	return NewTestServer(addr, handler)
 }
 
 // ==================== RunWithGracefulShutdown ====================
@@ -132,11 +129,8 @@ func TestRunWithGracefulShutdown_ReturnsListenError(t *testing.T) {
 		}
 	}()
 
-	server := &nethttp.Server{
-		Addr:              l.Addr().String(),
-		Handler:           nethttp.HandlerFunc(func(nethttp.ResponseWriter, *nethttp.Request) {}),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	server := NewTestServer(l.Addr().String(),
+		nethttp.HandlerFunc(func(nethttp.ResponseWriter, *nethttp.Request) {}))
 
 	err = RunWithGracefulShutdown(context.Background(), server, DefaultShutdownTimeout)
 	if err == nil {

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -443,6 +444,47 @@ func TestVerifySolution_EmptyBody(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestVerifySolution_OversizedBodyReturns413(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	router := gin.New()
+	router.Use(BodySizeLimit())
+	handler := NewHandler(repo, quest.NewVerifier())
+	handler.RegisterRoutes(router)
+
+	// 2 MiB body exceeds the 1 MiB BodySizeLimit; the MaxBytesReader error
+	// must surface as 413, not as a generic 400 "Invalid request".
+	oversized := strings.Repeat("a", 2*1024*1024)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodPost, "/verify", bytes.NewBufferString(`{"rego_code":"`+oversized+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("expected status 413 for oversized body, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestVerifySolution_UnderLimitBodyDoesNotReturn413(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	router := gin.New()
+	router.Use(BodySizeLimit())
+	handler := NewHandler(repo, quest.NewVerifier())
+	handler.RegisterRoutes(router)
+
+	// The same route with a body inside the limit must not be rejected for
+	// size; the pack is unknown, so 404 proves the body was parsed.
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(context.Background(),
+		http.MethodPost, "/verify", bytes.NewBufferString(`{"pack_id":"nope","quest_id":1,"rego_code":"x"}`))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404 (body parsed, pack unknown), got %d: %s", w.Code, w.Body.String())
 	}
 }
 

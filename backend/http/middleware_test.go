@@ -271,12 +271,18 @@ func newAuthTestServer(t *testing.T, allowed []string) *authTestServer {
 
 func (a *authTestServer) signRS256(t *testing.T) string {
 	t.Helper()
-
-	claims := jwt.MapClaims{
+	return a.signRS256Claims(t, jwt.MapClaims{
 		"iss": a.cfg.Auth.Issuer,
 		"aud": a.cfg.Auth.Audience,
 		"exp": time.Now().Add(time.Hour).Unix(),
-	}
+	})
+}
+
+// signRS256Claims signs RS256 tokens with arbitrary claims; it does not add
+// an exp claim, so tests can decide whether the token expires.
+func (a *authTestServer) signRS256Claims(t *testing.T, claims jwt.MapClaims) string {
+	t.Helper()
+
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = "test-key"
 
@@ -357,5 +363,21 @@ func TestAuth_RejectsHMACAlgorithm(t *testing.T) {
 	w := serveAuthRequest(t, s.cfg, "Bearer "+signed)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401 for HS256 token, got %d", w.Code)
+	}
+}
+
+func TestAuth_RejectsTokenWithoutExpiration(t *testing.T) {
+	s := newAuthTestServer(t, []string{"RS256"})
+
+	// Valid signature and claims, but no exp claim. Without
+	// jwt.WithExpirationRequired this token would be accepted forever.
+	signed := s.signRS256Claims(t, jwt.MapClaims{
+		"iss": s.cfg.Auth.Issuer,
+		"aud": s.cfg.Auth.Audience,
+	})
+
+	w := serveAuthRequest(t, s.cfg, "Bearer "+signed)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for token without exp claim, got %d", w.Code)
 	}
 }
