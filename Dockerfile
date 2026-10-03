@@ -44,8 +44,9 @@ ENV GIN_MODE=release
 # Expose the port
 EXPOSE 8080
 
-# Health check against the public /health endpoint
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s CMD wget -qO- http://localhost:8080/health || exit 1
+# Health check against the public /health endpoint; shell form so a
+# non-default PORT is honored (falls back to the documented default 8080).
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s CMD wget -qO- "http://localhost:${PORT:-8080}/health" || exit 1
 
 # Run the application
 CMD ["./rego-adventure"]

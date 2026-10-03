@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,6 +70,8 @@ func Load() (*Config, error) {
 
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	} else if err := validatePort(cfg.Port); err != nil {
+		return nil, err
 	}
 
 	// Parse Trusted Proxies
@@ -98,6 +101,16 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// validatePort ensures PORT is a numeric TCP port so a misconfigured value
+// fails at startup instead of surfacing as a confusing bind error later.
+func validatePort(port string) error {
+	n, err := strconv.Atoi(port)
+	if err != nil || n < 1 || n > 65535 {
+		return fmt.Errorf("PORT environment variable must be a number between 1 and 65535, got %q", port)
+	}
+	return nil
 }
 
 // parseTrustedProxies parses and validates TRUSTED_PROXIES environment variable

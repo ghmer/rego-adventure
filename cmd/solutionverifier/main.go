@@ -22,9 +22,15 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ghmer/rego-adventure/v2/backend/quest"
 )
+
+// questVerifyTimeout bounds the evaluation of one quest's solution so a
+// pathological policy (unbounded loops, oversized comprehensions) cannot
+// hang the CLI. It matches the HTTP verify endpoint's per-request budget.
+const questVerifyTimeout = 3 * time.Second
 
 // verifyQuestPack processes and verifies all quests in a pack
 func verifyQuestPack(ctx context.Context, verifier *quest.Verifier, pack *quest.QuestPack) (int, int) {
@@ -35,7 +41,9 @@ func verifyQuestPack(ctx context.Context, verifier *quest.Verifier, pack *quest.
 		fmt.Printf("Quest %d: %s\n", q.ID, q.Title)
 
 		regoCode := "package play\nimport rego.v1\n\n" + q.Solution
-		result, err := verifier.Verify(ctx, &q, regoCode)
+		verifyCtx, cancel := context.WithTimeout(ctx, questVerifyTimeout)
+		result, err := verifier.Verify(verifyCtx, &q, regoCode)
+		cancel()
 		if err != nil {
 			fmt.Printf("  ERROR: %v\n\n", err)
 			continue
