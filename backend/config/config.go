@@ -216,6 +216,9 @@ func supportedAlgorithm(alg string) (string, bool) {
 // when authentication is enabled, so misconfiguration fails at startup
 // instead of rejecting every request at runtime.
 func (c *Config) validateAuthRequirements() error {
+	if c.Auth.ClientID == "" {
+		return fmt.Errorf("AUTH_CLIENT_ID is required when AUTH_ENABLED is true")
+	}
 	if c.Auth.Issuer == "" {
 		return fmt.Errorf("AUTH_ISSUER is required when AUTH_ENABLED is true")
 	}
