@@ -103,6 +103,7 @@ func TestParseAllowedAlgorithms_RejectsEmptyEntriesOnly(t *testing.T) {
 
 func TestValidateAuthRequirements_AllSet(t *testing.T) {
 	cfg := &Config{Auth: AuthConfig{
+		ClientID:     "rego-adventure",
 		Issuer:       "https://id.example.com/realms/demo",
 		Audience:     "rego-adventure",
 		DiscoveryURL: "https://id.example.com/realms/demo/.well-known/openid-configuration",
@@ -114,6 +115,7 @@ func TestValidateAuthRequirements_AllSet(t *testing.T) {
 
 func TestValidateAuthRequirements_MissingIssuer(t *testing.T) {
 	cfg := &Config{Auth: AuthConfig{
+		ClientID:     "rego-adventure",
 		Audience:     "rego-adventure",
 		DiscoveryURL: "https://id.example.com/realms/demo/.well-known/openid-configuration",
 	}}
@@ -125,6 +127,7 @@ func TestValidateAuthRequirements_MissingIssuer(t *testing.T) {
 
 func TestValidateAuthRequirements_MissingAudience(t *testing.T) {
 	cfg := &Config{Auth: AuthConfig{
+		ClientID:     "rego-adventure",
 		Issuer:       "https://id.example.com/realms/demo",
 		DiscoveryURL: "https://id.example.com/realms/demo/.well-known/openid-configuration",
 	}}
@@ -136,12 +139,25 @@ func TestValidateAuthRequirements_MissingAudience(t *testing.T) {
 
 func TestValidateAuthRequirements_MissingDiscoveryURL(t *testing.T) {
 	cfg := &Config{Auth: AuthConfig{
+		ClientID: "rego-adventure",
 		Issuer:   "https://id.example.com/realms/demo",
 		Audience: "rego-adventure",
 	}}
 	err := cfg.validateAuthRequirements()
 	if err == nil || !strings.Contains(err.Error(), "AUTH_DISCOVERY_URL") {
 		t.Errorf("expected AUTH_DISCOVERY_URL requirement error, got: %v", err)
+	}
+}
+
+func TestValidateAuthRequirements_MissingClientID(t *testing.T) {
+	cfg := &Config{Auth: AuthConfig{
+		Issuer:       "https://id.example.com/realms/demo",
+		Audience:     "rego-adventure",
+		DiscoveryURL: "https://id.example.com/realms/demo/.well-known/openid-configuration",
+	}}
+	err := cfg.validateAuthRequirements()
+	if err == nil || !strings.Contains(err.Error(), "AUTH_CLIENT_ID") {
+		t.Errorf("expected AUTH_CLIENT_ID requirement error, got: %v", err)
 	}
 }
 
@@ -189,11 +205,21 @@ func TestLoad_RejectsUnsupportedAlgorithm(t *testing.T) {
 	}
 }
 
-func TestLoad_RequiresIssuerAndAudienceWhenAuthEnabled(t *testing.T) {
+func TestLoad_RequiresEnvVariablesWhenAuthEnabled(t *testing.T) {
 	t.Setenv("DOMAIN", "http://localhost:8080")
 	t.Setenv("AUTH_ENABLED", "true")
 	t.Setenv("AUTH_DISCOVERY_URL", "https://id.example.com/realms/demo/.well-known/openid-configuration")
 
+	// Load validates the required auth settings in this order and stops at
+	// the first missing one. With all of them present it would continue into
+	// JWKS initialization (network I/O), so the chain is verified only up to
+	// the last offline validation step; per-field errors are covered by the
+	// TestValidateAuthRequirements_* unit tests above.
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "AUTH_CLIENT_ID") {
+		t.Errorf("expected AUTH_CLIENT_ID requirement error, got: %v", err)
+	}
+
+	t.Setenv("AUTH_CLIENT_ID", "rego-adventure")
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "AUTH_ISSUER") {
 		t.Errorf("expected AUTH_ISSUER requirement error, got: %v", err)
 	}
