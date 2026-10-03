@@ -19,6 +19,8 @@ package quest
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 )
 
@@ -48,12 +50,25 @@ func (r *QuestRepository) LoadPack(id string, questData []byte) error {
 		return fmt.Errorf("validation failed for pack %s: %w", id, err)
 	}
 
-	// Build quest map for fast lookup
+	// Build quest map for fast lookup and enforce ID invariants the
+	// frontend depends on: quests are navigated by incrementing IDs, so
+	// they must be contiguous starting at 1, and test cases are addressed
+	// by ID, so they must be unique within a quest.
 	pack.questMap = make(map[int]*Quest, len(pack.Quests))
 	for i := range pack.Quests {
 		qid := pack.Quests[i].ID
+		if qid != i+1 {
+			return fmt.Errorf("quest at index %d has ID %d in pack %s; quest IDs must be contiguous starting at 1", i, qid, id)
+		}
 		if _, exists := pack.questMap[qid]; exists {
 			return fmt.Errorf("duplicate quest ID %d in pack %s", qid, id)
+		}
+		seenTests := make(map[int]struct{}, len(pack.Quests[i].Tests))
+		for _, test := range pack.Quests[i].Tests {
+			if _, dup := seenTests[test.ID]; dup {
+				return fmt.Errorf("quest %d has duplicate test ID %d in pack %s", qid, test.ID, id)
+			}
+			seenTests[test.ID] = struct{}{}
 		}
 		pack.questMap[qid] = &pack.Quests[i]
 	}
@@ -72,14 +87,20 @@ func (r *QuestRepository) GetPack(id string) (*QuestPack, bool) {
 	return pack, ok
 }
 
-// GetAllPacks returns all available quest packs.
+// GetAllPacks returns all available quest packs, sorted by pack ID so the
+// frontpage listing is deterministic across requests (map iteration order
+// would otherwise shuffle it).
 func (r *QuestRepository) GetAllPacks() []*QuestPack {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
 	packs := make([]*QuestPack, 0, len(r.packs))
 	for _, p := range r.packs {
 		packs = append(packs, p)
 	}
+	r.mu.RUnlock()
+
+	slices.SortFunc(packs, func(a, b *QuestPack) int {
+		return strings.Compare(a.ID, b.ID)
+	})
 	return packs
 }
 

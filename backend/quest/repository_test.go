@@ -2,6 +2,7 @@ package quest
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 )
 
@@ -238,6 +239,34 @@ func TestGetAllPacks(t *testing.T) {
 	}
 }
 
+func TestGetAllPacks_SortedByID(t *testing.T) {
+	repo := NewQuestRepository()
+
+	// Load in reverse order; the listing must still come out sorted.
+	ids := []string{"scifi", "cyberpunk", "fantasy", "horror"}
+	for _, id := range slices.Backward(ids) {
+		pack := createValidQuestPack()
+		data, err := json.Marshal(pack)
+		if err != nil {
+			t.Fatalf("Failed to marshal pack: %v", err)
+		}
+		if err := repo.LoadPack(id, data); err != nil {
+			t.Fatalf("LoadPack %s failed: %v", id, err)
+		}
+	}
+
+	sorted := slices.Clone(ids)
+	slices.Sort(sorted)
+
+	got := []string{}
+	for _, p := range repo.GetAllPacks() {
+		got = append(got, p.ID)
+	}
+	if !slices.Equal(got, sorted) {
+		t.Errorf("expected packs sorted by ID %v, got %v", sorted, got)
+	}
+}
+
 func TestGetNumberOfPacks_Empty(t *testing.T) {
 	repo := NewQuestRepository()
 	if n := repo.GetNumberOfPacks(); n != 0 {
@@ -275,6 +304,92 @@ func TestLoadPack_DuplicateQuestID(t *testing.T) {
 	err = repo.LoadPack("dup-pack", data)
 	if err == nil {
 		t.Error("Expected error for duplicate quest ID, got nil")
+	}
+}
+
+// loadPackIDScenario describes a pack whose quest or test IDs violate the
+// invariants the frontend navigation and per-test addressing rely on.
+var loadPackIDScenarios = []struct {
+	name        string
+	modifyPack  func(*QuestPack)
+	expectError bool
+}{
+	{
+		name:        "Contiguous IDs from 1 are valid",
+		modifyPack:  func(_ *QuestPack) {},
+		expectError: false,
+	},
+	{
+		name: "Gap in quest IDs",
+		modifyPack: func(p *QuestPack) {
+			// Second quest gets ID 3 instead of 2: 1, 3.
+			p.Quests[1].ID = 3
+		},
+		expectError: true,
+	},
+	{
+		name: "Quest IDs not starting at 1",
+		modifyPack: func(p *QuestPack) {
+			p.Quests[0].ID = 2
+			p.Quests[1].ID = 3
+		},
+		expectError: true,
+	},
+	{
+		name: "Duplicate test IDs within a quest",
+		modifyPack: func(p *QuestPack) {
+			p.Quests[0].Tests[1].ID = p.Quests[0].Tests[0].ID
+		},
+		expectError: true,
+	},
+}
+
+func TestLoadPack_IDInvariants(t *testing.T) {
+	for _, tt := range loadPackIDScenarios {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := NewQuestRepository()
+			pack := createValidQuestPack()
+
+			// Two quests so a gap between them is possible; the fixture's
+			// second quest already has ID 2 and unique test IDs.
+			quest2 := createValidQuest()
+			quest2.ID = 2
+			pack.Quests = append(pack.Quests, quest2)
+
+			tt.modifyPack(&pack)
+
+			data, err := json.Marshal(pack)
+			if err != nil {
+				t.Fatalf("Failed to marshal pack: %v", err)
+			}
+
+			err = repo.LoadPack("id-invariant-pack", data)
+			if tt.expectError && err == nil {
+				t.Error("Expected error for ID invariant violation, got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadPack_UniqueTestIDsAcrossTestsInDifferentQuests(t *testing.T) {
+	repo := NewQuestRepository()
+	pack := createValidQuestPack()
+
+	// Test IDs must be unique within a quest, not across quests.
+	quest2 := createValidQuest()
+	quest2.ID = 2
+	pack.Quests = append(pack.Quests, quest2)
+
+	data, err := json.Marshal(pack)
+	if err != nil {
+		t.Fatalf("Failed to marshal pack: %v", err)
+	}
+
+	if err := repo.LoadPack("test-id-scope-pack", data); err != nil {
+		t.Fatalf("LoadPack failed: %v", err)
 	}
 }
 

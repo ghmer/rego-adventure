@@ -163,6 +163,49 @@ func TestValidateAuthRequirements_MissingClientID(t *testing.T) {
 
 // ==================== Load Integration Tests ====================
 
+func TestLoad_RejectsInvalidPort(t *testing.T) {
+	invalidPorts := []string{"abc", "8080x", " 8080", "0", "65536", "-1"}
+	for _, port := range invalidPorts {
+		t.Run(port, func(t *testing.T) {
+			t.Setenv("DOMAIN", "http://localhost:8080")
+			t.Setenv("PORT", port)
+
+			if _, err := Load(); err == nil || !strings.Contains(err.Error(), "PORT") {
+				t.Errorf("expected PORT validation error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoad_AcceptsValidPortBoundaries(t *testing.T) {
+	for _, port := range []string{"1", "65535", "9090"} {
+		t.Run(port, func(t *testing.T) {
+			t.Setenv("DOMAIN", "http://localhost:8080")
+			t.Setenv("PORT", port)
+
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Load failed for valid port %q: %v", port, err)
+			}
+			if cfg.Port != port {
+				t.Errorf("expected Port %q, got %q", port, cfg.Port)
+			}
+		})
+	}
+}
+
+func TestLoad_DefaultsPortWhenUnset(t *testing.T) {
+	t.Setenv("DOMAIN", "http://localhost:8080")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.Port != "8080" {
+		t.Errorf("expected default port 8080, got %q", cfg.Port)
+	}
+}
+
 func TestLoad_ParsesAllowedAlgorithms(t *testing.T) {
 	t.Setenv("DOMAIN", "http://localhost:8080")
 	t.Setenv("AUTH_ENABLED", "false")
