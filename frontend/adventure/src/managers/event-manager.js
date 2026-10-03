@@ -252,11 +252,12 @@ export class EventManager {
     /**
      * Setup support modules modal listeners. The button stays disabled
      * unless the current quest ships support modules, so a click can only
-     * happen when there is something to show.
+     * happen when there is something to show. The module sources are
+     * fetched when the modal opens.
      */
     setupSupportModulesListeners() {
-        this.ui.elements.checkSupportModulesBtn.addEventListener('click', () => {
-            this.modal.showSupportModules();
+        this.ui.elements.checkSupportModulesBtn.addEventListener('click', async () => {
+            await this.modal.showSupportModules();
         });
 
         this.ui.elements.closeSupportModulesBtn.addEventListener('click', () => {

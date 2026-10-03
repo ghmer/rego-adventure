@@ -17,12 +17,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiMock = vi.hoisted(() => ({
-    fetchTestPayload: vi.fn()
+    fetchTestPayload: vi.fn(),
+    fetchSupportModules: vi.fn()
 }));
 
 vi.mock('../services/api-service.js', async (importOriginal) => {
     const actual = await importOriginal();
-    return { ...actual, fetchTestPayload: apiMock.fetchTestPayload };
+    return {
+        ...actual,
+        fetchTestPayload: apiMock.fetchTestPayload,
+        fetchSupportModules: apiMock.fetchSupportModules
+    };
 });
 vi.mock('../services/error-service.js', () => ({ handleApiError: vi.fn() }));
 vi.mock('../services/toast-service.js', () => ({ showToast: vi.fn() }));
@@ -80,7 +85,7 @@ describe('modal-manager pure helpers', () => {
     });
 
     describe('buildHintConfirmationText', () => {
-        const quest = { hints: ['h1', 'h2'], solution: 'sol' };
+        const quest = { hints_count: 2, has_solution: true };
 
         it('asks for confirmation before hint N of M', () => {
             expect(buildHintConfirmationText(quest, 0)).toBe(
@@ -98,13 +103,17 @@ describe('modal-manager pure helpers', () => {
         });
 
         it('returns null when all hints are revealed and no solution exists', () => {
-            expect(buildHintConfirmationText({ hints: ['h1'] }, 1)).toBeNull();
+            expect(buildHintConfirmationText({ hints_count: 1, has_solution: false }, 1)).toBeNull();
         });
 
         it('offers the solution directly for quests without hints', () => {
-            expect(buildHintConfirmationText({ solution: 'sol' }, 0)).toBe(
+            expect(buildHintConfirmationText({ hints_count: 0, has_solution: true }, 0)).toBe(
                 'Reveal the solution? This reduces the points you can earn for this quest.'
             );
+        });
+
+        it('treats a missing hints_count as no hints', () => {
+            expect(buildHintConfirmationText({ has_solution: false }, 0)).toBeNull();
         });
 
         it('returns null without a quest', () => {
@@ -135,6 +144,7 @@ describe('modal-manager', () => {
             elements: {
                 manualModal: dialog(),
                 testPayloadModal: dialog(),
+                supportModulesModal: dialog(),
                 resultModal: dialog(),
                 perfectScoreModal: dialog(),
                 hintModal: dialog(),
@@ -144,6 +154,7 @@ describe('modal-manager', () => {
                 cancelHintBtn: document.createElement('button'),
                 closeTestPayloadBtn: document.createElement('button'),
                 closeManualBtn: document.createElement('button'),
+                closeSupportModulesBtn: document.createElement('button'),
                 closeResultBtn: document.createElement('button'),
                 nextQuestBtn: document.createElement('button'),
                 closePerfectScoreBtn: document.createElement('button'),
@@ -160,6 +171,7 @@ describe('modal-manager', () => {
             },
             renderManual: vi.fn(),
             renderTestPayload: vi.fn(),
+            renderSupportModules: vi.fn(),
             updateScoreDisplay: vi.fn(),
             parseMarkdown: vi.fn()
         };
@@ -173,6 +185,7 @@ describe('modal-manager', () => {
             currentPackId: 'fantasy',
             currentQuestId: 2,
             currentQuest: { id: 2 },
+            currentQuestHintsUsed: 0,
             label: (key) => `label:${key}`,
             totalScore: 7
         };
@@ -182,7 +195,7 @@ describe('modal-manager', () => {
 
     describe('showHintConfirmation', () => {
         it('opens the dialog with the text for the next hint', () => {
-            state.currentQuest = { hints: ['h1', 'h2'], solution: 'sol' };
+            state.currentQuest = { hints_count: 2, has_solution: true };
             const focusSpy = vi.spyOn(ui.elements.cancelHintBtn, 'focus');
 
             modal.showHintConfirmation();
@@ -195,8 +208,18 @@ describe('modal-manager', () => {
         });
 
         it('offers the solution when all hints are revealed', () => {
-            state.currentQuest = { hints: ['h1'], solution: 'sol' };
-            ui.elements.hintsList.appendChild(document.createElement('li'));
+            state.currentQuest = { hints_count: 1, has_solution: true };
+            state.currentQuestHintsUsed = 1;
+
+            modal.showHintConfirmation();
+
+            expect(ui.elements.hintConfirmText.textContent).toBe(
+                'Reveal the solution? This reduces the points you can earn for this quest.'
+            );
+        });
+
+        it('offers the solution directly for quests without hints', () => {
+            state.currentQuest = { hints_count: 0, has_solution: true };
 
             modal.showHintConfirmation();
 
@@ -206,8 +229,8 @@ describe('modal-manager', () => {
         });
 
         it('does nothing when there is nothing left to reveal', () => {
-            state.currentQuest = { hints: ['h1'] };
-            ui.elements.hintsList.appendChild(document.createElement('li'));
+            state.currentQuest = { hints_count: 1, has_solution: false };
+            state.currentQuestHintsUsed = 1;
 
             modal.showHintConfirmation();
 
@@ -220,6 +243,51 @@ describe('modal-manager', () => {
             modal.showHintConfirmation();
 
             expect(ui.elements.hintModal.open).toBe(false);
+        });
+    });
+
+    describe('showSupportModules', () => {
+        it('fetches, renders, and opens the dialog', async () => {
+            state.currentQuest = { id: 2, has_support_modules: true };
+            const modules = ['package helpers\n\nallow := true'];
+            apiMock.fetchSupportModules.mockResolvedValue({ support_modules: modules });
+
+            await modal.showSupportModules();
+
+            expect(apiMock.fetchSupportModules).toHaveBeenCalledWith('fantasy', 2);
+            expect(ui.renderSupportModules).toHaveBeenCalledWith(modules);
+            expect(ui.elements.supportModulesModal.open).toBe(true);
+        });
+
+        it('caches module sources per pack and quest', async () => {
+            state.currentQuest = { id: 2, has_support_modules: true };
+            apiMock.fetchSupportModules.mockResolvedValue({ support_modules: ['package helpers'] });
+
+            await modal.showSupportModules();
+            await modal.showSupportModules();
+
+            expect(apiMock.fetchSupportModules).toHaveBeenCalledTimes(1);
+            expect(ui.renderSupportModules).toHaveBeenCalledTimes(2);
+        });
+
+        it('reports load failures without opening the dialog', async () => {
+            state.currentQuest = { id: 2, has_support_modules: true };
+            apiMock.fetchSupportModules.mockRejectedValue(new ApiError('boom', 500));
+
+            await modal.showSupportModules();
+
+            expect(handleApiError).toHaveBeenCalledWith(expect.any(ApiError), 'load support modules');
+            expect(ui.elements.supportModulesModal.open).toBe(false);
+            expect(ui.renderSupportModules).not.toHaveBeenCalled();
+        });
+
+        it('does not fetch for quests without support modules', async () => {
+            state.currentQuest = { id: 2, has_support_modules: false };
+
+            await modal.showSupportModules();
+
+            expect(apiMock.fetchSupportModules).not.toHaveBeenCalled();
+            expect(ui.elements.supportModulesModal.open).toBe(false);
         });
     });
 

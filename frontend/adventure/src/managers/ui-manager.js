@@ -201,13 +201,14 @@ export class UIManager {
      * Enable the support modules button only when the current quest
      * ships support modules. The button itself stays visible at all
      * times so the toolbar layout never jumps between quests.
-     * @param {Object|null} quest - Quest object (support_modules optional)
+     * @param {Object|null} quest - Quest object (has_support_modules derived
+     * by the backend)
      */
     updateSupportModulesButton(quest) {
         const button = this.elements.checkSupportModulesBtn;
         if (!button) return;
 
-        const hasModules = Array.isArray(quest?.support_modules) && quest.support_modules.length > 0;
+        const hasModules = quest?.has_support_modules === true;
         button.disabled = !hasModules;
         button.title = hasModules
             ? 'View the support modules attached to this quest'
@@ -469,21 +470,17 @@ export class UIManager {
 
     /**
      * Update hint button text based on current state
-     * @param {Object} quest - Current quest object
+     * @param {Object} quest - Current quest object (hints_count and
+     * has_solution derived by the backend)
      * @param {number} hintsShown - Number of hints already shown
      * @param {string} hintButtonText - Default hint button text
      */
     updateHintButtonText(quest, hintsShown, hintButtonText) {
-        if (!quest || !quest.hints) {
-            this.elements.hintBtn.textContent = hintButtonText || DEFAULT_TEXT.HINT_BUTTON;
-            return;
-        }
-        
-        const totalHints = quest.hints.length;
-        
+        const totalHints = quest?.hints_count ?? 0;
+
         if (hintsShown < totalHints) {
             this.elements.hintBtn.textContent = `${hintButtonText || DEFAULT_TEXT.HINT_BUTTON} (${hintsShown}/${totalHints} hints shown)`;
-        } else if (quest.solution) {
+        } else if (quest?.has_solution) {
             this.elements.hintBtn.textContent = 'Reveal Solution';
         } else {
             this.elements.hintBtn.textContent = hintButtonText || DEFAULT_TEXT.HINT_BUTTON;

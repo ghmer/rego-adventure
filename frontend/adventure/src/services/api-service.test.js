@@ -28,6 +28,9 @@ import {
     fetchPacks,
     fetchPackDetails,
     fetchTestPayload,
+    fetchQuestHint,
+    fetchQuestSolution,
+    fetchSupportModules,
     verifySolution
 } from './api-service.js';
 
@@ -76,6 +79,18 @@ describe('api-service', () => {
             expect(fetchMock.mock.calls[1][0]).toBe('/api/packs/fantasy/quests/2/test-payload');
         });
 
+        it('fetches hints, solutions, and support modules from their endpoints', async () => {
+            fetchMock.mockResolvedValue(jsonResponse({}));
+
+            await expect(fetchQuestHint('fantasy', 2, 1)).resolves.toEqual({});
+            await expect(fetchQuestSolution('fantasy', 2)).resolves.toEqual({});
+            await expect(fetchSupportModules('fantasy', 2)).resolves.toEqual({});
+
+            expect(fetchMock.mock.calls[0][0]).toBe('/api/packs/fantasy/quests/2/hints/1');
+            expect(fetchMock.mock.calls[1][0]).toBe('/api/packs/fantasy/quests/2/solution');
+            expect(fetchMock.mock.calls[2][0]).toBe('/api/packs/fantasy/quests/2/support-modules');
+        });
+
         it('sends the solution as a JSON POST body', async () => {
             fetchMock.mockResolvedValue(jsonResponse({ passed: true }));
 
@@ -119,6 +134,16 @@ describe('api-service', () => {
             expect(error).toBeInstanceOf(ApiError);
             expect(error.status).toBe(503);
             expect(error.message).toBe('Failed to fetch packs');
+        });
+
+        it('reports failed hint fetches with their endpoint-specific message', async () => {
+            fetchMock.mockResolvedValue(jsonResponse({}, false, 404));
+
+            const error = await fetchQuestHint('fantasy', 2, 9).catch(e => e);
+
+            expect(error).toBeInstanceOf(ApiError);
+            expect(error.status).toBe(404);
+            expect(error.message).toBe('Failed to fetch hint');
         });
 
         it('wraps network failures as ApiError with status 0', async () => {
