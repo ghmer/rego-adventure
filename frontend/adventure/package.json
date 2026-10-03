@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "dompurify": "3.4.15",
+    "dompurify": "3.4.16",
     "driver.js": "1.8.0",
     "marked": "18.0.14",
     "canvas-confetti": "1.9.4",
