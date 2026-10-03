@@ -2,6 +2,8 @@ bin/
 .git/
 .github/
 .gitignore
+.DS_Store
+**/.DS_Store
 Dockerfile
 build.sh
 *.md

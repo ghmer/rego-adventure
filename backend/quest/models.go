@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // Manual represents the structured manual content for a quest.
@@ -118,10 +119,12 @@ type QuestPack struct { //nolint:revive // established public name; renaming to 
 
 // Security: Validation and Sanitization Functions
 
-// validateStringLength checks if a string exceeds the maximum allowed length.
+// validateStringLength checks if a string exceeds the maximum allowed
+// number of characters (Unicode code points, not bytes), so multibyte
+// content is not rejected earlier than its visible length warrants.
 func validateStringLength(s string, maxLength int, fieldName string) error {
-	if len(s) > maxLength {
-		return fmt.Errorf("%s exceeds maximum length of %d characters (got %d)", fieldName, maxLength, len(s))
+	if runes := utf8.RuneCountInString(s); runes > maxLength {
+		return fmt.Errorf("%s exceeds maximum length of %d characters (got %d)", fieldName, maxLength, runes)
 	}
 	return nil
 }
@@ -162,7 +165,13 @@ func validateQuest(quest *Quest, questIndex int) error {
 	if err := validateQuestSupportModules(quest, p); err != nil {
 		return err
 	}
-	return validateQuestTests(quest, p)
+	if err := validateQuestTests(quest, p); err != nil {
+		return err
+	}
+	// The query drives every verification evaluation; a missing one would
+	// fail per request as a confusing "Compilation error" instead of
+	// being rejected at pack load time.
+	return validateNonEmpty(quest.Query, p+" query")
 }
 
 // validateQuestNarrative validates title, task, and lore entries.

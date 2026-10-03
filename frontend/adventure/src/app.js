@@ -54,6 +54,25 @@ const packManager = new PackManager(state, uiManager, audioManager);
 const eventManager = new EventManager(state, uiManager, questManager, audioManager, modalManager, packManager);
 
 /**
+ * Start (or resume) the given pack and load its current quest.
+ * Guarded against concurrent starts: the resume path races the pack
+ * cards (rendered and clickable before the resume completes), and two
+ * interleaved startAdventure sequences would mix state from two packs.
+ * @param {string} packId - Pack identifier
+ */
+let beginQuestInFlight = false;
+async function beginQuest(packId) {
+    if (beginQuestInFlight) return;
+    beginQuestInFlight = true;
+    try {
+        await packManager.startAdventure(packId);
+        questManager.loadQuest(state.currentQuestId);
+    } finally {
+        beginQuestInFlight = false;
+    }
+}
+
+/**
  * Initialize the application
  */
 async function init() {
@@ -96,26 +115,7 @@ async function init() {
             return; // Stop initialization until logged in
         }
 
-        /**
- * Start (or resume) the given pack and load its current quest.
- * Guarded against concurrent starts: the resume path races the pack
- * cards (rendered and clickable before the resume completes), and two
- * interleaved startAdventure sequences would mix state from two packs.
- * @param {string} packId - Pack identifier
- */
-let beginQuestInFlight = false;
-async function beginQuest(packId) {
-    if (beginQuestInFlight) return;
-    beginQuestInFlight = true;
-    try {
-        await packManager.startAdventure(packId);
-        questManager.loadQuest(state.currentQuestId);
-    } finally {
-        beginQuestInFlight = false;
-    }
-}
-
-// Load pack list
+        // Load pack list
         const packs = await fetchPacks();
         uiManager.renderPackList(packs, async (packId) => {
             try {
