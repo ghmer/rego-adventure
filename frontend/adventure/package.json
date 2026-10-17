@@ -11,9 +11,9 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "dompurify": "3.4.16",
+    "dompurify": "3.4.17",
     "driver.js": "1.9.0",
-    "marked": "18.1.0",
+    "marked": "18.1.1",
     "canvas-confetti": "1.9.4",
     "oidc-client-ts": "3.5.0",
     "yace": "1.1.1"
