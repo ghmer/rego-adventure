@@ -13,7 +13,7 @@
   "devDependencies": {
     "dompurify": "3.4.17",
     "driver.js": "1.10.2",
-    "marked": "18.1.1",
+    "marked": "18.1.2",
     "canvas-confetti": "1.9.4",
     "oidc-client-ts": "3.5.0",
     "yace": "1.1.1"
