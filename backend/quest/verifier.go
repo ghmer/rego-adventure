@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/open-policy-agent/opa/v1/rego"
@@ -257,6 +258,9 @@ func newPolicyError(e *ast.Error) PolicyError {
 // source location. The location's file name is preserved so that errors
 // can be attributed to the module they came from.
 func newDetail(code, message string, loc *ast.Location) PolicyError {
+	if loc != nil && loc.File != "" {
+		message = strings.ReplaceAll(message, loc.File+":", ":")
+	}
 	detail := PolicyError{Message: fmt.Sprintf("%s: %s", code, message)}
 	if loc != nil {
 		detail.File = loc.File

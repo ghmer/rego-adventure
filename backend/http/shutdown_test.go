@@ -193,7 +193,14 @@ func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 	}
 
 	close(release)
-	<-reqDone
+	select {
+	case err := <-reqDone:
+		if err != nil {
+			t.Logf("in-flight request failed after forced shutdown: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("in-flight request never completed")
+	}
 }
 
 // ==================== GracefulShutdown ====================
