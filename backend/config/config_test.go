@@ -206,6 +206,66 @@ func TestLoad_DefaultsPortWhenUnset(t *testing.T) {
 	}
 }
 
+func TestLoad_NormalizesAllowedOriginToOrigin(t *testing.T) {
+	// The browser Origin header never carries a path or trailing slash, so
+	// DOMAIN values beyond scheme://host must be normalized, not passed
+	// through verbatim.
+	t.Setenv("DOMAIN", "https://example.com/some/path/")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.AllowedOrigin != "https://example.com" {
+		t.Errorf("expected AllowedOrigin https://example.com, got %q", cfg.AllowedOrigin)
+	}
+}
+
+func TestParseBoolEnv(t *testing.T) {
+	t.Setenv("SOME_FLAG", "")
+	if v, err := parseBoolEnv("SOME_FLAG"); err != nil || v {
+		t.Errorf("empty value: got (%v, %v), want (false, nil)", v, err)
+	}
+
+	for _, truthy := range []string{"1", "t", "TRUE", "true"} {
+		t.Setenv("SOME_FLAG", truthy)
+		if v, err := parseBoolEnv("SOME_FLAG"); err != nil || !v {
+			t.Errorf("%q: got (%v, %v), want (true, nil)", truthy, v, err)
+		}
+	}
+
+	for _, falsy := range []string{"0", "false", "False"} {
+		t.Setenv("SOME_FLAG", falsy)
+		if v, err := parseBoolEnv("SOME_FLAG"); err != nil || v {
+			t.Errorf("%q: got (%v, %v), want (false, nil)", falsy, v, err)
+		}
+	}
+
+	for _, invalid := range []string{"yes", "ture", "aff"} {
+		t.Setenv("SOME_FLAG", invalid)
+		if _, err := parseBoolEnv("SOME_FLAG"); err == nil {
+			t.Errorf("%q: expected error, got nil", invalid)
+		}
+	}
+}
+
+func TestLoad_RejectsInvalidBooleanEnvs(t *testing.T) {
+	t.Setenv("DOMAIN", "http://localhost:8080")
+
+	// An unparseable AUTH_ENABLED must fail at startup before the auth
+	// requirement chain runs, so a typo cannot silently disable auth.
+	t.Setenv("AUTH_ENABLED", "yes")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "invalid value") {
+		t.Errorf("expected invalid-value error for AUTH_ENABLED=yes, got: %v", err)
+	}
+
+	t.Setenv("AUTH_ENABLED", "false")
+	t.Setenv("SHOW_IMPRESSUM", "ture")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "invalid value") {
+		t.Errorf("expected invalid-value error for SHOW_IMPRESSUM=ture, got: %v", err)
+	}
+}
+
 func TestLoad_ParsesAllowedAlgorithms(t *testing.T) {
 	t.Setenv("DOMAIN", "http://localhost:8080")
 	t.Setenv("AUTH_ENABLED", "false")
