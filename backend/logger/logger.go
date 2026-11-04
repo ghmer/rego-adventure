@@ -15,17 +15,42 @@
 */
 
 // Package logger configures structured logging for the application.
+// Setup is called explicitly from main so the log level is configurable
+// and tests keep their own default logger.
 package logger
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 )
 
-func init() {
-	// Initialize slog with JSON handler writing to stdout
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	})
+// slogLevelNames maps the accepted LOG_LEVEL names to slog levels.
+// Parsing is done here rather than via a package-level parser so the
+// accepted vocabulary is explicit and toolchain-independent.
+var slogLevelNames = map[string]slog.Level{
+	"debug": slog.LevelDebug,
+	"info":  slog.LevelInfo,
+	"warn":  slog.LevelWarn,
+	"error": slog.LevelError,
+}
+
+// Setup installs the default slog JSON handler writing to stdout. The
+// level accepts debug, info, warn, and error (case-insensitively); an
+// empty level defaults to info. An unknown level is reported as an error
+// instead of silently falling back, so a typo cannot hide log output.
+func Setup(level string) error {
+	if level == "" {
+		level = "info"
+	}
+
+	parsed, ok := slogLevelNames[strings.ToLower(level)]
+	if !ok {
+		return fmt.Errorf("invalid LOG_LEVEL %q: want one of debug, info, warn, error", level)
+	}
+
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: parsed})
 	slog.SetDefault(slog.New(handler))
+	return nil
 }

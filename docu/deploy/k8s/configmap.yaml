@@ -5,6 +5,8 @@ metadata:
 data:
   PORT: "8080"
   GIN_MODE: "release"
+  # LOG_LEVEL: debug | info | warn | error (default info)
+  LOG_LEVEL: "info"
   DOMAIN: "https://rego.mydomain.local"
   # Impressum/Legal Notice Configuration
   # Set to "true" to enable the impressum page link in the footer

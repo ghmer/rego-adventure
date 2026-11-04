@@ -178,7 +178,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | ------------------------- | ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DOMAIN`                  | Yes         | -       | Application domain (e.g., `https://example.com`)                                                                                                  |
 | `PORT`                    | No          | `8080`  | HTTP server port                                                                                                                                  |
-| `AUTH_ENABLED`            | No          | `false` | Enable OIDC authentication                                                                                                                        |
+| `AUTH_ENABLED`            | No          | `false` | Enable OIDC authentication (booleans accept `true`/`false`/`1`/`0`; anything else fails startup)                                                  |
 | `AUTH_ISSUER`             | Conditional | -       | OIDC issuer URL (required if auth enabled)                                                                                                        |
 | `AUTH_DISCOVERY_URL`      | Conditional | -       | OIDC discovery endpoint (required if auth enabled)                                                                                                |
 | `AUTH_CLIENT_ID`          | Conditional | -       | OIDC client ID (required if auth enabled)                                                                                                         |
@@ -186,6 +186,9 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | `AUTH_ALLOWED_ALGORITHMS` | No          | `RS256` | Comma-separated list of allowed JWT signing algorithms (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512`, `EdDSA`) |
 | `TRUSTED_PROXIES`         | No          | -       | Comma-separated CIDR ranges for trusted proxies                                                                                                   |
 | `SHOW_IMPRESSUM`          | No          | `false` | Enable impressum/legal notice page link in footer                                                                                                 |
+| `LOG_LEVEL`               | No          | `info`  | Log level: `debug`, `info`, `warn`, or `error`                                                                                                     |
+
+> **Note:** `DOMAIN` is normalized to its origin (scheme + host); any path or trailing slash is stripped so CORS matching (which compares against the browser `Origin` header) cannot silently break.
 
 > **Note:** When deploying behind a proxy or load balancer (e.g., nginx, Kubernetes ingress, cloud load balancer), it is important to set `TRUSTED_PROXIES` to ensure accurate client IP detection. Without this configuration, the application will see the proxy's IP address instead of the actual client IP. Set this to the CIDR range(s) of your trusted proxy infrastructure (e.g., `TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12"`).
 

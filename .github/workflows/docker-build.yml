@@ -14,60 +14,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  frontend-lint:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    name: Lint frontend
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '26.7.0'
-
-      # Ephemeral, pinned toolchain: installed on the runner only
-      # (--no-save leaves package.json untouched), never committed.
-      - name: Install pinned eslint toolchain
-        run: npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0
-        working-directory: frontend/adventure
-
-      - name: Run eslint
-        run: npx eslint src
-        working-directory: frontend/adventure
-
-  frontend-test:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    name: Test frontend
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '26.7.0'
-
-      # Ephemeral, pinned toolchain: installed on the runner only
-      # (--no-save leaves package.json untouched), never committed.
-      - name: Install pinned vitest toolchain
-        run: npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3
-        working-directory: frontend/adventure
-
-      - name: Run vitest
-        run: npx vitest run
-        working-directory: frontend/adventure
-
+  # Frontend lint and tests run on every push/PR in frontend-ci.yml; tag
+  # pushes here always build from a ref that already passed that gate, so
+  # they are not duplicated in this workflow.
   build-and-push:
     runs-on: ubuntu-latest
-    needs: [frontend-lint, frontend-test]
-    # Image builds and pushes only make sense for tag pushes; on
-    # workflow_dispatch the lint/test jobs still validate the ref. Without
-    # this gate the push step would run with an empty tag and fail late.
+    # The build and push only make sense for tag pushes, so the job is
+    # gated on ref_type == 'tag'. workflow_dispatch remains available
+    # for validating the Go test step on an arbitrary ref without
+    # publishing any image.
     if: github.ref_type == 'tag'
     name: Build and push image (linux/amd64, linux/arm64)
     permissions:

@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghmer/rego-adventure/v2/backend/quest"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -35,20 +37,11 @@ var allowedExtensions = map[string]bool{
 	".svg":  true,
 }
 
-// isValidPackName validates that a pack name doesn't contain path traversal characters
+// isValidPackName validates a pack path parameter with the same rules the
+// repository enforces when packs are loaded, so a pack that exists in the
+// repository is always addressable and an invalid one never is.
 func isValidPackName(pack string) bool {
-	if pack == "" {
-		return false
-	}
-	// Reject any pack name containing path separators or parent directory references
-	if strings.Contains(pack, "..") || strings.Contains(pack, "/") || strings.Contains(pack, "\\") {
-		return false
-	}
-	// Reject hidden files/directories
-	if strings.HasPrefix(pack, ".") {
-		return false
-	}
-	return true
+	return quest.IsValidPackID(pack)
 }
 
 // isAllowedExtension checks if a file extension is in the whitelist
@@ -57,7 +50,10 @@ func isAllowedExtension(filename string) bool {
 	return allowedExtensions[ext]
 }
 
-// containsPathTraversal detects path traversal attempts
+// containsPathTraversal detects path traversal attempts. The substring
+// check is deliberately broad: names containing ".." anywhere (even "a..b")
+// are rejected. That over-blocks a handful of legal file names in exchange
+// for a simple, conservative rule.
 func containsPathTraversal(p string) bool {
 	// Clean the path and check for traversal patterns
 	cleaned := filepath.Clean(p)

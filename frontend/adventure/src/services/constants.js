@@ -87,8 +87,11 @@ export const DEFAULT_TEXT = {
 
 /**
  * Default Rego code template
+ * OPA v1 compiles Rego v1 semantics natively; the old `import rego.v1`
+ * compatibility line is no longer needed (and not emitted by pack
+ * templates or the assetgen scaffolding anymore).
  */
-export const DEFAULT_REGO_CODE = 'package play\nimport rego.v1\n\ndefault allow := false';
+export const DEFAULT_REGO_CODE = 'package play\n\ndefault allow := false';
 
 /**
  * Confetti animation settings

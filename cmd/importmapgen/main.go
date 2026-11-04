@@ -194,8 +194,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 4. Write index.html
-	if err := os.WriteFile(indexPath, newIndexContent, 0600); err != nil { // #nosec G703 -- writes user-provided path
+	// 4. Write index.html, preserving the original file mode so running
+	// the generator locally does not silently change permissions.
+	mode := os.FileMode(0644)
+	if fi, err := os.Stat(indexPath); err == nil {
+		mode = fi.Mode().Perm()
+	}
+	if err := os.WriteFile(indexPath, newIndexContent, mode); err != nil { // #nosec G703 -- writes user-provided path
 		fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", indexPath, err)
 		os.Exit(1)
 	}

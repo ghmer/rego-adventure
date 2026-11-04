@@ -52,6 +52,12 @@ func GenerateTheme(themeName, outputDir string) error {
 	}
 
 	baseDir := filepath.Join(outputDir, themeName)
+	// Guard against theme names that escape the output directory
+	// (e.g. "../../somewhere"); a theme is a single directory name.
+	if themeName != filepath.Base(themeName) || themeName == "." || themeName == ".." {
+		return fmt.Errorf("theme name %q must be a single directory name", themeName)
+	}
+
 	if err := generateAssets(filepath.Join(baseDir, "assets")); err != nil {
 		return err
 	}
@@ -206,7 +212,6 @@ func createFirstStepsQuest() quest.Quest {
 allow if input.password == "secret"`,
 		ApplyTemplate: true,
 		Template: `package play
-import rego.v1
 
 default allow := false
 
@@ -255,7 +260,6 @@ func createInventoryQuest() quest.Quest {
 allow if input.user.inventory[_] == "pass"`,
 		ApplyTemplate: true,
 		Template: `package play
-import rego.v1
 
 default allow := false
 
@@ -305,7 +309,6 @@ func createDataLookupQuest() quest.Quest {
 allow if input.user.name == data.registry[_]`,
 		ApplyTemplate: true,
 		Template: `package play
-import rego.v1
 
 default allow := false
 
@@ -377,6 +380,9 @@ func generateCustomCSS(dir string) error {
 }
 
 func generateREADME(dir, themeName string) error {
-	readme := fmt.Sprintf(readmeTemplate, themeName)
+	// Placeholder substitution instead of Sprintf: the README body
+	// documents CSS like 100% and rgba(), whose percent signs would
+	// make a format-string approach fragile.
+	readme := strings.ReplaceAll(readmeTemplate, "%THEME%", themeName)
 	return os.WriteFile(filepath.Join(dir, "README.md"), []byte(readme), 0600)
 }

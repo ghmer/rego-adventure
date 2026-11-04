@@ -140,7 +140,7 @@ export class PackManager {
         if (npcAvatar) {
             npcAvatar.src = basePath + 'npc-questgiver.png';
             npcAvatar.onerror = () => {
-                npcAvatar.src = 'public/assets/npc-questgiver.png';
+                npcAvatar.src = '/public/assets/npc-questgiver.png';
             };
         }
 
@@ -149,7 +149,7 @@ export class PackManager {
         if (heroAvatar) {
             heroAvatar.src = basePath + 'hero-avatar.png';
             heroAvatar.onerror = () => {
-                heroAvatar.src = 'public/assets/hero-avatar.png';
+                heroAvatar.src = '/public/assets/hero-avatar.png';
             };
         }
         
@@ -171,10 +171,10 @@ export class PackManager {
         document.body.style.backgroundImage = '';
         
         const npcAvatar = document.querySelector('.npc-avatar');
-        if (npcAvatar) npcAvatar.src = 'public/assets/npc-questgiver.png';
+        if (npcAvatar) npcAvatar.src = '/public/assets/npc-questgiver.png';
 
         const heroAvatar = document.querySelector('.avatar');
-        if (heroAvatar) heroAvatar.src = 'public/assets/hero-avatar.png';
+        if (heroAvatar) heroAvatar.src = '/public/assets/hero-avatar.png';
         
         // Reset titles to default
         this.ui.updateTitles('Rego Adventure');

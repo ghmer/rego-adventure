@@ -20,11 +20,14 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -40,7 +43,7 @@ import (
 
 func TestSecurityHeaders_AreSet(t *testing.T) {
 	router := gin.New()
-	router.Use(SecurityHeaders(nil))
+	router.Use(SecurityHeaders(nil, ""))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -65,7 +68,7 @@ func TestSecurityHeaders_AreSet(t *testing.T) {
 
 func TestSecurityHeaders_CSPIsPresent(t *testing.T) {
 	router := gin.New()
-	router.Use(SecurityHeaders(nil))
+	router.Use(SecurityHeaders(nil, ""))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -89,7 +92,7 @@ func TestSecurityHeaders_CSPIsPresent(t *testing.T) {
 
 func TestSecurityHeaders_CSPFrameAncestorsNone(t *testing.T) {
 	router := gin.New()
-	router.Use(SecurityHeaders(nil))
+	router.Use(SecurityHeaders(nil, ""))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -114,7 +117,7 @@ func TestSecurityHeaders_CSPAddsIssuerOriginWhenAuthEnabled(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.Use(SecurityHeaders(cfg))
+	router.Use(SecurityHeaders(cfg, ""))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -138,7 +141,7 @@ func TestSecurityHeaders_CSPSkipsInvalidIssuer(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.Use(SecurityHeaders(cfg))
+	router.Use(SecurityHeaders(cfg, ""))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -391,5 +394,110 @@ func TestAuth_Returns500WhenJWKSIsMissing(t *testing.T) {
 	w := serveAuthRequest(t, s.cfg, "Bearer "+s.signRS256(t))
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500 for missing JWKS, got %d", w.Code)
+	}
+}
+
+// ==================== bearerToken scheme casing ====================
+
+func TestAuth_AcceptsLowercaseBearerScheme(t *testing.T) {
+	// The auth scheme is case-insensitive per RFC 6750.
+	s := newAuthTestServer(t, []string{"RS256"})
+
+	w := serveAuthRequest(t, s.cfg, "bearer "+s.signRS256(t))
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for lowercase bearer scheme, got %d", w.Code)
+	}
+}
+
+// ==================== CSP hardening ====================
+
+func TestSecurityHeaders_ScriptSrcDisallowsInline(t *testing.T) {
+	cfg := &config.Config{}
+	w := httptest.NewRecorder()
+	_, router := gin.CreateTestContext(w)
+	router.Use(SecurityHeaders(cfg, ""))
+	router.GET("/csp", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/csp", nil)
+	router.ServeHTTP(w, req)
+
+	csp := w.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "script-src 'self' https://esm.sh;") {
+		t.Errorf("expected script-src without 'unsafe-inline', got CSP: %s", csp)
+	}
+	if strings.Contains(csp, "script-src 'self' 'unsafe-inline'") {
+		t.Errorf("script-src must not contain 'unsafe-inline', got CSP: %s", csp)
+	}
+}
+
+func TestSecurityHeaders_ScriptSrcCarriesImportMapHash(t *testing.T) {
+	cfg := &config.Config{}
+	w := httptest.NewRecorder()
+	_, router := gin.CreateTestContext(w)
+	router.Use(SecurityHeaders(cfg, "sha256-t6ZbYD7G4ISBEhUHIsZ0DPR9Sq0le85EeQmLLcmy4Wg="))
+	router.GET("/csp", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/csp", nil)
+	router.ServeHTTP(w, req)
+
+	csp := w.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "script-src 'self' https://esm.sh 'sha256-t6ZbYD7G4ISBEhUHIsZ0DPR9Sq0le85EeQmLLcmy4Wg=';") {
+		t.Errorf("expected script-src to carry the import map hash, got CSP: %s", csp)
+	}
+	if strings.Contains(csp, "script-src 'self' https://esm.sh 'unsafe-inline'") {
+		t.Errorf("the hash must replace, not accompany, unsafe-inline in script-src, got CSP: %s", csp)
+	}
+}
+
+func TestInlineImportMapScriptHash_ExactBytes(t *testing.T) {
+	dir := t.TempDir()
+	// Whitespace inside the block is part of the hashed content; the
+	// capture must be byte-exact, so a known-input/known-hash pair is
+	// verified here (hash computed independently in the test body).
+	content := "\n        {\"imports\": {\"a\": \"https://esm.sh/a@1\"}}\n    "
+	html := "<html><script type=\"importmap\">" + content + "</script></html>"
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(html), 0o600); err != nil {
+		t.Fatalf("failed to write index.html: %v", err)
+	}
+
+	got, err := inlineImportMapScriptHash(filepath.Join(dir, "index.html"))
+	if err != nil {
+		t.Fatalf("inlineImportMapScriptHash failed: %v", err)
+	}
+
+	sum := sha256.Sum256([]byte(content))
+	want := "sha256-" + base64.StdEncoding.EncodeToString(sum[:])
+	if got != want {
+		t.Errorf("hash mismatch: got %q, want %q", got, want)
+	}
+}
+
+func TestInlineImportMapScriptHash_MissingFileAndNoImportMap(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := inlineImportMapScriptHash(filepath.Join(dir, "index.html")); err == nil {
+		t.Error("expected an error for a missing index.html")
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("<html><body>hi</body></html>"), 0o600); err != nil {
+		t.Fatalf("failed to write index.html: %v", err)
+	}
+	if _, err := inlineImportMapScriptHash(filepath.Join(dir, "index.html")); err == nil {
+		t.Error("expected an error when no inline import map is present")
+	}
+}
+
+// TestInlineImportMapScriptHash_ActualFrontendFile guards the real
+// deployment: the shipped index.html must contain an inline import map
+// whose hash the server can compute (same relative-path pattern as the
+// quest constants sync test).
+func TestInlineImportMapScriptHash_ActualFrontendFile(t *testing.T) {
+	index := filepath.Join("..", "..", "frontend", "adventure", "index.html")
+
+	hash, err := inlineImportMapScriptHash(index)
+	if err != nil {
+		t.Fatalf("inlineImportMapScriptHash(%s): %v", index, err)
+	}
+	if !strings.HasPrefix(hash, "sha256-") || len(hash) != len("sha256-")+44 {
+		t.Errorf("unexpected hash format: %q", hash)
 	}
 }

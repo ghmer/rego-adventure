@@ -56,14 +56,24 @@ type Config struct {
 
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
+	authEnabled, err := parseBoolEnv("AUTH_ENABLED")
+	if err != nil {
+		return nil, err
+	}
+	showImpressum, err := parseBoolEnv("SHOW_IMPRESSUM")
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &Config{
 		Auth: AuthConfig{
-			Enabled:       os.Getenv("AUTH_ENABLED") == "true",
-			Issuer:        os.Getenv("AUTH_ISSUER"),
-			DiscoveryURL:  os.Getenv("AUTH_DISCOVERY_URL"),
-			ClientID:      os.Getenv("AUTH_CLIENT_ID"),
-			Audience:      os.Getenv("AUTH_AUDIENCE"),
-			ShowImpressum: os.Getenv("SHOW_IMPRESSUM") == "true",
+			Enabled:           authEnabled,
+			Issuer:            os.Getenv("AUTH_ISSUER"),
+			DiscoveryURL:      os.Getenv("AUTH_DISCOVERY_URL"),
+			ClientID:          os.Getenv("AUTH_CLIENT_ID"),
+			Audience:          os.Getenv("AUTH_AUDIENCE"),
+			ShowImpressum:     showImpressum,
+			AllowedAlgorithms: nil,
 		},
 		Port: os.Getenv("PORT"),
 	}
@@ -101,6 +111,22 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// parseBoolEnv reads a boolean environment variable. Unset or empty means
+// false; any value strconv.ParseBool rejects (e.g. "yes", "ture") is a
+// configuration error. Silently treating a typo as false would, for
+// AUTH_ENABLED, fail an auth-gated deployment open.
+func parseBoolEnv(name string) (bool, error) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return false, nil
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("invalid value %q for %s: %w", raw, name, err)
+	}
+	return value, nil
 }
 
 // validatePort ensures PORT is a numeric TCP port so a misconfigured value
@@ -166,7 +192,10 @@ func (c *Config) validateAllowedOrigin() error {
 		return fmt.Errorf("DOMAIN environment variable must use http or https scheme, got %q", parsedURL.Scheme)
 	}
 
-	c.AllowedOrigin = allowedOrigin
+	// CORS compares the browser's Origin header, which never carries a path
+	// or trailing slash. Normalizing to scheme://host keeps a DOMAIN like
+	// "https://example.com/" from silently disabling CORS.
+	c.AllowedOrigin = parsedURL.Scheme + "://" + parsedURL.Host
 	return nil
 }
 

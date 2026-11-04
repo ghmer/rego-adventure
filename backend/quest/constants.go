@@ -64,6 +64,10 @@ const (
 	MaxQuestSolution = 5000
 	// MaxQuestTemplate is the maximum length for quest template.
 	MaxQuestTemplate = 10000
+	// MaxQuestTests is the maximum number of test cases per quest. Without
+	// a cap, a single /api/verify request would loop over an unbounded
+	// number of test cases and prepare a query per distinct data document.
+	MaxQuestTests = 100
 	// MaxQuestSupportModules is the maximum number of support modules per quest.
 	MaxQuestSupportModules = 5
 	// MaxQuestSupportModule is the maximum length for each support module.

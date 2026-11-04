@@ -22,6 +22,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"unicode"
 )
 
 // QuestRepository handles loading and accessing quests.
@@ -37,8 +38,31 @@ func NewQuestRepository() *QuestRepository {
 	}
 }
 
+// IsValidPackID reports whether id is usable as a quest pack identifier.
+// Pack IDs come from directory names on disk and appear verbatim in URL
+// path segments (/quests/:pack/..., /api/packs/:pack_id), so they must not
+// contain path separators, parent references, leading dots (hidden
+// directories), or whitespace (URLs would need escaping the frontend does
+// not perform).
+func IsValidPackID(id string) bool {
+	if id == "" {
+		return false
+	}
+	if strings.Contains(id, "..") || strings.Contains(id, "/") || strings.Contains(id, "\\") {
+		return false
+	}
+	if strings.HasPrefix(id, ".") {
+		return false
+	}
+	return !strings.ContainsFunc(id, unicode.IsSpace)
+}
+
 // LoadPack loads a quest pack from the provided bytes.
 func (r *QuestRepository) LoadPack(id string, questData []byte) error {
+	if !IsValidPackID(id) {
+		return fmt.Errorf("invalid pack ID %q: must not be empty, start with a dot, or contain path separators or whitespace", id)
+	}
+
 	var pack QuestPack
 	if err := json.Unmarshal(questData, &pack); err != nil {
 		return fmt.Errorf("failed to parse quests json for %s: %w", id, err)

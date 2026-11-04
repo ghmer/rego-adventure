@@ -36,7 +36,7 @@ Each element in the `quests` array is a `quest` specification with the following
   - `rego_snippet`: Markdown-formatted text explaining the Rego concepts and syntax required for this quest, may include code examples
   - `external_link`: Optional URL to external documentation or resources (may be an empty string)
 - `hints`: Ordered array of text hints to assist the player
-- `solution`: The correct Rego policy code that solves the quest
+- `solution`: The correct Rego policy code that solves the quest. It may either include its own `package` declaration or omit it; `cmd/solutionverifier` derives the package from the quest's `query` (e.g. `data.play.allow` → package `play`) when it is missing.
 - `query`: Required string field specifying the Rego query path to evaluate (e.g., `"data.play.allow"`). This determines what the examiner queries when checking the user's Rego code against the test cases.
 - `apply_template`: Boolean flag that controls whether the template code should replace the contents of the Policy Grimoire code window
 - `template`: String containing the template code to be displayed in the Policy Grimoire code window.
@@ -87,6 +87,7 @@ All text fields in the quest JSON structure are validated against maximum length
 - `quest.solution`: 5000 characters (optional)
 - `quest.template`: 10000 characters (optional)
 - `quest.support_modules`: maximum of 5 modules per quest, 10000 characters each (optional)
+- `quest.tests`: maximum of 100 test cases per quest (each is evaluated on every verification request)
 - `quest.query`: No explicit limit (required field)
 
 ### Manual Field Limits

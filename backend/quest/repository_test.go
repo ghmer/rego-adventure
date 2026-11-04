@@ -41,6 +41,27 @@ func TestLoadPack_Valid(t *testing.T) {
 	}
 }
 
+func TestLoadPack_RejectsInvalidPackID(t *testing.T) {
+	repo := NewQuestRepository()
+	pack := createValidQuestPack()
+	data, err := json.Marshal(pack)
+	if err != nil {
+		t.Fatalf("Failed to marshal pack: %v", err)
+	}
+
+	for _, id := range []string{"", ".hidden", "..", ".", "a/b", `a\b`, "../x", "pack name", "pack\tname"} {
+		if err := repo.LoadPack(id, data); err == nil {
+			t.Errorf("LoadPack(%q): expected error for invalid pack ID, got nil", id)
+		}
+	}
+
+	for _, id := range []string{"fantasy", "sci-fi", "my_pack", "Pack123"} {
+		if err := repo.LoadPack(id, data); err != nil {
+			t.Errorf("LoadPack(%q): unexpected error for valid pack ID: %v", id, err)
+		}
+	}
+}
+
 func TestLoadPack_InvalidJSON(t *testing.T) {
 	repo := NewQuestRepository()
 	err := repo.LoadPack("invalid", []byte("{invalid-json"))

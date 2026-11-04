@@ -57,6 +57,9 @@ export function handleApiError(error, context) {
         } else if (error.status === 0) {
             hint = 'Please check if the server is running.';
         } else if (error.status === 408) {
+            // Mirrors the player-facing timeout message the backend puts
+            // in the 408 body (backend/http/handlers.go timeoutMessage);
+            // kept here because ensureOk discards error response bodies.
             hint = 'Your policy took too long to evaluate. Check for unbounded loops or very large comprehensions.';
         } else if (error.status >= 500) {
             hint = 'The server encountered an error. Please try again later.';

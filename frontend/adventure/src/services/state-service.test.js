@@ -180,11 +180,25 @@ describe('state-service', () => {
 
             state.completeQuest(2);
             expect(state.hasPerfectScore()).toBe(true);
+        });
 
+        it('keeps the best result when a quest is replayed', () => {
+            const state = createState(2);
+            state.completeQuest(1);
+            state.completeQuest(2);
+            expect(state.hasPerfectScore()).toBe(true);
+
+            // Replaying a completed quest (history mode) after having
+            // used hints must not reduce the recorded score: replays are
+            // safe, the better result stands.
             state.currentQuestHintsUsed = 1;
             state.currentQuestId = 1;
-            state.completeQuest(1);
-            expect(state.hasPerfectScore()).toBe(false);
+            const pointsEarned = state.completeQuest(1);
+
+            expect(pointsEarned).toBe(SCORING.POINTS_PER_QUEST);
+            expect(state.questScores[1].pointsEarned).toBe(SCORING.POINTS_PER_QUEST);
+            expect(state.totalScore).toBe(2 * SCORING.POINTS_PER_QUEST);
+            expect(state.hasPerfectScore()).toBe(true);
         });
     });
 

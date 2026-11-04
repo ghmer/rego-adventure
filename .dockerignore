@@ -12,4 +12,3 @@ docu/
 frontend/adventure/package.json
 frontend/adventure/package-lock.json
 frontend/adventure/eslint.config.js
-frontend/adventure/scripts/

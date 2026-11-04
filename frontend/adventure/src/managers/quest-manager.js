@@ -21,6 +21,7 @@
 
 import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
 import { fetchQuestHint, fetchQuestSolution } from '../services/api-service.js';
+import { nextReveal } from '../services/reveal-service.js';
 import { handleApiError } from '../services/error-service.js';
 
 /**
@@ -438,11 +439,15 @@ export class QuestManager {
                 if (this.state.currentQuestId !== questId) return;
             }
             const hintsUsed = this.state.currentQuestHintsUsed;
-            const totalHints = quest.hints_count ?? 0;
+            // The reveal progression is defined once in reveal-service so
+            // the button label, the confirmation dialog, and this flow
+            // always agree on what comes next.
+            const reveal = nextReveal(quest, hintsUsed, this.state.currentQuestSolutionViewed);
+            if (!reveal) return;
 
-            if (hintsUsed < totalHints) {
+            if (reveal.kind === 'hint') {
                 // Show next hint
-                const text = await this.loadHintText(questId, hintsUsed + 1);
+                const text = await this.loadHintText(questId, reveal.hintId);
                 if (this.state.currentQuestId !== questId) return;
                 if (this.state.currentQuestHintsUsed !== hintsUsed) return;
                 this.appendHintItem(text);
@@ -450,7 +455,7 @@ export class QuestManager {
                 this.state.currentQuestHintsUsed++;
                 this.state.persistQuestHintState();
                 this.ui.updateHintButtonText(quest, hintsUsed + 1, this.state.label('hintButton'));
-            } else if (quest.has_solution && !this.state.currentQuestSolutionViewed) {
+            } else {
                 // Show solution
                 const solution = await this.loadSolutionText(questId);
                 if (this.state.currentQuestId !== questId) return;

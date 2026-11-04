@@ -68,7 +68,24 @@ func StructuredLogger() gin.HandlerFunc {
 // SecurityHeaders adds security headers to responses. When authentication is
 // enabled, the OIDC issuer (or discovery URL) origin is added to connect-src
 // so the frontend can perform discovery, token, and user-info requests.
-func SecurityHeaders(cfg *config.Config) gin.HandlerFunc {
+//
+// inlineImportMapHash is the CSP source expression (e.g. "sha256-...") for
+// the inline <script type="importmap"> in index.html, computed once at
+// startup by inlineImportMapScriptHash.
+func SecurityHeaders(cfg *config.Config, inlineImportMapHash string) gin.HandlerFunc {
+	// Inline import maps ARE inline scripts for CSP purposes: they are
+	// governed by script-src and are blocked by a policy that allows no
+	// inline script (WICG/import-maps#105, enforced by browsers; see also
+	// dotnet/aspnetcore#59486). Since the map is static per deployment,
+	// it is allowlisted by its exact SHA-256 instead of weakening
+	// script-src with 'unsafe-inline'. style-src keeps 'unsafe-inline':
+	// the editor and tour libraries attach inline styles; there are no
+	// other inline scripts.
+	scriptSrc := []string{"'self'", "https://esm.sh"}
+	if inlineImportMapHash != "" {
+		scriptSrc = append(scriptSrc, "'"+inlineImportMapHash+"'")
+	}
+
 	connectSrc := []string{"'self'", "https://esm.sh"}
 	if cfg != nil && cfg.Auth.Enabled {
 		if origin := oidcOrigin(cfg.Auth.Issuer, cfg.Auth.DiscoveryURL); origin != "" {
@@ -78,7 +95,7 @@ func SecurityHeaders(cfg *config.Config) gin.HandlerFunc {
 
 	csp := strings.Join([]string{
 		"default-src 'self'",
-		"script-src 'self' 'unsafe-inline' https://esm.sh",
+		"script-src " + strings.Join(scriptSrc, " "),
 		"worker-src 'self' blob: https://esm.sh",
 		"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
 		"img-src 'self' data:",
@@ -163,7 +180,9 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 			// exp claim would otherwise be accepted forever.
 			jwt.WithExpirationRequired(),
 		)
-		if err != nil || !token.Valid {
+		// jwt.Parse returns a nil error only for a fully validated token,
+		// so there is no separate token.Valid state to check.
+		if err != nil {
 			abortUnauthorized(c, errInvalidToken)
 			return
 		}
@@ -178,13 +197,13 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 }
 
 // bearerToken extracts the token from an "Authorization: Bearer <token>"
-// header value.
+// header value. The auth scheme is case-insensitive per RFC 6750/8252.
 func bearerToken(header string) (string, error) {
 	if header == "" {
 		return "", errMissingAuthHeader
 	}
 	parts := strings.Split(header, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 		return "", errInvalidAuthHeader
 	}
 	return parts[1], nil

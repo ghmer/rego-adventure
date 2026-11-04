@@ -33,7 +33,7 @@ import { ConfigService } from './services/config-service.js';
 import { AuthService } from './services/auth-service.js';
 import { ApiError, fetchPacks } from './services/api-service.js';
 import { GameState } from './services/state-service.js';
-import { removeLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
+import { removeLocalStorage, migrateStorageKeys, STORAGE_KEYS } from './services/storage-service.js';
 import { EditorService } from './services/editor-service.js';
 import { UIManager } from './managers/ui-manager.js';
 import { QuestManager } from './managers/quest-manager.js';
@@ -150,4 +150,7 @@ async function init() {
 }
 
 // Start the application
+// Move legacy storage values to the current key scheme before any
+// manager reads persisted state.
+migrateStorageKeys();
 init();

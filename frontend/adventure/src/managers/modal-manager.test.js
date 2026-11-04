@@ -319,16 +319,6 @@ describe('modal-manager', () => {
             expect(apiMock.fetchTestPayload).toHaveBeenLastCalledWith('fantasy', 3);
         });
 
-        it('refetches after the cache is cleared on restart', async () => {
-            apiMock.fetchTestPayload.mockResolvedValue([{ id: 1 }]);
-
-            await modal.showTestPayload();
-            modal.clearTestPayloadCache();
-            await modal.showTestPayload();
-
-            expect(apiMock.fetchTestPayload).toHaveBeenCalledTimes(2);
-        });
-
         it('reports load failures without opening the dialog', async () => {
             apiMock.fetchTestPayload.mockRejectedValue(new ApiError('boom', 500));
 

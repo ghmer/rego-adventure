@@ -44,6 +44,7 @@ const VALIDATION_LIMITS = {
     QUEST_HINT: 500,
     QUEST_SOLUTION: 5000,
     QUEST_TEMPLATE: 10000,
+    QUEST_TESTS: 100,
     QUEST_SUPPORT_MODULE: 10000,
     QUEST_SUPPORT_MODULES_MAX: 5,
     
@@ -753,7 +754,14 @@ function removeHintItem(questIndex, hintIndex) {
 function addTestItem(questIndex) {
     const quest = questData.quests[questIndex];
     if (!quest.tests) quest.tests = [];
-    
+
+    // Mirrors the backend MaxQuestTests cap: verification loops over
+    // every test case per request, so an unbounded list is refused.
+    if (quest.tests.length >= VALIDATION_LIMITS.QUEST_TESTS) {
+        alert(`A quest can have at most ${VALIDATION_LIMITS.QUEST_TESTS} test cases`);
+        return;
+    }
+
     const newTest = {
         id: quest.tests.length + 1,
         payload: { input: {} },
@@ -938,6 +946,10 @@ function validateData() {
             const uniqueTestIds = new Set(testIds);
             if (testIds.length !== uniqueTestIds.size) {
                 alert(`Quest ${quest.id}: Test IDs must be unique!`);
+                return false;
+            }
+            if (quest.tests.length > VALIDATION_LIMITS.QUEST_TESTS) {
+                alert(`Quest ${quest.id}: at most ${VALIDATION_LIMITS.QUEST_TESTS} test cases are allowed!`);
                 return false;
             }
         }

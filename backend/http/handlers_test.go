@@ -1097,3 +1097,39 @@ func TestHealthCheck_HasTimestamp(t *testing.T) {
 		t.Error("expected timestamp field in health response")
 	}
 }
+
+func TestVerifySolution_ClientCancelReturns499(t *testing.T) {
+	repo := quest.NewQuestRepository()
+	loadHandlerTestPack(t, repo, "fantasy")
+	router := newTestRouter(repo)
+
+	reqBody, _ := json.Marshal(VerifyRequest{
+		PackID:  "fantasy",
+		QuestID: 1,
+		RegoCode: `
+			package quest
+			allow if {
+				count([pair |
+					some i in numbers.range(1, 2000)
+					some j in numbers.range(1, 2000)
+					pair := [i, j]
+				]) > 0
+			}
+		`,
+	})
+
+	// A context that is already cancelled models the client hanging up
+	// before evaluation finishes; that is not a server error.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	if w.Code != statusClientClosedRequest {
+		t.Errorf("expected status %d for a cancelled client, got %d: %s",
+			statusClientClosedRequest, w.Code, w.Body.String())
+	}
+}

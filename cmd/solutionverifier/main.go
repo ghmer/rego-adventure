@@ -22,15 +22,77 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
+	"regexp"
+	"strings"
 
 	"github.com/ghmer/rego-adventure/v2/backend/quest"
 )
 
 // questVerifyTimeout bounds the evaluation of one quest's solution so a
 // pathological policy (unbounded loops, oversized comprehensions) cannot
-// hang the CLI. It matches the HTTP verify endpoint's per-request budget.
-const questVerifyTimeout = 3 * time.Second
+// hang the CLI. It uses the same budget as the HTTP verify endpoint.
+const questVerifyTimeout = quest.DefaultVerifyTimeout
+
+// packageDeclRe matches a Rego package declaration at the start of a
+// line with only whitespace before it (literal tabs/spaces in the
+// character classes).
+var packageDeclRe = regexp.MustCompile(`(?m)^[ 	]*package[ 	]+[A-Za-z0-9_.]+`)
+
+// blockCommentRe matches Rego /* ... */ block comments; they are
+// stripped before testing for a package declaration.
+var blockCommentRe = regexp.MustCompile(`(?s)/\*.*?\*/`)
+
+// solutionHasPackageDeclaration reports whether the solution declares a
+// package of its own. '#' line comments cannot produce a false hit (the
+// pattern requires the line to start with whitespace then 'package'),
+// but Rego block comments can hide a line that looks like a
+// declaration, so they are stripped before the check.
+func solutionHasPackageDeclaration(solution string) bool {
+	return packageDeclRe.MatchString(blockCommentRe.ReplaceAllString(solution, " "))
+}
+
+// solutionModule builds the Rego module to verify for a quest, mirroring
+// how players submit code: the editor content normally carries its own
+// package declaration, and stored solutions either do the same or omit
+// it. When the package is omitted it is derived from the quest's query
+// (data.<package-path>.<rule>), so packs using a package other than
+// "play" verify correctly too.
+func solutionModule(query, solution string) (string, error) {
+	if strings.TrimSpace(solution) == "" {
+		return "", fmt.Errorf("quest has no solution")
+	}
+	if solutionHasPackageDeclaration(solution) {
+		return solution, nil
+	}
+
+	pkg, err := packageFromQuery(query)
+	if err != nil {
+		return "", err
+	}
+	return "package " + pkg + "\n\n" + solution, nil
+}
+
+// packageFromQuery derives the Rego package path from an evaluation
+// query such as "data.play.allow" (package "play") or
+// "data.foo.bar.allow" (package "foo.bar"). The final query segment is
+// the rule path, so it is dropped; for a bare "data.<pkg>" query the
+// whole remainder is the package.
+func packageFromQuery(query string) (string, error) {
+	rest, found := strings.CutPrefix(strings.TrimSpace(query), "data.")
+	if !found || rest == "" {
+		return "", fmt.Errorf("cannot derive package from query %q: expected a data.<package>.<rule> form", query)
+	}
+
+	segments := strings.Split(rest, ".")
+	packagePath := segments[0]
+	if len(segments) > 1 {
+		packagePath = strings.Join(segments[:len(segments)-1], ".")
+	}
+	if packagePath == "" {
+		return "", fmt.Errorf("cannot derive package from query %q", query)
+	}
+	return packagePath, nil
+}
 
 // verifyQuestPack processes and verifies all quests in a pack
 func verifyQuestPack(ctx context.Context, verifier *quest.Verifier, pack *quest.QuestPack) (int, int) {
@@ -40,7 +102,14 @@ func verifyQuestPack(ctx context.Context, verifier *quest.Verifier, pack *quest.
 	for _, q := range pack.Quests {
 		fmt.Printf("Quest %d: %s\n", q.ID, q.Title)
 
-		regoCode := "package play\nimport rego.v1\n\n" + q.Solution
+		regoCode, err := solutionModule(q.Query, q.Solution)
+		if err != nil {
+			fmt.Printf("  ERROR: %v\n\n", err)
+			// The solution could not even be assembled; count its tests
+			// towards the total without passing any, as for compile errors.
+			totalTests += len(q.Tests)
+			continue
+		}
 		verifyCtx, cancel := context.WithTimeout(ctx, questVerifyTimeout)
 		result, err := verifier.Verify(verifyCtx, &q, regoCode)
 		cancel()

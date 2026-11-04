@@ -665,7 +665,7 @@ Fallback for browsers without backdrop-filter support
 */
 `
 
-const readmeTemplate = `# %s Quest Pack
+const readmeTemplate = `# %THEME% Quest Pack
 
 This is a custom quest pack for the Rego Adventure game.
 
@@ -696,17 +696,17 @@ This theme uses a modular CSS structure:
 
 Some shared component classes pick up theme colors via CSS variables and
 need no extra definitions in theme.css or custom.css. Compile errors shown
-in the result modal use %%--error-color%% automatically:
+in the result modal use %--error-color% automatically:
 
 - **.compile-error-item** - A single compile error (line/column and message)
   in the result modal's error list. Styling it is optional; override it in
   theme.css only for theme-specific effects, e.g.:
 
-%%css
+%css
 .compile-error-item {
     text-shadow: 0 0 5px var(--error-color);
 }
-%%
+%
 
 ## Assets
 
@@ -726,37 +726,37 @@ All assets are currently placeholder images. Replace them with theme-appropriate
 The quest pack follows a progressive learning structure. Each quest should teach a specific Rego concept.
 
 For each quest, customize:
-- %%description_lore%% - Narrative flavor text (array of strings)
-- %%description_task%% - Clear task instruction
-- %%manual%% - Reference documentation with data model and Rego snippets
-- %%hints%% - Progressive hints to guide the player
-- %%solution%% - The correct Rego policy
-- %%tests%% - Test cases with payloads and expected outcomes
+- %description_lore% - Narrative flavor text (array of strings)
+- %description_task% - Clear task instruction
+- %manual% - Reference documentation with data model and Rego snippets
+- %hints% - Progressive hints to guide the player
+- %solution% - The correct Rego policy
+- %tests% - Test cases with payloads and expected outcomes
 
 ### 2. Customize Theme Colors and Fonts (theme.css)
 
-Update CSS variables in the %%:root%% section of theme.css:
+Update CSS variables in the %:root% section of theme.css:
 
 **Colors:**
-- %%--bg-color%% - Main background color
-- %%--surface-light%% / %%--surface-dark%% - Panel backgrounds
-- %%--text-color%% - Primary text color
-- %%--accent-color%% - Theme accent (buttons, borders, highlights)
-- %%--success-color%% / %%--error-color%% - Feedback colors
-- %%--accent-rgb%% - RGB values for rgba() usage (e.g., "126, 87, 194")
+- %--bg-color% - Main background color
+- %--surface-light% / %--surface-dark% - Panel backgrounds
+- %--text-color% - Primary text color
+- %--accent-color% - Theme accent (buttons, borders, highlights)
+- %--success-color% / %--error-color% - Feedback colors
+- %--accent-rgb% - RGB values for rgba() usage (e.g., "126, 87, 194")
 
 **Typography:**
-- %%--font-heading%% - Headings and titles
-- %%--font-body%% - Body text
-- %%--font-code%% - Code editor and monospace text
+- %--font-heading% - Headings and titles
+- %--font-body% - Body text
+- %--font-code% - Code editor and monospace text
 
 **Background Image:**
 Set the background image in the body selector:
-%%css
+%css
 body {
     background-image: url('assets/bg-adventure.jpg');
 }
-%%
+%
 
 **Optional Overrides:**
 Add theme-specific overrides at the bottom of theme.css to customize specific components.
@@ -767,7 +767,7 @@ Use custom.css for unique visual effects:
 
 ### 4. Add Background Music
 
-Replace %%bg-music.m4a%% with your theme's background music. Recommended:
+Replace %bg-music.m4a% with your theme's background music. Recommended:
 - Format: M4A
 - Duration: 2-5 minutes (will loop)
 - Style: Atmospheric, non-intrusive

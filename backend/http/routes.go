@@ -18,12 +18,16 @@
 package http
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/ghmer/rego-adventure/v2/backend/paths"
@@ -47,10 +51,50 @@ func validateCSSAsset(requestedPath string) bool {
 	return filepath.Ext(requestedPath) == ".css"
 }
 
-// SetupRoutes configures all routes and middleware
-func (s *Server) SetupRoutes() {
+// importMapScriptRe captures the exact content of the inline import map
+// script in index.html. The capture must be byte-exact: CSP hashes are
+// computed over the inline script's text content, whitespace included
+// (everything between the closing '>' of the opening tag and '</script>').
+var importMapScriptRe = regexp.MustCompile(`(?s)<script type="importmap">(.*?)</script>`)
+
+// inlineImportMapScriptHash reads the SPA's index.html and returns the
+// CSP script-src source expression ("sha256-<base64>") for its inline
+// import map. The SPA handler serves those same bytes, so the hash the
+// browser computes over the received script matches this one. It is
+// computed once at startup; the import map is static per deployment,
+// and dependency bumps (importmapgen/Dependabot) flow through with no
+// hash bookkeeping anywhere.
+func inlineImportMapScriptHash(indexFile string) (string, error) {
+	indexHTML, err := os.ReadFile(indexFile) // #nosec G304 -- deployment path built from the paths constant
+	if err != nil {
+		return "", fmt.Errorf("read index.html for CSP import map hash: %w", err)
+	}
+
+	match := importMapScriptRe.FindSubmatch(indexHTML)
+	if match == nil {
+		return "", fmt.Errorf("no inline <script type=\"importmap\"> found in %s", indexFile)
+	}
+
+	sum := sha256.Sum256(match[1])
+	return "sha256-" + base64.StdEncoding.EncodeToString(sum[:]), nil
+}
+
+// SetupRoutes configures all routes and middleware.
+//
+// It returns an error when the inline import map CSP hash cannot be
+// computed (missing or unreadable index.html, or a document without an
+// import map block). Booting anyway would serve an SPA that the CSP
+// then blocks in the browser: a broken-app state strictly harder to
+// diagnose than refusing to start. This matches the fail-fast handling
+// of configuration and LOG_LEVEL errors in main.
+func (s *Server) SetupRoutes() error {
+	importMapHash, err := inlineImportMapScriptHash(filepath.Join(paths.AdventureDir, "index.html"))
+	if err != nil {
+		return fmt.Errorf("security: cannot compute CSP hash for the inline import map: %w", err)
+	}
+
 	// Apply middleware
-	s.router.Use(SecurityHeaders(s.config))
+	s.router.Use(SecurityHeaders(s.config, importMapHash))
 	s.router.Use(BodySizeLimit())
 	s.router.Use(setupCORS(s.config.AllowedOrigin))
 
@@ -72,6 +116,8 @@ func (s *Server) SetupRoutes() {
 
 	// Frontend routes
 	s.setupFrontendRoutes()
+
+	return nil
 }
 
 // setupQuestRoutes configures quest asset serving
@@ -148,6 +194,47 @@ func (s *Server) serveSharedCSS(c *gin.Context) {
 	s.serveSafeFile(c, baseDir, requestedPath, validate, "text/css; charset=utf-8")
 }
 
+// resolveContained joins requestedPath under baseDir and verifies the
+// result stays inside baseDir. Both sides are resolved through symlinks
+// where possible: a purely lexical prefix check would let a symlink
+// inside a quest pack reach outside it. A path whose final component is
+// a symlink is rejected outright — an external link target cannot be
+// resolved, and letting the lexical join stand would answer 404 for
+// paths outside the base and leak their existence.
+func resolveContained(baseDir, requested string) (string, bool) {
+	absPath, err := filepath.Abs(filepath.Join(baseDir, requested))
+	if err != nil {
+		return "", false
+	}
+
+	if info, err := os.Lstat(absPath); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return "", false
+		}
+		// The target exists, so it fully resolves; use the resolved form.
+		resolved, err := filepath.EvalSymlinks(absPath)
+		if err != nil {
+			return "", false
+		}
+		absPath = resolved
+	}
+	// A missing target keeps the lexical path: the caller answers 404
+	// and makes no containment decision about a symlink.
+
+	expectedPrefix, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", false
+	}
+	if resolved, err := filepath.EvalSymlinks(expectedPrefix); err == nil {
+		expectedPrefix = resolved
+	}
+
+	if absPath != expectedPrefix && !strings.HasPrefix(absPath, expectedPrefix+string(os.PathSeparator)) {
+		return "", false
+	}
+	return absPath, true
+}
+
 // serveSafeFile is a helper to serve files safely with path traversal protection and validation
 func (s *Server) serveSafeFile(
 	c *gin.Context,
@@ -172,28 +259,29 @@ func (s *Server) serveSafeFile(
 		return
 	}
 
-	// Construct safe path
-	safePath := filepath.Join(baseDir, cleanPath)
-
-	// Verify the resolved path is still within the expected directory
-	absPath, err := filepath.Abs(safePath)
-	if err != nil {
-		slog.Warn("security: failed to resolve absolute path", "error", err)
+	// Construct safe path and verify the resolved path is still within
+	// the expected directory (see resolveContained for the symlink rules)
+	absPath, ok := resolveContained(baseDir, cleanPath)
+	if !ok {
+		slog.Warn("security: path escape attempt blocked", "path", requestedPath)
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
 
-	expectedPrefix, err := filepath.Abs(baseDir)
-	if err != nil {
-		slog.Warn("security: failed to resolve expected prefix", "error", err)
-		c.AbortWithStatus(http.StatusForbidden)
+	// Answer a missing target here instead of letting c.File resolve it:
+	// a dangling symlink would otherwise leak the existence of a path
+	// outside the base through ServeFile's error handling.
+	if _, err := os.Lstat(absPath); err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	if absPath != expectedPrefix && !strings.HasPrefix(absPath, expectedPrefix+string(os.PathSeparator)) {
-		slog.Warn("security: path escape attempt blocked", "path", absPath)
-		c.AbortWithStatus(http.StatusForbidden)
-		return
+	// SVG documents can carry scripts and execute them when navigated to
+	// directly. Quest packs are operator content, but lock the document
+	// down anyway: the CSP header on the SVG response itself disables
+	// fetching, forms, and scripting for that resource.
+	if strings.EqualFold(filepath.Ext(cleanPath), ".svg") {
+		c.Header("Content-Security-Policy", "default-src 'none'; sandbox; form-action 'none'")
 	}
 
 	// Set Content-Type if provided
@@ -226,6 +314,16 @@ func createSPAHandler(subFS fs.FS) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		requestedPath := c.Request.URL.Path
+
+		// Unmatched /api/* paths must not fall through to the SPA: the
+		// client asked for an API resource and must get a JSON 404, not a
+		// 200 HTML page. The /api group's own middleware (auth) never runs
+		// for unmatched routes, so answering here keeps the contract
+		// uniform for every /api/* request.
+		if requestedPath == "/api" || strings.HasPrefix(requestedPath, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+			return
+		}
 
 		// Security: Validate and sanitize the requested path
 		if containsPathTraversal(requestedPath) {
