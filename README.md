@@ -121,7 +121,36 @@ See [`docker-compose.yml`](docu/deploy/docker/docker-compose.yml) for Docker Com
 
 ### Kubernetes
 
-Deploy using the provided manifests.
+Use the Helm chart unless you specifically want bare manifests.
+
+#### Helm chart
+
+The chart lives in [ghmer/rego-adventure-charts](https://github.com/ghmer/rego-adventure-charts), is
+versioned exactly like this application (chart `2.5.4` deploys image `v2.5.4`), and is published to
+two channels:
+
+```bash
+# OCI artifact, Helm >= 3.8
+helm install rego-adventure oci://ghcr.io/ghmer/charts/rego-adventure \
+  --namespace rego-adventure --create-namespace \
+  --set config.domain=https://rego.mydomain.local
+
+# or the classic Helm repository
+helm repo add rego-adventure https://ghmer.github.io/rego-adventure-charts
+helm repo update
+helm install rego-adventure rego-adventure/rego-adventure \
+  --namespace rego-adventure --create-namespace \
+  --set config.domain=https://rego.mydomain.local
+```
+
+`config.domain` is the value that matters: the application accepts only that origin for CORS, so it
+has to be the address users actually visit. The chart validates every other setting against a JSON
+schema, refuses incomplete OIDC configurations at render time, and defaults to the hardened pod
+settings shown in the [Kubernetes manifests](docu/deploy/k8s/deployment.yaml) below. Quest packs and
+the impressum override are configured with `questPacks.*` and `impressum.*`; see the
+[chart README](https://github.com/ghmer/rego-adventure-charts/blob/main/charts/rego-adventure/README.md).
+
+#### Bare manifests
 
 Either:
 
@@ -379,8 +408,9 @@ The application is designed for cloud-native deployment with:
 Refer to:
 
 - [`Dockerfile`](Dockerfile) for container build configuration
-- [`docker-compose.yml`](docu/deploy/docker/docker-compose.yml) for Docker-based setups, and
-- [`kustomization.yaml`](docu/deploy/k8s/kustomization.yaml) for Kubernetes deployments
+- [`docker-compose.yml`](docu/deploy/docker/docker-compose.yml) for Docker-based setups,
+- the [Helm chart](https://github.com/ghmer/rego-adventure-charts) for Kubernetes deployments, and
+- [`kustomization.yaml`](docu/deploy/k8s/kustomization.yaml) for bare Kubernetes manifests
 
 ### Quest Packs Deployment
 
