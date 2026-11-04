@@ -97,7 +97,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	server := http.NewTestServer(addr, srv.Router())
+	server := http.NewServer(addr, srv.Router())
 	if err := http.RunWithGracefulShutdown(ctx, server, http.DefaultShutdownTimeout); err != nil {
 		slog.Error("server exited", "error", err)
 		os.Exit(1)

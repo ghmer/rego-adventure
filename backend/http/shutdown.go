@@ -50,10 +50,10 @@ const (
 	ServerReadHeaderTimeout = 5 * time.Second
 )
 
-// NewTestServer returns a server configured with the production timeout
+// NewServer returns a server configured with the production timeout
 // budget, bound to addr. Shared by main and the shutdown tests so both
 // exercise the same values.
-func NewTestServer(addr string, handler nethttp.Handler) *nethttp.Server {
+func NewServer(addr string, handler nethttp.Handler) *nethttp.Server {
 	return &nethttp.Server{
 		Addr:              addr,
 		Handler:           handler,

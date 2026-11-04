@@ -37,6 +37,8 @@ func TestIsValidPackName(t *testing.T) {
 		{"Forward slash", "pack/dir", false},
 		{"Backslash", `pack\dir`, false},
 		{"Hidden file dot prefix", ".hidden", false},
+		{"Whitespace in name", "pack name", false},
+		{"Tab in name", "pack\tname", false},
 		{"Just dots", "..", false},
 		{"Single dot", ".", false},
 		{"Traversal at end", "pack/..", false},

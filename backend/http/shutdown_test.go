@@ -57,7 +57,7 @@ func splitAddr(t *testing.T, addr string) (string, string) {
 func newTestServer(t *testing.T, handler nethttp.Handler) *nethttp.Server {
 	t.Helper()
 	addr := freePort(t)
-	return NewTestServer(addr, handler)
+	return NewServer(addr, handler)
 }
 
 // ==================== RunWithGracefulShutdown ====================
@@ -129,7 +129,7 @@ func TestRunWithGracefulShutdown_ReturnsListenError(t *testing.T) {
 		}
 	}()
 
-	server := NewTestServer(l.Addr().String(),
+	server := NewServer(l.Addr().String(),
 		nethttp.HandlerFunc(func(nethttp.ResponseWriter, *nethttp.Request) {}))
 
 	err = RunWithGracefulShutdown(context.Background(), server, DefaultShutdownTimeout)
@@ -145,7 +145,14 @@ func TestRunWithGracefulShutdown_ReturnsListenError(t *testing.T) {
 // in-flight request forces a timeout error instead of blocking forever.
 func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 	release := make(chan struct{})
+	// entered signals that a request has reached the handler, so the test
+	// never races on a fixed sleep to know the request is in flight.
+	entered := make(chan struct{}, 1)
 	server := newTestServer(t, nethttp.HandlerFunc(func(w nethttp.ResponseWriter, _ *nethttp.Request) {
+		select {
+		case entered <- struct{}{}:
+		default:
+		}
 		<-release // hang until the test releases
 		w.WriteHeader(nethttp.StatusOK)
 	}))
@@ -175,8 +182,12 @@ func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 	if !waitUntilListening(t, server.Addr, time.Second) {
 		t.Fatal("server listener lost")
 	}
-	// Give the client time to reach the handler.
-	time.Sleep(100 * time.Millisecond)
+	// Block until the client has actually reached the handler.
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("request never reached the handler")
+	}
 
 	cancel()
 
@@ -209,7 +220,12 @@ func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 // that completes while the shutdown is pending is allowed to finish.
 func TestGracefulShutdown_DrainsInFlightRequests(t *testing.T) {
 	var served atomic.Int32
+	// handlerEntered signals that the slow request is in flight; no fixed
+	// sleep is used to schedule the shutdown against it.
+	handlerEntered := make(chan struct{}, 1)
 	server := newTestServer(t, nethttp.HandlerFunc(func(w nethttp.ResponseWriter, _ *nethttp.Request) {
+		handlerEntered <- struct{}{}
+		// Simulate work long enough that Shutdown must wait for it.
 		time.Sleep(200 * time.Millisecond)
 		served.Add(1)
 		w.WriteHeader(nethttp.StatusOK)
@@ -234,7 +250,11 @@ func TestGracefulShutdown_DrainsInFlightRequests(t *testing.T) {
 		}
 		reqDone <- err
 	}()
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-handlerEntered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("request never reached the handler")
+	}
 
 	if err := GracefulShutdown(server, 5*time.Second); err != nil {
 		t.Fatalf("GracefulShutdown returned error: %v", err)

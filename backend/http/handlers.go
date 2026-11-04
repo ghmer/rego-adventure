@@ -32,8 +32,13 @@ import (
 
 // verifyTimeout bounds a single solution verification. Well-formed quest
 // policies evaluate in milliseconds; the timeout only catches pathological
-// policies (unbounded loops, oversized comprehensions).
-var verifyTimeout = 3 * time.Second
+// policies (unbounded loops, oversized comprehensions). It starts at the
+// shared quest package budget and is a var so tests can shrink it.
+var verifyTimeout = quest.DefaultVerifyTimeout
+
+// statusClientClosedRequest is the non-standard nginx status for "the
+// client closed the connection before the server finished".
+const statusClientClosedRequest = 499
 
 // timeoutMessage explains to players why verification stopped early.
 const timeoutMessage = "Your policy took too long to evaluate. " +
@@ -238,6 +243,15 @@ func (h *Handler) VerifySolution(c *gin.Context) {
 
 	result, err := h.verifier.Verify(ctx, q, req.RegoCode)
 	if err != nil {
+		// The evaluation shares the request context, so a cancellation that
+		// is not a timeout means the client hung up mid-evaluation. There is
+		// no server-side failure to report; answer with the nginx
+		// client-closed convention instead of a 500 and an error log.
+		if errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			slog.Info("verification cancelled by client", "pack_id", req.PackID, "quest_id", req.QuestID)
+			c.AbortWithStatus(statusClientClosedRequest)
+			return
+		}
 		slog.Error("error verifying solution", "error", err)
 		status, body := verifyErrorResponse(err)
 		c.JSON(status, body)
