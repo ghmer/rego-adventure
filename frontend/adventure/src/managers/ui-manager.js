@@ -22,6 +22,7 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
+import { nextReveal } from '../services/reveal-service.js';
 import { DEFAULT_TEXT, ErrorLevel } from '../services/constants.js';
 import { showToast } from '../services/toast-service.js';
 import { regoHighlighter } from '../services/rego-highlighter.js';
@@ -476,11 +477,13 @@ export class UIManager {
      * @param {string} hintButtonText - Default hint button text
      */
     updateHintButtonText(quest, hintsShown, hintButtonText) {
-        const totalHints = quest?.hints_count ?? 0;
+        // The label is a rendering of the shared reveal progression
+        // (reveal-service), never a second copy of its logic.
+        const reveal = nextReveal(quest, hintsShown, false);
 
-        if (hintsShown < totalHints) {
-            this.elements.hintBtn.textContent = `${hintButtonText || DEFAULT_TEXT.HINT_BUTTON} (${hintsShown}/${totalHints} hints shown)`;
-        } else if (quest?.has_solution) {
+        if (reveal?.kind === 'hint') {
+            this.elements.hintBtn.textContent = `${hintButtonText || DEFAULT_TEXT.HINT_BUTTON} (${hintsShown}/${quest.hints_count ?? 0} hints shown)`;
+        } else if (reveal?.kind === 'solution') {
             this.elements.hintBtn.textContent = 'Reveal Solution';
         } else {
             this.elements.hintBtn.textContent = hintButtonText || DEFAULT_TEXT.HINT_BUTTON;

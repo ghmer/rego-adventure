@@ -21,6 +21,7 @@
 
 import { showConfetti, triggerResultEffect, cleanupEffects } from '../effects.js';
 import { fetchTestPayload, fetchSupportModules } from '../services/api-service.js';
+import { nextReveal } from '../services/reveal-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
 import { SCORING } from '../services/constants.js';
@@ -59,24 +60,22 @@ export function formatActualValue(test) {
 
 /**
  * Build the hint confirmation text for the next reveal, or null when there
- * is nothing left to reveal.
+ * is nothing left to reveal. The progression itself lives in reveal-service
+ * (nextReveal); this function only renders it into dialog text.
  * @param {Object} quest - Current quest (hints_count and has_solution are
  * derived by the backend; the pack payload carries no hint/solution content)
  * @param {number} revealedCount - Number of already revealed hints
  * @returns {string|null} Confirmation text or null
  */
 export function buildHintConfirmationText(quest, revealedCount) {
-    if (!quest) return null;
+    const reveal = nextReveal(quest, revealedCount, false);
+    if (!reveal) return null;
 
-    const totalHints = quest.hints_count ?? 0;
-    if (revealedCount < totalHints) {
-        return `Reveal hint ${revealedCount + 1} of ${totalHints}? ` +
+    if (reveal.kind === 'hint') {
+        return `Reveal hint ${reveal.hintId} of ${quest.hints_count ?? 0}? ` +
             'Revealing hints reduces the points you can earn for this quest.';
     }
-    if (quest.has_solution) {
-        return 'Reveal the solution? This reduces the points you can earn for this quest.';
-    }
-    return null;
+    return 'Reveal the solution? This reduces the points you can earn for this quest.';
 }
 
 export class ModalManager {
@@ -223,13 +222,6 @@ export class ModalManager {
         } else {
             showToast('No test data available for this quest.', 'info');
         }
-    }
-
-    /**
-     * Clear the test payload cache (called when an adventure restarts)
-     */
-    clearTestPayloadCache() {
-        this.testPayloadCache.clear();
     }
 
     /**

@@ -23,6 +23,7 @@ import { verifySolution } from '../services/api-service.js';
 import { AuthService } from '../services/auth-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
+import { ErrorLevel } from '../services/constants.js';
 
 /**
  * Manages all event listeners
@@ -35,6 +36,8 @@ export class EventManager {
         this.audio = audioManager;
         this.modal = modalManager;
         this.pack = packManager;
+        // Pending debounced grimoire save (set by setupEditorListeners)
+        this.saveTimeout = 0;
     }
 
     /**
@@ -198,7 +201,7 @@ export class EventManager {
             } else if (event.key === 's' || event.key === 'S') {
                 event.preventDefault();
                 if (this.saveGrimoire()) {
-                    showToast('Policy saved.', 'info');
+                    showToast('Policy saved.', ErrorLevel.INFO);
                 }
             }
         });

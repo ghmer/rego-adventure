@@ -83,5 +83,28 @@ export const STORAGE_KEYS = {
     PACK_ID: 'rego_pack_id',
     PACK_STATE: 'rego_pack_state',
     EFFECTS_ENABLED: 'rego_effects_enabled',
-    TUTORIAL_COMPLETED: 'adventureTutorialCompleted'
+    TUTORIAL_COMPLETED: 'rego_tutorial_completed'
 };
+
+/**
+ * Migrate legacy storage keys to the current rego_-prefixed scheme.
+ * Runs once at startup; a legacy value is copied to the new key (when
+ * that key is still empty) and the legacy entry is removed. Without
+ * this, a rename would silently reset settings like tutorial
+ * completion for returning players.
+ */
+const LEGACY_KEY_MIGRATIONS = [
+    { legacy: 'adventureTutorialCompleted', current: STORAGE_KEYS.TUTORIAL_COMPLETED }
+];
+
+export function migrateStorageKeys() {
+    for (const { legacy, current } of LEGACY_KEY_MIGRATIONS) {
+        const value = getLocalStorage(legacy);
+        if (value === null) continue;
+
+        if (getLocalStorage(current) === null) {
+            setLocalStorage(current, value);
+        }
+        removeLocalStorage(legacy);
+    }
+}

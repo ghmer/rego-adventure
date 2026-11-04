@@ -19,7 +19,9 @@ import {
     getLocalStorage,
     setLocalStorage,
     removeLocalStorage,
-    getPackKey
+    getPackKey,
+    migrateStorageKeys,
+    STORAGE_KEYS
 } from './storage-service.js';
 
 describe('storage-service', () => {
@@ -57,6 +59,32 @@ describe('storage-service', () => {
 
         it('returns the unscoped key without a pack id', () => {
             expect(getPackKey('base', undefined)).toBe('base');
+        });
+    });
+
+    describe('migrateStorageKeys', () => {
+        it('moves the legacy tutorial-completed value to the current key', () => {
+            localStorage.setItem('adventureTutorialCompleted', 'true');
+
+            migrateStorageKeys();
+
+            expect(localStorage.getItem(STORAGE_KEYS.TUTORIAL_COMPLETED)).toBe('true');
+            expect(localStorage.getItem('adventureTutorialCompleted')).toBeNull();
+        });
+
+        it('does not overwrite a newer value at the current key', () => {
+            localStorage.setItem('adventureTutorialCompleted', 'false');
+            localStorage.setItem(STORAGE_KEYS.TUTORIAL_COMPLETED, 'true');
+
+            migrateStorageKeys();
+
+            expect(localStorage.getItem(STORAGE_KEYS.TUTORIAL_COMPLETED)).toBe('true');
+            expect(localStorage.getItem('adventureTutorialCompleted')).toBeNull();
+        });
+
+        it('is a no-op when no legacy keys exist', () => {
+            migrateStorageKeys();
+            expect(localStorage.getItem(STORAGE_KEYS.TUTORIAL_COMPLETED)).toBeNull();
         });
     });
 });
