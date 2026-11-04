@@ -1,6 +1,6 @@
 {
   "name": "rego-adventure-frontend",
-  "version": "2.5.3",
+  "version": "2.5.4",
   "description": "Policy-Based Access Control Adventure - Frontend Dependencies",
   "private": true,
   "type": "module",

@@ -2,7 +2,7 @@ services:
   rego-adventure:
     # Pin the image to a release tag (see git tags); :latest silently
     # changes behavior between deploys. Adjust to the release you run.
-    image: ghcr.io/ghmer/rego-adventure:v2.5.3
+    image: ghcr.io/ghmer/rego-adventure:v2.5.4
     container_name: rego-adventure
     ports:
       - "127.0.0.1:8080:8080"

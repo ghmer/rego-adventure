@@ -22,7 +22,7 @@ spec:
         - name: rego-adventure
           # Pin to a release tag (see git tags); :latest silently changes
           # behavior between deploys. Adjust to the release you run.
-          image: ghcr.io/ghmer/rego-adventure:v2.5.3
+          image: ghcr.io/ghmer/rego-adventure:v2.5.4
           ports:
             - containerPort: 8080
           envFrom:
