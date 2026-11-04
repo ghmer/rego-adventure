@@ -300,10 +300,6 @@ export class GameState {
     }
     
     /**
-     * Record quest completion and update scores
-     * @param {number} questId - The quest identifier
-     */
-    /**
      * Record quest completion and update scores. Replays can never lower
      * a quest's recorded score: the better of the previous and the new
      * result is kept, so replaying a completed quest in history mode is

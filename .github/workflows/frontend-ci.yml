@@ -3,6 +3,13 @@ name: Frontend CI
 on:
   push:
     branches: [main]
+    # Tags are included so every published image build (docker-build,
+    # which no longer carries frontend jobs) is gated by lint, tests
+    # and the import-map sync check even when the tag is cut from a
+    # non-main ref.
+    tags:
+      - "v*"
+      - "v*.*.*"
     paths:
       - "frontend/adventure/**"
       - ".github/workflows/frontend-ci.yml"
