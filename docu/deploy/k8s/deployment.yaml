@@ -12,13 +12,17 @@ spec:
       labels:
         app: rego-adventure
     spec:
+      # The application needs no Kubernetes API access.
+      automountServiceAccountToken: false
       securityContext:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
       containers:
         - name: rego-adventure
-          image: ghcr.io/ghmer/rego-adventure:latest
+          # Pin to a release tag (see git tags); :latest silently changes
+          # behavior between deploys. Adjust to the release you run.
+          image: ghcr.io/ghmer/rego-adventure:v2.5.3
           ports:
             - containerPort: 8080
           envFrom:

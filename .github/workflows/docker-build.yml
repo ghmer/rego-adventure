@@ -19,9 +19,10 @@ jobs:
   # they are not duplicated in this workflow.
   build-and-push:
     runs-on: ubuntu-latest
-    # Image builds and pushes only make sense for tag pushes; on
-    # workflow_dispatch the lint/test jobs still validate the ref. Without
-    # this gate the push step would run with an empty tag and fail late.
+    # The build and push only make sense for tag pushes, so the job is
+    # gated on ref_type == 'tag'. workflow_dispatch remains available
+    # for validating the Go test step on an arbitrary ref without
+    # publishing any image.
     if: github.ref_type == 'tag'
     name: Build and push image (linux/amd64, linux/arm64)
     permissions:
