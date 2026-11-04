@@ -265,6 +265,9 @@ func validateQuestTests(quest *Quest, p string) error {
 	if len(quest.Tests) == 0 {
 		return fmt.Errorf("%s must have at least one test case", p)
 	}
+	if len(quest.Tests) > MaxQuestTests {
+		return fmt.Errorf("%s has %d test cases, maximum is %d", p, len(quest.Tests), MaxQuestTests)
+	}
 	for i, test := range quest.Tests {
 		payloadJSON, err := json.Marshal(test.Payload)
 		if err != nil {

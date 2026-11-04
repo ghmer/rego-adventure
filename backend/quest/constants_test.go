@@ -55,6 +55,7 @@ var jsLimitKey = map[string]string{
 	"MaxQuestHint":              "QUEST_HINT",
 	"MaxQuestSolution":          "QUEST_SOLUTION",
 	"MaxQuestTemplate":          "QUEST_TEMPLATE",
+	"MaxQuestTests":             "QUEST_TESTS",
 	"MaxQuestSupportModule":     "QUEST_SUPPORT_MODULE",
 	"MaxQuestSupportModules":    "QUEST_SUPPORT_MODULES_MAX",
 	"MaxManualDataModel":        "MANUAL_DATA_MODEL",

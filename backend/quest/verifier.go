@@ -23,12 +23,18 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/open-policy-agent/opa/v1/storage/inmem"
 	"github.com/open-policy-agent/opa/v1/topdown"
 )
+
+// DefaultVerifyTimeout bounds one quest's full solution verification. It is
+// shared by the HTTP verify endpoint (handlers.go) and the CLI
+// solutionverifier so both apply the same pathological-policy budget.
+const DefaultVerifyTimeout = 3 * time.Second
 
 // TestResult holds the outcome of a single test case verification.
 type TestResult struct {
@@ -190,7 +196,10 @@ func evalTestCase(ctx context.Context, pq rego.PreparedEvalQuery, test TestCase)
 		return nil, fmt.Errorf("failed to normalize expected value: %w", err)
 	}
 
-	passed := reflect.DeepEqual(actual, expected)
+	// An undefined query never satisfies a test, even one expecting null:
+	// producing no value is distinct from producing null (the Undefined
+	// flag tells the UI so; the pass/fail decision must agree).
+	passed := !undefined && reflect.DeepEqual(actual, expected)
 	return &TestResult{
 		TestID:    test.ID,
 		Passed:    passed,

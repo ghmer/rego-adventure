@@ -307,6 +307,47 @@ func TestVerifier_Verify_RuntimeConflictErrorDetails(t *testing.T) {
 	}
 }
 
+func TestVerifier_Verify_UndefinedDoesNotMatchNullExpectation(t *testing.T) {
+	verifier := NewVerifier()
+
+	quest := &Quest{
+		Query: "data.quest.allow",
+		Tests: []TestCase{
+			{
+				ID:              1,
+				ExpectedOutcome: nil, // explicit JSON null
+				Payload:         TestPayload{Input: map[string]any{"user": "guest"}},
+			},
+		},
+	}
+
+	// The query evaluates to undefined for "guest": no rule produces a
+	// value. Undefined must not silently satisfy a null expectation.
+	regoCode := `
+		package quest
+		allow if { input.user == "admin" }
+	`
+
+	result, err := verifier.Verify(context.Background(), quest, regoCode)
+	if err != nil {
+		t.Fatalf("Verify failed: %v", err)
+	}
+
+	r := result.Results[0]
+	if r.Passed {
+		t.Error("expected undefined query to fail a null expectation")
+	}
+	if !r.Undefined {
+		t.Error("expected Undefined=true for undefined query")
+	}
+	if !result.Passed && len(result.Results) == 1 {
+		// overall Passed must be false when a test fails
+		if overall := result.Passed; overall {
+			t.Error("expected overall Passed=false")
+		}
+	}
+}
+
 func TestVerifier_Verify_UndefinedResult(t *testing.T) {
 	verifier := NewVerifier()
 	ctx := context.Background()

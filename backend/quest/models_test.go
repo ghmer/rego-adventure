@@ -868,6 +868,24 @@ func TestValidateQuest_ManyTests(t *testing.T) {
 	}
 }
 
+func TestValidateQuest_ExceedsTestCap(t *testing.T) {
+	quest := createValidQuest()
+	tests := make([]TestCase, MaxQuestTests+1)
+	for i := range tests {
+		tests[i] = TestCase{
+			ID:              i + 1,
+			ExpectedOutcome: false,
+			Payload:         TestPayload{Input: map[string]any{"index": i}},
+		}
+	}
+	quest.Tests = tests
+
+	err := validateQuest(&quest, 1)
+	if err == nil {
+		t.Fatalf("validateQuest should reject %d test cases (max %d)", len(tests), MaxQuestTests)
+	}
+}
+
 func TestValidateQuestPack_MultipleQuests(t *testing.T) {
 	// Test with multiple quests
 	pack := createValidQuestPack()
