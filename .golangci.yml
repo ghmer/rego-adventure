@@ -5,6 +5,12 @@ run:
   tests: true
 
 linters:
+  exclusions:
+    paths:
+      # npm dependencies (e.g. flatted) sometimes vendor Go packages
+      # under node_modules; Go resolves them as module packages locally
+      # even though they are not part of the repository. Never lint them.
+      - node_modules
   enable:
     - govet
     - staticcheck

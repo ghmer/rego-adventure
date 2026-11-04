@@ -1,0 +1,91 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/adventure/**"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "frontend/adventure/**"
+      - ".github/workflows/frontend-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.7.0'
+
+      # Ephemeral, pinned toolchain: installed on the runner only
+      # (--no-save leaves package.json untouched), never committed.
+      - name: Install pinned eslint toolchain
+        run: npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0
+        working-directory: frontend/adventure
+
+      - name: Run eslint
+        run: npx eslint src
+        working-directory: frontend/adventure
+
+  test:
+    runs-on: ubuntu-latest
+    name: Test frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.7.0'
+
+      # Ephemeral, pinned toolchain: installed on the runner only
+      # (--no-save leaves package.json untouched), never committed.
+      - name: Install pinned vitest toolchain
+        run: npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3
+        working-directory: frontend/adventure
+
+      - name: Run vitest
+        run: npx vitest run
+        working-directory: frontend/adventure
+
+  importmap-sync:
+    runs-on: ubuntu-latest
+    name: Import map tracks package.json
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.3"
+
+      # The import map in index.html and the synced cdnjs links must be
+      # exactly what cmd/importmapgen derives from package.json. Manual
+      # dependency bumps bypass the update-importmap PR workflow, so this
+      # check fails a PR whose index.html has drifted instead of letting
+      # the versions diverge silently.
+      - name: Regenerate import map and fail on drift
+        run: |
+          go run ./cmd/importmapgen/main.go
+          if ! git diff --exit-code -- frontend/adventure/index.html; then
+            echo "::error::frontend/adventure/index.html is out of sync with frontend/adventure/package.json."
+            echo "Regenerate it with: go run ./cmd/importmapgen/main.go"
+            git diff -- frontend/adventure/index.html
+            exit 1
+          fi
