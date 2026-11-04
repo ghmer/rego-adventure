@@ -79,7 +79,10 @@ func main() {
 		slog.Error("failed to create server", "error", err)
 		os.Exit(1)
 	}
-	srv.SetupRoutes()
+	if err := srv.SetupRoutes(); err != nil {
+		slog.Error("failed to set up routes", "error", err)
+		os.Exit(1)
+	}
 
 	// Start Server
 	addr := fmt.Sprintf("0.0.0.0:%s", cfg.Port)

@@ -79,16 +79,18 @@ func inlineImportMapScriptHash(indexFile string) (string, error) {
 	return "sha256-" + base64.StdEncoding.EncodeToString(sum[:]), nil
 }
 
-// SetupRoutes configures all routes and middleware
-func (s *Server) SetupRoutes() {
-	// The inline import map is subject to script-src like any inline
-	// script; allowlist it by hash (see inlineImportMapScriptHash).
-	// Failing here does not abort startup: the SPA handler already
-	// reports a missing/unreadable index.html, and a CSP without the
-	// hash makes that failure mode obvious in the browser console.
+// SetupRoutes configures all routes and middleware.
+//
+// It returns an error when the inline import map CSP hash cannot be
+// computed (missing or unreadable index.html, or a document without an
+// import map block). Booting anyway would serve an SPA that the CSP
+// then blocks in the browser: a broken-app state strictly harder to
+// diagnose than refusing to start. This matches the fail-fast handling
+// of configuration and LOG_LEVEL errors in main.
+func (s *Server) SetupRoutes() error {
 	importMapHash, err := inlineImportMapScriptHash(filepath.Join(paths.AdventureDir, "index.html"))
 	if err != nil {
-		slog.Error("security: import map CSP hash unavailable; inline import map will be blocked by CSP", "error", err)
+		return fmt.Errorf("security: cannot compute CSP hash for the inline import map: %w", err)
 	}
 
 	// Apply middleware
@@ -114,6 +116,8 @@ func (s *Server) SetupRoutes() {
 
 	// Frontend routes
 	s.setupFrontendRoutes()
+
+	return nil
 }
 
 // setupQuestRoutes configures quest asset serving

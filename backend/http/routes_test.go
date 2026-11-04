@@ -22,10 +22,49 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/ghmer/rego-adventure/v2/backend/config"
+	"github.com/ghmer/rego-adventure/v2/backend/quest"
 	"github.com/gin-gonic/gin"
 )
+
+// ==================== SetupRoutes ====================
+
+func newSetupRoutesServer(t *testing.T) *Server {
+	t.Helper()
+	cfg := &config.Config{AllowedOrigin: "http://localhost:8080"}
+	srv, err := New(cfg, NewHandler(quest.NewQuestRepository(), quest.NewVerifier()))
+	if err != nil {
+		t.Fatalf("New server: %v", err)
+	}
+	return srv
+}
+
+// TestSetupRoutes_FailsWithoutFrontendDir: go test runs with the working
+// directory set to this package, where frontend/adventure does not
+// exist; SetupRoutes must refuse to configure a server whose import map
+// hash cannot be computed rather than set up a CSP-bricked SPA.
+func TestSetupRoutes_FailsWithoutFrontendDir(t *testing.T) {
+	err := newSetupRoutesServer(t).SetupRoutes()
+	if err == nil {
+		t.Fatal("expected SetupRoutes to fail when frontend/adventure/index.html is unavailable")
+	}
+	if !strings.Contains(err.Error(), "import map") {
+		t.Errorf("expected the error to name the import map, got: %v", err)
+	}
+}
+
+// TestSetupRoutes_OKFromRepoRoot: from the repository root the shipped
+// index.html is present and hashable, so SetupRoutes must succeed.
+func TestSetupRoutes_OKFromRepoRoot(t *testing.T) {
+	t.Chdir("../..")
+
+	if err := newSetupRoutesServer(t).SetupRoutes(); err != nil {
+		t.Fatalf("SetupRoutes failed from the repository root: %v", err)
+	}
+}
 
 // ==================== SPA handler ====================
 
