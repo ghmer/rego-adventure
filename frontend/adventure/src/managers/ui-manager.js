@@ -26,6 +26,7 @@ import { nextReveal } from '../services/reveal-service.js';
 import { DEFAULT_TEXT, ErrorLevel, SaveStatus } from '../services/constants.js';
 import { showToast } from '../services/toast-service.js';
 import { regoHighlighter } from '../services/rego-highlighter.js';
+import { show, hide, setHidden, isHidden } from '../services/visibility.js';
 
 /**
  * Manages all DOM elements and UI rendering
@@ -161,18 +162,18 @@ export class UIManager {
         
         if (Array.isArray(lore)) {
             if (lore.length > 1) {
-                this.elements.loreControls.classList.remove('hidden');
+                show(this.elements.loreControls);
                 this.elements.questLore.innerHTML = this.parseMarkdown(lore[currentLoreIndex]);
                 this.elements.lorePageIndicator.textContent = `${currentLoreIndex + 1}/${lore.length}`;
                 
                 this.elements.lorePrevBtn.disabled = currentLoreIndex === 0;
                 this.elements.loreNextBtn.disabled = currentLoreIndex === lore.length - 1;
             } else {
-                this.elements.loreControls.classList.add('hidden');
+                hide(this.elements.loreControls);
                 this.elements.questLore.innerHTML = this.parseMarkdown(lore[0]);
             }
         } else {
-            this.elements.loreControls.classList.add('hidden');
+            hide(this.elements.loreControls);
             this.elements.questLore.innerHTML = this.parseMarkdown(lore);
         }
         
@@ -244,7 +245,7 @@ export class UIManager {
             if (pack.genre) {
                 const genreBadge = cardElement.querySelector('.genre-badge');
                 genreBadge.textContent = pack.genre;
-                genreBadge.classList.remove('hidden');
+                show(genreBadge);
             }
             
             // Accessibility
@@ -431,7 +432,7 @@ export class UIManager {
             
             if (test.payload.data) {
                 const dataSection = testCase.querySelector('.test-case-data');
-                dataSection.classList.remove('hidden');
+                show(dataSection);
                 testCase.querySelector('.test-case-data-content').textContent =
                     JSON.stringify(test.payload.data, null, 2);
             }
@@ -512,10 +513,10 @@ export class UIManager {
 
         const buttons = footer.querySelectorAll('button');
         const hasVisibleButton = Array.from(buttons).some(button =>
-            !button.classList.contains('hidden')
+            !isHidden(button)
         );
 
-        footer.classList.toggle('hidden', !hasVisibleButton);
+        setHidden(footer, !hasVisibleButton);
     }
 
     /**
@@ -526,17 +527,13 @@ export class UIManager {
      * @param {string} [label] - Button text, applied when visible
      */
     renderQuestButtonVisibility(visible, label) {
-        const button = this.elements.startAdventureBtn;
-        if (!button) return;
+        const startAdventureBtn = this.elements.startAdventureBtn;
+        if (!startAdventureBtn) return;
 
-        if (visible) {
-            if (label !== undefined) {
-                button.textContent = label;
-            }
-            button.classList.remove('hidden');
-        } else {
-            button.classList.add('hidden');
+        if (visible && label !== undefined) {
+            startAdventureBtn.textContent = label;
         }
+        setHidden(startAdventureBtn, !visible);
     }
 
     /**
@@ -548,16 +545,12 @@ export class UIManager {
      */
     renderPerfectScoreButton(visible, label) {
         const perfectScoreBtn = this.elements.perfectScoreBtn;
-        if (perfectScoreBtn) {
-            if (visible) {
-                if (label !== undefined) {
-                    perfectScoreBtn.textContent = label;
-                }
-                perfectScoreBtn.classList.remove('hidden');
-            } else {
-                perfectScoreBtn.classList.add('hidden');
-            }
+        if (!perfectScoreBtn) return;
+
+        if (visible && label !== undefined) {
+            perfectScoreBtn.textContent = label;
         }
+        setHidden(perfectScoreBtn, !visible);
     }
 
     /**
@@ -611,11 +604,11 @@ export class UIManager {
      */
     showScreen(screen) {
         if (screen === 'start') {
-            this.elements.gameInterface.classList.add('hidden');
-            this.elements.startScreen.classList.remove('hidden');
+            hide(this.elements.gameInterface);
+            show(this.elements.startScreen);
         } else if (screen === 'game') {
-            this.elements.startScreen.classList.add('hidden');
-            this.elements.gameInterface.classList.remove('hidden');
+            hide(this.elements.startScreen);
+            show(this.elements.gameInterface);
         }
     }
 
@@ -659,9 +652,9 @@ export class UIManager {
      * Reset UI for new quest
      */
     resetQuestUI() {
-        this.elements.hintsList.classList.add('hidden');
+        hide(this.elements.hintsList);
         this.elements.hintsList.innerHTML = '';
-        this.elements.hintBtn.classList.remove('hidden');
+        show(this.elements.hintBtn);
     }
 
     /**
@@ -674,7 +667,7 @@ export class UIManager {
         this.elements.editor.readOnly = gate.editorReadOnly;
         this.elements.verifyBtn.disabled = !gate.verifyEnabled;
         this.elements.hintBtn.disabled = !gate.hintEnabled;
-        this.elements.editorPane.classList.toggle('hidden', !gate.editorVisible);
+        setHidden(this.elements.editorPane, !gate.editorVisible);
     }
 
     /**
@@ -770,34 +763,25 @@ export class UIManager {
      * @param {boolean} authEnabled - Whether authentication is enabled in config
      */
     updateAuthUI(isAuthenticated, authEnabled) {
+        const el = this.elements;
         if (!authEnabled) {
-            this.elements.loginContainer.classList.add('hidden');
-            this.elements.logoutBtn.classList.add('hidden');
-            this.elements.logoutContainerStart.classList.add('hidden');
+            hide(el.loginContainer);
+            hide(el.logoutBtn);
+            hide(el.logoutContainerStart);
             return;
         }
 
-        if (isAuthenticated) {
-            this.elements.logoutBtn.classList.remove('hidden');
-            this.elements.logoutContainerStart.classList.remove('hidden');
-            this.elements.loginContainer.classList.add('hidden');
-            this.elements.questPackList.classList.remove('hidden');
-        } else {
-            this.elements.loginContainer.classList.remove('hidden');
-            this.elements.questPackList.classList.add('hidden');
-            this.elements.logoutBtn.classList.add('hidden');
-            this.elements.logoutContainerStart.classList.add('hidden');
-        }
+        setHidden(el.loginContainer, isAuthenticated);
+        setHidden(el.questPackList, !isAuthenticated);
+        setHidden(el.logoutBtn, !isAuthenticated);
+        setHidden(el.logoutContainerStart, !isAuthenticated);
     }
 
     /**
      * Update impressum footer visibility
-     * @param {boolean} show - Whether to show the impressum footer
+     * @param {boolean} visible - Whether to show the impressum footer
      */
-    updateImpressumVisibility(show) {
-        const impressumFooter = document.querySelector('.start-footer');
-        if (impressumFooter) {
-            impressumFooter.classList.toggle('hidden', !show);
-        }
+    updateImpressumVisibility(visible) {
+        setHidden(document.querySelector('.start-footer'), !visible);
     }
 }

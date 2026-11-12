@@ -116,8 +116,9 @@ func (h *Handler) GetPacks(c *gin.Context) {
 }
 
 // GetPack retrieves the complete quest-pack for the chosen adventure. The
-// response is a client-facing projection: solutions, hint texts, and hidden
-// support modules are withheld and revealed only through dedicated endpoints.
+// response is a client-facing projection: solutions, hint texts, hidden
+// support modules and test cases are withheld and served only by the
+// endpoints that need them.
 func (h *Handler) GetPack(c *gin.Context) {
 	packID := c.Param("pack_id")
 	pack, found := h.questRepo.GetPack(packID)
@@ -147,7 +148,10 @@ func (h *Handler) questFromParams(c *gin.Context) (*quest.Quest, bool) {
 	return q, true
 }
 
-// GetTestPayload retrieves the configured tests for a given adventure and quest
+// GetTestPayload answers the test cases of one quest: input, data and
+// expected outcome. It is the single source for the test modal and it is not
+// a secrecy boundary - any client that asks receives the same values. The
+// bulk pack payload carries no test data (`public.go`).
 func (h *Handler) GetTestPayload(c *gin.Context) {
 	q, ok := h.questFromParams(c)
 	if !ok {

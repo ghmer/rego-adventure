@@ -31,8 +31,8 @@ Citation convention: bare frontend names (`quest-manager.js`, `app.js`, `state-s
 | # | Machine | Where | State carrier |
 | --- | --------- | ------- | --------------- |
 | 1 | Application boot | `frontend/adventure/src/app.js:78` | control flow + `beginQuestInFlight` |
-| 2 | Authentication / session (client) | `services/auth-service.js`, `managers/ui-manager.js:772` | `userManager`, `ConfigService.config`, `renewalInFlight`, `renewalRefused` |
-| 3 | Screen + pack/theme context | `managers/pack-manager.js`, `managers/ui-manager.js:524` | `hidden` classes, `loadSeq` |
+| 2 | Authentication / session (client) | `services/auth-service.js`, `managers/ui-manager.js:765` | `userManager`, `ConfigService.config`, `renewalInFlight`, `renewalRefused` |
+| 3 | Screen + pack/theme context | `managers/pack-manager.js`, `managers/ui-manager.js:605` | `hidden` classes, `loadSeq` |
 | 4 | Adventure progression (the big one) | `services/state-service.js`, `managers/quest-manager.js` | `currentQuestId`, `activeQuestId` |
 | 5 | History mode (derived) | `managers/quest-manager.js:158` | `isHistoryMode` |
 | 6 | Interaction gating (editor/verify/hint) | `managers/ui-manager.js:559` | `readOnly` + two `disabled` flags |
@@ -45,8 +45,8 @@ Citation convention: bare frontend names (`quest-manager.js`, `app.js`, `state-s
 | 13 | Verification outcome shape | `backend/quest/verifier.go` | `Error` / `Results` / `Undefined` |
 | 14 | Dialogs | `managers/modal-manager.js:100` | `<dialog open>` |
 | 15 | Result modal (non-modal dialog) | `managers/modal-manager.js:271` | `open` + `nextQuestBtn` class |
-| 16 | Perfect score reveal | `managers/quest-manager.js:274`, `managers/modal-manager.js:368` | `perfectScoreBtn` `hidden` |
-| 17 | Quest footer visibility | `managers/ui-manager.js:498` | footer `hidden` class |
+| 16 | Perfect score reveal | `managers/quest-manager.js:337`, `managers/modal-manager.js:400` | `perfectScoreBtn` `hidden` |
+| 17 | Quest footer visibility | `managers/ui-manager.js:510` | footer `hidden` class |
 | 18 | "Next/Begin" button parentage | `managers/quest-manager.js:238` | DOM parent node |
 | 19 | Lore pagination | `managers/quest-manager.js:357` | `currentLoreIndex` |
 | 20 | Background music | `managers/audio-manager.js` | `isMusicPlaying`, `pauseTimer` |
@@ -756,25 +756,25 @@ stateDiagram-v2
     Hidden --> Hidden : epilogue without perfect score
 ```
 
-`showPerfectScoreButton` only toggles visibility, plus the pack's label text; the click handler is
-wired once at startup (`event-manager.js:288`). The button's visibility *is* the state.
+`renderPerfectScoreButton(visible, label)` (`ui-manager.js:546`) is the only writer of the button's
+visibility, and the visibility *is* the state; the click handler is wired once at startup
+(`event-manager.js:270`).
 
-Showing happens at exactly one place, `showEpilogue` when `hasPerfectScore()`
-(`quest-manager.js:263-264`). Hiding happens at exactly three: `startAdventure`
-(`pack-manager.js:189`), `returnHome` (`pack-manager.js:215`) and the restart handler
-(`event-manager.js:395`). `resetQuestUI` does **not** touch it, so navigating back from the epilogue
-into history mode leaves the button in the quest footer, visible and clickable, beside unrelated
-quests. Closing the dialog changes nothing about the button either (#17).
+Showing happens at exactly one place: the epilogue, when `hasPerfectScore()` (`quest-manager.js:337`).
+Hiding happens at six: every quest render (`quest-manager.js:245`), either narrative stage
+(`quest-manager.js:297`), the epilogue without a perfect score (`quest-manager.js:339`), pack entry
+and pack exit (`pack-manager.js:218`, `274`), and the restart handler (`event-manager.js:380`). A
+quest render hides it, so returning from the epilogue into history mode cannot leave it beside an
+unrelated quest. Closing the dialog changes nothing about the button either (#17).
 
 ---
 
 ## 17. Quest footer visibility machine
 
 A purely derived machine: the footer is hidden exactly when no descendant button is un-hidden
-(`ui-manager.js:498-507`). Its input set is closed and small. Exactly two buttons ever live in
-`.quest-footer`, namely `#perfect-score-btn` (`index.html:184`) and the reparented
-`#start-adventure` (#18), and quest packs cannot add DOM nodes, only restyle existing ones
-(`routes.go:38-42`).
+(`ui-manager.js:510-519`). Its input set is closed and small. Exactly two buttons ever live in
+`.quest-footer`, namely `#perfect-score-btn` (`index.html:184`) and `#start-adventure` (#18), and
+quest packs cannot add DOM nodes, only restyle existing ones (`routes.go:38-42`).
 
 ```mermaid
 stateDiagram-v2
@@ -782,22 +782,22 @@ stateDiagram-v2
     Hidden --> Visible : any footer button becomes visible
     Visible --> Hidden : all footer buttons hidden
     note right of Visible
-        updateQuestFooterVisibility is called
-        from 9 sites (quest-manager.js:149,240,
-        266,281,415,468; event-manager.js:362,
-        402; ui-manager.js:517), each of which
-        must agree with the current visibility
-        of the footer buttons
+        renderQuestFooter runs from the quest
+        render pipeline only (quest-manager.js:203,
+        407), after the screen and its offers have
+        been rendered
     end note
 ```
 
-The rule is derived but only *recomputed* at those nine sites, and each call has to be paired with a
-visibility change made somewhere else.
+The rule is derived, and it is recomputed by the render pipeline rather than at the sites that change
+visibility: a screen first renders its offers (`renderQuestButtonVisibility`,
+`renderPerfectScoreButton`), and `renderQuestFooter` then folds the result.
 
-Three ways a footer button becomes visible: `showPrologue` un-hides and reparents
-`#start-adventure` (`quest-manager.js:232-240`), `showPerfectScoreButton` un-hides the perfect-score
-button, and `showEpilogue` re-renders the footer for the new label (`quest-manager.js:266`, `281`).
-The quest arrows live in `.editor-footer` inside the **editor** pane (`index.html:216-229`) rather
+Two ways a footer button becomes visible: the prologue offers the adventure
+(`renderQuestButtonVisibility(true, ...)` at `quest-manager.js:314`), and a perfect-score epilogue
+offers its button (`quest-manager.js:337`). `#start-adventure` has one DOM home in `.quest-footer`
+(#18, decision D8); no code moves it. The quest arrows live in `.editor-footer` inside the **editor**
+pane (`index.html:216-229`) rather
 than in `.quest-footer` (`index.html:183-188`), so they never affect this machine.
 
 `resetQuestUI` re-enables the hint button, by un-hiding it (`ui-manager.js:564`) and clearing
@@ -1125,9 +1125,9 @@ Three independent caches keyed by `packId:questId`:
 
 | Cache | Owner | Fetched artifact | Backend `Cache-Control` |
 | ------- | ------- | ------------------ | ------------------------- |
-| `revealCache` | `quest-manager.js:40`, `50` | hint texts, solution | `no-store` |
-| `testPayloadCache` | `modal-manager.js:89` | test payloads | `private, max-age=300` |
-| `supportModulesCache` | `modal-manager.js:90` | support module sources | `no-store` |
+| `revealCache` | `quest-manager.js:42`, `61` | hint texts, solution | `no-store` |
+| `testPayloadCache` | `modal-manager.js:107` | test payloads | `private, max-age=300` |
+| `supportModulesCache` | `modal-manager.js:108` | support module sources | `no-store` |
 
 ```mermaid
 stateDiagram-v2
@@ -1136,12 +1136,16 @@ stateDiagram-v2
     Loading --> Cached : response ok
     Loading --> Uncached : ApiError, nothing stored
     Cached --> Cached : later access served locally
-    Cached --> [*] : never evicted, survives restart and resetProgress
+    Cached --> Uncached : the pack visit ends, clearPackCaches (pack-manager.js:264-267)
+    Cached --> [*] : resetProgress leaves every cache alone
 ```
 
 `resetProgress` clears the persisted reveal accounting but leaves `revealCache` alone. After a
 restart the hint texts are already local, so the player re-pays the score penalty without a network
 round trip, and the backend's `no-store` intent is bypassed by the client's own cache.
+
+`testPayloadCache` has no second source: the pack payload carries no test data (#37), so the cache is
+the only copy the browser holds until the pack visit ends and `clearPackCaches` drops it.
 
 ---
 
@@ -1312,7 +1316,8 @@ stateDiagram-v2
 ```
 
 `index.html` bytes are captured once at startup, an implicit "frozen SPA document" state. A deployed
-file change without a restart is invisible.
+file change without a restart is invisible; README's "Replacing the SPA Document" states the
+operational rule that follows from it.
 
 Two boundaries. `/callback` never reaches this machine, since it is registered explicitly and answers
 the same `index.html` directly (`routes.go:141-143`), which is what the OIDC redirect URI depends on
@@ -1328,7 +1333,8 @@ Quest content artifacts have a two-state visibility machine that spans backend a
 
 | Artifact | Pack payload | Reveal endpoint | Client cache | Scoring effect |
 | ---------- | -------------- | ----------------- | -------------- | ---------------- |
-| lore, task, manual, template, query, **tests** (every `input`, `data` and `expected_value`) | present | – | `private, max-age=300` | none |
+| lore, task, manual, template, query | present | – | `private, max-age=300` | none |
+| test cases (`input`, `data`, `expected_value`) | absent, no count | `GET .../test-payload` | `private, max-age=300` + in-memory | none |
 | hint text | count only (`hints_count`) | `GET .../hints/:hint_id` | `no-store` + in-memory | −2 points each, capped at 6 |
 | solution | `has_solution` only | `GET .../solution` | `no-store` + in-memory | −3 points |
 | support modules | `has_support_modules` only | `GET .../support-modules` | `no-store` + in-memory | none |
@@ -1337,22 +1343,24 @@ Quest content artifacts have a two-state visibility machine that spans backend a
 stateDiagram-v2
     [*] --> Withheld : pack payload projects the artifact away
     Withheld --> Countable : hints_count, has_solution, has_support_modules
+    Withheld --> Served : test cases, no countable state
+    Served --> CacheOnly : test-payload endpoint, no scoring effect
     Countable --> Revealed : explicit player action, dedicated endpoint
     Revealed --> Scored_Penalty : hint or solution, persisted reveal state
     Revealed --> CacheOnly : support modules, no scoring effect
     Revealed --> Withheld : only restart or a new pack, backend sends no-store
 ```
 
-The backend projection (`public.go:25-38`) and the reveal cache header (`handlers.go:64-66`) are the
-two halves of one machine. The frontend cache in #30 is the escape hatch.
+The backend projection (`public.go:27-39`) and the two cache headers (`handlers.go:63`, `handlers.go:67`)
+are the two halves of one machine. The frontend caches in #30 are the escape hatch.
 
-**The withheld set is smaller than it looks.** `PublicQuest` serialises `Tests` verbatim
-(`public.go:34`, `models.go:55-59`), so every test's input payload, its `data` document *and* its
-expected outcome are already in the pack payload. The dedicated `test-payload` endpoint
-(`handlers.go:143-152`) re-serves the same values with the same `private, max-age=300` header and
-adds no disclosure boundary. That client cache (#30) exists only because the modal asks for data the
-browser already has. Solutions and hint texts are withheld. The *truth table* the player is trying to
-satisfy is not.
+**Test cases are withheld from the payload and served by an endpoint that is not a boundary.** They
+reach the client only through `GET .../test-payload` (`handlers.go:150-160`), which answers every
+test's input, its `data` document and its expected outcome under the same
+`private, max-age=300` header as the payload itself. The projection keeps the startup payload small;
+it does not hide the truth table the player codes against. Pinned at the projection by
+`TestQuest_PublicView_CarriesNoTestData`, at the served bytes by `TestGetPack_WithholdsSecrets`, and
+in the browser by `dialog-qa`.
 
 ---
 
@@ -1613,7 +1621,7 @@ branch. Calling it a machine edge case would overstate it.
 | Interaction gate | `readOnly` + 2 `disabled` flags | one concept, three attributes (#6) |
 | Screen | 2 `hidden` classes | independent of theme context (#3) |
 | Theme | `<link>` nodes, `backgroundImage`, avatar `src`, titles | four independent writes; only the asset paints are guarded by `loadSeq` (#3) |
-| Visibility | one `hidden` class, `display: none !important` (`frontend/shared/css/base.css:104-106`) | toggled at 47 sites across the frontend with no owner and no ordering; a permanently hidden `aria-live` region is inert (#43) |
+| Visibility | one `hidden` class, `display: none !important` (`frontend/shared/css/base.css:104-106`) | in the SPA, one owner: `services/visibility.js` (`show`, `hide`, `setHidden`, `isHidden`); the 48 call sites that read or wrote the class directly are migrated, and `architecture-boundaries.test.js` fails any new one outside the service. The quest editor tool is a separate document with its own 6 direct accesses. A permanently hidden `aria-live` region is inert (#43) |
 | Modality | `showModal` vs `show()`, plus a global `dialog[open]` query | only the result dialog is non-modal, and it leaves the rest of the page live (#14) |
 | Save status | indicator class + the boolean `state.saveGrimoire` returns | the boolean is computed without looking at the storage result (#10) |
 | Timer-armed states | `saveTimeout`, `pauseTimer`, `confettiInterval`, `hintRequestInFlight`, `beginQuestInFlight` | each is a hidden "in-flight" state with its own cancellation rule |

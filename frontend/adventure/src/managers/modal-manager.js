@@ -25,6 +25,7 @@ import { nextReveal } from '../services/reveal-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
 import { SCORING, ErrorLevel } from '../services/constants.js';
+import { show, hide, setHidden } from '../services/visibility.js';
 
 /**
  * Format a structured policy error for display. Locations are 1-based
@@ -325,7 +326,7 @@ export class ModalManager {
                 });
             }
 
-            this.ui.elements.scoreSummary.classList.add('hidden');
+            hide(this.ui.elements.scoreSummary);
         } else if (isSuccess) {
             this.ui.elements.resultTitle.textContent = this.state.label('messageSuccess');
             this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
@@ -334,13 +335,13 @@ export class ModalManager {
 
             this.ui.elements.pointsEarned.textContent = pointsEarned;
             this.ui.elements.pointsPossible.textContent = pointsPossible;
-            this.ui.elements.scoreSummary.classList.remove('hidden');
+            show(this.ui.elements.scoreSummary);
 
             this.ui.updateScoreDisplay(this.state.totalScore);
         } else {
             this.ui.elements.resultTitle.textContent = this.state.label('messageFailure');
             this.ui.elements.resultMessage.textContent = "Some tests did not pass. Review the results below.";
-            this.ui.elements.scoreSummary.classList.add('hidden');
+            hide(this.ui.elements.scoreSummary);
         }
         
         // Render test results
@@ -370,11 +371,7 @@ export class ModalManager {
         }
         
         // Show/hide next quest button
-        if (isSuccess) {
-            this.ui.elements.nextQuestBtn.classList.remove('hidden');
-        } else {
-            this.ui.elements.nextQuestBtn.classList.add('hidden');
-        }
+        setHidden(this.ui.elements.nextQuestBtn, !isSuccess);
         
         // Trigger visual effects
         triggerResultEffect(isSuccess);

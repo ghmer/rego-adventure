@@ -23,6 +23,7 @@ import { DEFAULT_TEXT, DEFAULT_REGO_CODE, SaveStatus } from '../services/constan
 import { fetchQuestHint, fetchQuestSolution } from '../services/api-service.js';
 import { nextReveal } from '../services/reveal-service.js';
 import { handleApiError } from '../services/error-service.js';
+import { show, hide } from '../services/visibility.js';
 
 /**
  * Manages quest loading and navigation
@@ -167,7 +168,7 @@ export class QuestManager {
         const template = document.getElementById('hint-item-template');
         const hintItem = template.content.cloneNode(true);
         hintItem.querySelector('code').textContent = text;
-        this.ui.elements.hintsList.classList.remove('hidden');
+        show(this.ui.elements.hintsList);
         this.ui.elements.hintsList.appendChild(hintItem);
     }
 
@@ -179,7 +180,7 @@ export class QuestManager {
         const template = document.getElementById('hint-solution-template');
         const solutionItem = template.content.cloneNode(true);
         solutionItem.querySelector('code').textContent = text;
-        this.ui.elements.hintsList.classList.remove('hidden');
+        show(this.ui.elements.hintsList);
         this.ui.elements.hintsList.appendChild(solutionItem);
     }
 
@@ -290,7 +291,7 @@ export class QuestManager {
         // Narrative stages never have support modules
         this.ui.updateSupportModulesButton(null);
 
-        this.ui.elements.hintsList.classList.add('hidden');
+        hide(this.ui.elements.hintsList);
 
         this.ui.renderInteractionGate(this.state.getInteractionGate());
         this.ui.renderPerfectScoreButton(false);
@@ -347,14 +348,14 @@ export class QuestManager {
 
         // Hide navigation for prologue or epilogue
         if (this.state.currentQuestId === 0 || this.state.isEpilogueCursor()) {
-            this.ui.elements.questBackBtn.classList.add('hidden');
-            this.ui.elements.questForwardBtn.classList.add('hidden');
+            hide(this.ui.elements.questBackBtn);
+            hide(this.ui.elements.questForwardBtn);
             return;
         }
 
         // Show buttons for actual quests
-        this.ui.elements.questBackBtn.classList.remove('hidden');
-        this.ui.elements.questForwardBtn.classList.remove('hidden');
+        show(this.ui.elements.questBackBtn);
+        show(this.ui.elements.questForwardBtn);
         
         // Enable/disable based on availability
         this.ui.elements.questBackBtn.disabled = !this.state.canNavigateBack();
@@ -490,7 +491,7 @@ export class QuestManager {
         this.state.currentQuestSolutionViewed = saved.solutionViewed;
 
         if (saved.solutionViewed && this.state.currentQuest?.has_solution) {
-            this.ui.elements.hintBtn.classList.add('hidden');
+            hide(this.ui.elements.hintBtn);
         }
 
         if (saved.hintsUsed > 0) {
@@ -542,7 +543,7 @@ export class QuestManager {
                 this.appendSolutionItem(solution);
                 this.state.currentQuestSolutionViewed = true;
                 this.state.persistQuestHintState();
-                this.ui.elements.hintBtn.classList.add('hidden');
+                hide(this.ui.elements.hintBtn);
             }
         } catch (error) {
             handleApiError(error, 'reveal hint');

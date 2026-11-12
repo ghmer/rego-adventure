@@ -139,8 +139,9 @@ describe('progression source boundaries', () => {
         const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
         const renderer = methodSource(uiManager.text, 'renderPerfectScoreButton');
         expect(renderer, 'renderPerfectScoreButton').not.toBe('');
+        expect(renderer).toContain('setHidden(perfectScoreBtn,');
 
-        const button = /perfectScoreBtn\.classList\.(?:add|remove)\(['"]hidden['"]\)/g;
+        const button = /(?:show|hide|setHidden)\([^)]*perfectScoreBtn/g;
         const elsewhere = matches(button, all.filter(file => file !== uiManager));
         const otherUiMethods = (uiManager.text.replace(renderer, '').match(button) || [])
             .map(hit => `ui-manager.js: ${hit}`);
@@ -189,7 +190,7 @@ describe('progression source boundaries', () => {
             ['verify button enabled', /verifyBtn\.disabled\s*=(?!=)/g],
             ['hint button enabled', /hintBtn\.disabled\s*=(?!=)/g],
             ['editor read-only', /\.editor\.readOnly\s*=(?!=)/g],
-            ['editor pane visibility', /editorPane\.classList\.(?:add|remove|toggle)\(['"]hidden['"]\)/g]
+            ['editor pane visibility', /setHidden\([^)]*editorPane/g]
         ];
 
         for (const [name, pattern] of gatedControls) {
@@ -225,7 +226,7 @@ describe('progression source boundaries', () => {
 
     it('never moves a button between footers', () => {
         expect(matches(/appendChild\([^)]*startAdventureBtn/g, all)).toEqual([]);
-        expect(matches(/startAdventureBtn\.classList\.(?:add|remove)\(['"]hidden['"]\)/g,
+        expect(matches(/(?:show|hide|setHidden)\([^)]*startAdventureBtn/g,
             all.filter(file => !file.path.endsWith('ui-manager.js')))).toEqual([]);
     });
 
@@ -233,8 +234,9 @@ describe('progression source boundaries', () => {
         const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
         const renderer = methodSource(uiManager.text, 'renderQuestButtonVisibility');
         expect(renderer, 'renderQuestButtonVisibility').not.toBe('');
+        expect(renderer).toContain('setHidden(startAdventureBtn,');
 
-        const offer = /startAdventureBtn\.classList\.(?:add|remove)\(['"]hidden['"]\)/g;
+        const offer = /(?:show|hide|setHidden)\([^)]*startAdventureBtn/g;
         const elsewhere = matches(offer, all.filter(file => file !== uiManager));
         const otherUiMethods = (uiManager.text.replace(renderer, '').match(offer) || [])
             .map(hit => `ui-manager.js: ${hit}`);
@@ -245,7 +247,7 @@ describe('progression source boundaries', () => {
     it('recomputes the quest footer in the screen render only', () => {
         const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
         expect(methodSource(uiManager.text, 'renderQuestFooter'), 'renderQuestFooter')
-            .toContain("classList.toggle('hidden'");
+            .toContain('setHidden(footer,');
 
         // The old per-site recompute is gone, and the renderer is called only by
         // the quest render pipeline
@@ -289,12 +291,23 @@ describe('progression source boundaries', () => {
         const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
         const renderer = methodSource(uiManager.text, 'updateAuthUI');
         expect(renderer, 'updateAuthUI').not.toBe('');
+        expect(renderer.match(/setHidden\(/g), 'one call per chrome element').toHaveLength(4);
 
-        const chrome = /(?:loginContainer|logoutBtn|logoutContainerStart)\.classList\.(?:add|remove)\(/g;
+        const chrome = /(?:show|hide|setHidden)\([^)]*(?:loginContainer|logoutBtn|logoutContainerStart)/g;
         const elsewhere = matches(chrome, all.filter(file => file !== uiManager));
         const otherUiMethods = (uiManager.text.replace(renderer, '').match(chrome) || [])
             .map(hit => `ui-manager.js: ${hit}`);
 
         expect([...elsewhere, ...otherUiMethods], 'auth chrome').toEqual([]);
+    });
+
+    it('writes and reads the hidden class in the visibility service only', () => {
+        const owner = all.filter(file => file.path.endsWith('services/visibility.js'));
+        expect(owner, 'visibility service present').toHaveLength(1);
+
+        const classEdits = /classList\.(?:add|remove|toggle|contains)\(['"]hidden['"]/g;
+        expect(matches(classEdits, all.filter(file => !file.path.endsWith('services/visibility.js'))),
+            'hidden class outside the visibility service').toEqual([]);
+        expect(matches(classEdits, owner), 'the service holds the class').toHaveLength(4);
     });
 });

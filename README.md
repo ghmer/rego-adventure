@@ -320,6 +320,21 @@ Quest packs are defined in JSON format in a dedicated folder under [`frontend/qu
 - Quest definitions with test cases
 - Theme-specific assets (images, audio, styles)
 
+### What the Browser Receives
+
+`GET /api/packs/{packId}` serves a projection of the pack, not the pack file. It omits the solution,
+the hint texts, the hidden support modules and the test cases; `hints_count`, `has_solution` and
+`has_support_modules` say what exists, so the interface can render its controls without the content.
+Each withheld item is served by the endpoint that needs it: hints and solution on a confirmed reveal
+(`Cache-Control: no-store`), support modules on request, and the test cases through
+`GET /api/packs/{packId}/quests/{questId}/test-payload` when the test modal opens.
+
+That endpoint is a convenience layer, not a secrecy boundary. It answers every test's input, its
+`data` document and its expected outcome to any client that asks, and its response is cacheable for
+five minutes (`Cache-Control: private, max-age=300`). A pack's tests are readable by anyone who can
+reach the server; the projection keeps the startup payload small, it does not hide the truth table
+the player is coding against.
+
 ### Asset Generator
 
 The asset generator tool creates new quest pack scaffolding with placeholder assets and configuration files. A run that fails part way through leaves no partial pack: everything it had already written below the pack directory is removed again, and content that was already there is left alone.
@@ -426,6 +441,16 @@ Refer to:
 Locally, a quest pack must go in the `frontend/quests` folder.
 
 For Kubernetes or Docker Compose deployments, you can mount them there too.
+
+### Replacing the SPA Document
+
+`frontend/adventure/index.html` is read once, when the server starts, and served from memory
+afterwards. The import map block inside it is part of those bytes, and its Content-Security-Policy
+hash is computed in the same step. Replacing the file inside a running container changes nothing
+until the process restarts.
+
+Quest packs, images, audio, `theme.css` and `custom.css` are read per request and need no restart,
+nor do the SPA's JavaScript modules, which are ordinary static files.
 
 ## License
 

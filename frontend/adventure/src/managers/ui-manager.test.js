@@ -334,4 +334,72 @@ describe('ui-manager', () => {
             expect(onPackClick).toHaveBeenCalledWith('alpha');
         });
     });
+
+    describe('updateAuthUI', () => {
+        /**
+         * Build a UIManager over the chrome the authentication state writes.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createAuthUi() {
+            document.body.innerHTML = `
+                <div id="login-container"><button id="login-btn"></button></div>
+                <div id="quest-pack-list"></div>
+                <button id="logout-btn"></button>
+                <div id="logout-container-start"><button id="logout-start-btn"></button></div>
+            `;
+            return new UIManager({ textarea: document.createElement('textarea') });
+        }
+
+        /**
+         * @param {UIManager} ui - Manager under test
+         * @returns {Object} Which chrome elements are visible
+         */
+        function chrome(ui) {
+            const visible = {};
+            for (const name of ['loginContainer', 'questPackList', 'logoutBtn', 'logoutContainerStart']) {
+                visible[name] = !ui.elements[name].classList.contains('hidden');
+            }
+            return visible;
+        }
+
+        it('offers the login control and no packs while signed out', () => {
+            const ui = createAuthUi();
+
+            ui.updateAuthUI(false, true);
+
+            expect(chrome(ui)).toEqual({
+                loginContainer: true,
+                questPackList: false,
+                logoutBtn: false,
+                logoutContainerStart: false
+            });
+        });
+
+        it('offers the packs and the logout controls once signed in', () => {
+            const ui = createAuthUi();
+
+            ui.updateAuthUI(true, true);
+
+            expect(chrome(ui)).toEqual({
+                loginContainer: false,
+                questPackList: true,
+                logoutBtn: true,
+                logoutContainerStart: true
+            });
+        });
+
+        it('hides the auth chrome with authentication off, and leaves the pack list alone', () => {
+            const ui = createAuthUi();
+            ui.elements.questPackList.classList.remove('hidden');
+
+            ui.updateAuthUI(true, false);
+
+            expect(chrome(ui)).toEqual({
+                loginContainer: false,
+                questPackList: true,
+                logoutBtn: false,
+                logoutContainerStart: false
+            });
+        });
+    });
 });

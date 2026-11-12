@@ -37,9 +37,6 @@ func TestQuest_PublicView_StripsSecrets(t *testing.T) {
 	if !view.HasSolution {
 		t.Error("expected has_solution=true for quest with solution")
 	}
-	if len(view.Tests) != len(q.Tests) {
-		t.Errorf("expected tests to be preserved, got %d", len(view.Tests))
-	}
 
 	data, err := json.Marshal(view)
 	if err != nil {
@@ -51,7 +48,7 @@ func TestQuest_PublicView_StripsSecrets(t *testing.T) {
 			t.Errorf("public view leaks secret %q", secret)
 		}
 	}
-	for _, key := range []string{"\"solution\"", "\"hints\"", "\"support_modules\""} {
+	for _, key := range []string{"\"solution\"", "\"hints\"", "\"support_modules\"", "\"tests\""} {
 		if strings.Contains(body, key) {
 			t.Errorf("public view must not contain key %s", key)
 		}
@@ -59,6 +56,26 @@ func TestQuest_PublicView_StripsSecrets(t *testing.T) {
 	for _, key := range []string{"\"hints_count\":2", "\"has_solution\":true"} {
 		if !strings.Contains(body, key) {
 			t.Errorf("public view missing derived key %s, got %s", key, body)
+		}
+	}
+}
+
+// The pack payload carries no test data at all: the test modal gets its
+// input, data and expected outcome from the test-payload endpoint.
+func TestQuest_PublicView_CarriesNoTestData(t *testing.T) {
+	q := createValidQuest()
+	if len(q.Tests) != 2 {
+		t.Fatalf("fixture must carry test cases, got %d", len(q.Tests))
+	}
+
+	data, err := json.Marshal(q.PublicView())
+	if err != nil {
+		t.Fatalf("failed to marshal public view: %v", err)
+	}
+	body := string(data)
+	for _, marker := range []string{"\"tests\"", "\"payload\"", "\"input\"", "\"expected_value\"", "admin", "guest"} {
+		if strings.Contains(body, marker) {
+			t.Errorf("public view carries test data %s", marker)
 		}
 	}
 }
@@ -112,6 +129,9 @@ func TestQuestPack_PublicView_MapsAllQuests(t *testing.T) {
 	}
 	if strings.Contains(string(data), "solution code") {
 		t.Error("public pack view leaks a solution")
+	}
+	if strings.Contains(string(data), "\"tests\"") {
+		t.Errorf("public pack view carries a tests key: %s", string(data))
 	}
 }
 

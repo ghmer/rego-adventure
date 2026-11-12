@@ -239,6 +239,12 @@ async function main() {
             phase = 'the tutorial prompt';
             const first = await newPage(browser, port);
             const page = first.page;
+            const apiPaths = [];
+            page.on('request', (request) => {
+                if (request.url().includes('/api/')) {
+                    apiPaths.push(request.url());
+                }
+            });
             await watchIntervals(page);
             await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
             await page.locator('.quest-pack-card').first().click();
@@ -316,6 +322,51 @@ async function main() {
                 const afterEsc = await dialogOpen(page, item.id);
                 report.check(`${item.id} closes under ESC`, afterEsc.open === false, JSON.stringify(afterEsc));
             }
+
+            phase = 'what the pack payload carries, and what it does not';
+            const payload = await page.evaluate(async (packId) => {
+                const text = await (await fetch(`/api/packs/${packId}`)).text();
+                const quests = JSON.parse(text).quests || [];
+                return {
+                    quests: quests.length,
+                    questsWithTests: quests.filter((q) => 'tests' in q).length,
+                    payloadKeys: text.includes('"payload"'),
+                    // The keys of a serialized test case, not the words a quest
+                    // description may contain.
+                    testData: text.includes('"input":') || text.includes('"expected_value":'),
+                    hintsCount: quests.reduce((sum, q) => sum + (q.hints_count || 0), 0)
+                };
+            }, PACK);
+            report.check(
+                'the pack payload carries no test cases',
+                payload.quests > 0 && payload.questsWithTests === 0
+                    && !payload.payloadKeys && !payload.testData,
+                JSON.stringify(payload)
+            );
+            report.check(
+                'the payload still says what can be revealed',
+                payload.hintsCount > 0,
+                JSON.stringify(payload)
+            );
+
+            await page.click('#check-test-payload-btn');
+            await page.waitForSelector('#test-payload-modal[open]', { timeout: 1500 }).catch(() => {});
+            const modal = await page.evaluate(() => ({
+                cases: document.querySelectorAll('#test-payload-modal .test-case-title').length,
+                inputs: (document.getElementById('test-payload-data') || {}).textContent || '',
+                expected: [...document.querySelectorAll('#test-payload-modal .test-case-expected')]
+                    .map((el) => el.textContent.trim())
+            }));
+            report.check(
+                'the test modal is filled by the test-payload endpoint',
+                apiPaths.some((url) => url.includes('/test-payload'))
+                    && modal.cases === 2
+                    && modal.inputs.includes('"password"')
+                    && modal.expected.some((text) => /true/i.test(text))
+                    && modal.expected.some((text) => /false/i.test(text)),
+                `${JSON.stringify({ paths: apiPaths.length, ...modal })}`
+            );
+            await page.click('#close-test-payload-btn');
 
             phase = 'a result over a live page, with effects off';
             await verifyWith(page, WRONG);

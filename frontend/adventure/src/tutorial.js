@@ -26,6 +26,7 @@
 
 import { driver } from 'driver.js';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
+import { show, hide, isHidden } from './services/visibility.js';
 
 export class TutorialSystem {
     constructor() {
@@ -342,9 +343,9 @@ export class TutorialSystem {
 
         elementsToCheck.forEach(selector => {
             const element = document.querySelector(selector);
-            if (element && element.classList.contains('hidden')) {
+            if (isHidden(element)) {
                 this.hiddenElementsState.add(selector);
-                element.classList.remove('hidden');
+                show(element);
             }
         });
     }
@@ -354,10 +355,7 @@ export class TutorialSystem {
      */
     restoreHiddenElements() {
         this.hiddenElementsState.forEach((selector) => {
-            const element = document.querySelector(selector);
-            if (element) {
-                element.classList.add('hidden');
-            }
+            hide(document.querySelector(selector));
         });
 
         // Clear the tracked state
@@ -463,7 +461,7 @@ export class TutorialSystem {
         // restores its own focus after its destroy hooks, so the hand-off is
         // deferred past that.
         const startBtn = document.getElementById('start-adventure');
-        if (startBtn && !startBtn.classList.contains('hidden')) {
+        if (!isHidden(startBtn)) {
             requestAnimationFrame(() => startBtn.focus());
         }
     }
