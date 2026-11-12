@@ -109,6 +109,61 @@ describe('tutorial transaction', () => {
         expect(system.driverObj).toBe(null);
     });
 
+    it('restores the tour targets when the tour ends before a step settles', () => {
+        const destroy = vi.fn();
+        let config = null;
+        driverMock.driver.mockImplementation((given) => {
+            config = given;
+            return { drive: vi.fn(), destroy };
+        });
+        const system = new TutorialSystem();
+
+        system.startTutorial();
+        expect(visibleTargets(TOUR_TARGETS)).toEqual(TOUR_TARGETS);
+
+        // driver.js calls onDestroyStarted on every exit, but reaches
+        // onDestroyed only once a step transition has settled. An exit that
+        // arrives earlier - Escape during the first step - still owes the undo,
+        // and finishing the destroy is what lets the driver clean up after it.
+        config.onDestroyStarted();
+
+        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(system.driverObj).toBe(null);
+        expect(destroy).toHaveBeenCalledTimes(1);
+    });
+
+    it('hands focus to the primary call to action once the tour has ended', async () => {
+        const tour = runningTour();
+        const system = new TutorialSystem();
+
+        system.startTutorial();
+        tour.getConfig().onDestroyed();
+
+        // The driver restores its own focus after its destroy hooks, so the
+        // hand-off is deferred past that frame.
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
+        expect(document.activeElement.id).toBe('start-adventure');
+        expect(system.driverObj).toBe(null);
+    });
+
+    it('restores once when a tour is exited twice', () => {
+        const destroy = vi.fn();
+        let config = null;
+        driverMock.driver.mockImplementation((given) => {
+            config = given;
+            return { drive: vi.fn(), destroy };
+        });
+        const system = new TutorialSystem();
+
+        system.startTutorial();
+        config.onDestroyStarted();
+        config.onDestroyed();
+
+        expect(destroy).toHaveBeenCalledTimes(1);
+        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+    });
+
     it('restores the tour targets when the tour fails to start', () => {
         driverMock.driver.mockImplementation(() => ({
             drive: () => {

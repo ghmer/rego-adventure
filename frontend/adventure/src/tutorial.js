@@ -428,20 +428,44 @@ export class TutorialSystem {
             onPopoverRender: (popover) => {
                 requestAnimationFrame(() => popover.nextButton.focus());
             },
+            // Every exit passes through this hook, including one that arrives
+            // before a step has finished animating - driver.js only reaches
+            // onDestroyed once a step transition has settled. The undo runs
+            // here and the driver is then finished without re-entering it.
+            onDestroyStarted: () => {
+                const driverObj = this.driverObj;
+                this.undoTour();
+                driverObj?.destroy();
+            },
             onDestroyed: () => {
-                // The undo path of a tour that ran
-                this.driverObj = null;
-                this.restoreHiddenElements();
-                // Hand keyboard focus to the primary call to action so
-                // keyboard and screen-reader users land on the obvious
-                // next step (only when the button is actually visible,
-                // i.e. on the prologue screen)
-                const startBtn = document.getElementById('start-adventure');
-                if (startBtn && !startBtn.classList.contains('hidden')) {
-                    startBtn.focus();
-                }
+                this.undoTour();
             }
         });
+    }
+
+    /**
+     * The undo path of a tour that ran: the borrowed controls go back to being
+     * hidden and focus is handed to the primary call to action. It is reached
+     * from both destroy hooks and does nothing once the undo has been done, so a
+     * tour that is exited twice is restored once.
+     */
+    undoTour() {
+        if (!this.driverObj && this.hiddenElementsState.size === 0) {
+            return;
+        }
+
+        this.driverObj = null;
+        this.restoreHiddenElements();
+
+        // Hand keyboard focus to the primary call to action so keyboard and
+        // screen-reader users land on the obvious next step (only when the
+        // button is actually visible, i.e. on the prologue screen). driver.js
+        // restores its own focus after its destroy hooks, so the hand-off is
+        // deferred past that.
+        const startBtn = document.getElementById('start-adventure');
+        if (startBtn && !startBtn.classList.contains('hidden')) {
+            requestAnimationFrame(() => startBtn.focus());
+        }
     }
 }
 

@@ -19,7 +19,8 @@
  *
  * Tests live next to the code they cover as `<name>.test.js`. The
  * happy-dom environment provides the localStorage and DOM APIs the
- * services use. The vitest toolchain itself is not a committed
+ * services use, including the animation frames the tour's focus hand-off
+ * defers its work to. The vitest toolchain itself is not a committed
  * dependency; it is installed pinned and ephemeral (see CI and the
  * package.json comments).
  */
@@ -28,6 +29,13 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     test: {
         environment: 'happy-dom',
+        environmentOptions: {
+            'happy-dom': {
+                // The tour defers its focus hand-off to an animation frame,
+                // which is what a browser gives it.
+                pretendToBeVisual: true
+            }
+        },
         include: ['src/**/*.test.js']
     }
 });
