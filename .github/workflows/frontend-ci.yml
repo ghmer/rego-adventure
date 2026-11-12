@@ -12,10 +12,12 @@ on:
       - "v*.*.*"
     paths:
       - "frontend/adventure/**"
+      - "docu/quest-editor/**"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
     paths:
       - "frontend/adventure/**"
+      - "docu/quest-editor/**"
       - ".github/workflows/frontend-ci.yml"
 
 permissions:
@@ -69,6 +71,24 @@ jobs:
       - name: Run vitest
         run: npx vitest run
         working-directory: frontend/adventure
+
+  quest-editor-rules:
+    runs-on: ubuntu-latest
+    name: Test quest editor rules
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.7.0'
+
+      # The quest editor is a static tool with no dependencies of its own, so
+      # its rule tests run on Node's built-in test runner. The editor's DOM
+      # behaviour is covered by the checklist in docu/quest-editor/QA.md.
+      - name: Run quest editor rule tests
+        run: node --test docu/quest-editor/
 
   importmap-sync:
     runs-on: ubuntu-latest

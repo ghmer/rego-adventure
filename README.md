@@ -401,7 +401,10 @@ A browser-based visual editor for creating and modifying quest packs. The editor
 3. Edit quest content using the visual interface
 4. Click "Save" to download the modified `quests.json` file
 
-For more complete documentation, check out [`README_EDITOR.md`](README_EDITOR.md).
+For more complete documentation, check out [`README_EDITOR.md`](README_EDITOR.md). Before an
+export, the editor checks the pack against the same rules the backend enforces at pack load;
+[`docu/quest-editor/QA.md`](docu/quest-editor/QA.md) lists the checks a change to the tool is
+verified by, and `node --test docu/quest-editor/` runs its rule tests.
 
 ## deployment
 

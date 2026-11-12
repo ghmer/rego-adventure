@@ -37,6 +37,15 @@
         </div>
     </header>
 
+    <!-- Validation report: what the pack is missing before it can be exported -->
+    <div id="validationReport" class="validation-report hidden" role="alert" aria-live="polite">
+        <div class="validation-report-header">
+            <span id="validationReportTitle">The pack is not ready to export</span>
+            <button class="validation-report-close" id="validationReportClose" title="Dismiss the list of problems">&times;</button>
+        </div>
+        <ul id="validationReportList"></ul>
+    </div>
+
     <!-- Empty State -->
     <div id="emptyState" class="empty-state">
         <div class="empty-state-content">
@@ -223,7 +232,8 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Quest ID</label>
-                            <input type="number" data-field="quest-id" class="form-control">
+                            <input type="number" data-field="quest-id" class="form-control" title="Assigned by the quest's position in the list" readonly>
+                            <p class="field-hint">Assigned by the quest's position in the list. The backend reads quests in ID order, so IDs always run 1, 2, 3.</p>
                         </div>
                         <div class="form-group">
                             <label>Title</label>
@@ -332,6 +342,7 @@
                     <input type="text" id="modal-test-expected" class="form-control" placeholder='e.g. true, 42, "granted", ["a","b"], {"read":true}'>
                 </div>
             </div>
+            <p id="modalError" class="modal-error hidden" role="alert"></p>
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="modalCancel" title="Cancel changes">Cancel</button>
                 <button class="btn btn-primary" id="modalSave" title="Save test case">Save</button>
@@ -339,6 +350,7 @@
         </div>
     </div>
 
+    <script src="rules.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

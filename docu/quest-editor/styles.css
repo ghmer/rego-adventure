@@ -782,3 +782,56 @@ textarea.form-control {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--secondary);
 }
+
+/* ============================================================================
+   VALIDATION REPORT
+   The pack problems the editor found, listed when an export is refused.
+   ============================================================================ */
+.validation-report {
+    margin: var(--spacing-md) var(--spacing-lg) 0;
+    background: #fef2f2;
+    border: 1px solid var(--danger);
+    border-radius: 8px;
+    color: #7f1d1d;
+}
+
+.validation-report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-weight: 600;
+    border-bottom: 1px solid #fecaca;
+}
+
+.validation-report-close {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.validation-report ul {
+    margin: 0;
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md) var(--spacing-xl);
+    max-height: 12rem;
+    overflow-y: auto;
+}
+
+.validation-report li {
+    margin-bottom: var(--spacing-xs);
+}
+
+.modal-error {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--danger);
+    font-weight: 500;
+}
+
+.field-hint {
+    margin: var(--spacing-xs) 0 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+}
