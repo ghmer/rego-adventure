@@ -28,10 +28,12 @@ import { tutorial } from '../tutorial.js';
  * Manages quest packs and theming
  */
 export class PackManager {
-    constructor(state, uiManager, audioManager) {
+    constructor(state, uiManager, audioManager, questManager, modalManager) {
         this.state = state;
         this.ui = uiManager;
         this.audio = audioManager;
+        this.quest = questManager;
+        this.modal = modalManager;
         // Generation token for the pack and theme context, the single place
         // its contract is stated: incremented by every pack entry (loadPack)
         // and by resetToDefaultTheme, and compared by an async continuation
@@ -211,6 +213,7 @@ export class PackManager {
      *   pack-scoped state survive a failed entry.
      */
     async startAdventure(packId) {
+        this.clearPackCaches();
         this.ui.hidePerfectScoreButton();
 
         // Set pack in state; the returned loaded state tells us whether
@@ -243,9 +246,21 @@ export class PackManager {
     }
 
     /**
+     * Drop the texts and payloads that a pack visit fetched: reveal texts,
+     * test payloads and support module sources belong to the pack that is
+     * open, and entering a pack, leaving it and restarting its progress each
+     * end what the previous state of that visit relied on.
+     */
+    clearPackCaches() {
+        this.quest.clearCaches();
+        this.modal.clearCaches();
+    }
+
+    /**
      * Return to home screen
      */
     returnHome() {
+        this.clearPackCaches();
         this.ui.hidePerfectScoreButton();
 
         // Flush progress and clear the active pack pointer so a reload

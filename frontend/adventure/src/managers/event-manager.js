@@ -393,9 +393,10 @@ export class EventManager {
      * Handle restart confirmation
      */
     handleRestart() {
-        // Reset state (clears scores, hints, and grimoires, and persists
-        // the reset)
+        // Reset state (clears scores, hints, and grimoires, and persists the
+        // reset), and drop the reveal texts the old progress had fetched
         this.state.resetProgress();
+        this.pack.clearPackCaches();
 
         // Reset UI
         this.modal.closeRestartConfirmation();

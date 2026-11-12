@@ -60,17 +60,19 @@ function createFixture() {
         <button id="verify-btn"><span data-label>Verify</span></button>
         <button id="hint-btn"></button>
         <button id="start-adventure"></button>
+        <span id="experience-points">0 XP</span>
         <ul id="hints-list"></ul>
         <textarea id="editor">${CODE}</textarea>
     `;
 
     const ui = new UIManager({ textarea: document.getElementById('editor') });
-    const quest = { updateQuestNavigationButtons: vi.fn() };
-    const modal = { showResult: vi.fn() };
-    const em = new EventManager(state, ui, quest, {}, modal, {});
+    const quest = { updateQuestNavigationButtons: vi.fn(), loadQuest: vi.fn(), clearCaches: vi.fn() };
+    const modal = { showResult: vi.fn(), closeRestartConfirmation: vi.fn(), clearCaches: vi.fn() };
+    const pack = { clearPackCaches: vi.fn() };
+    const em = new EventManager(state, ui, quest, {}, modal, pack);
     em.setupKeyboardShortcuts();
 
-    return { state, ui, quest, modal, em };
+    return { state, ui, quest, modal, pack, em };
 }
 
 describe('event-manager', () => {
@@ -79,6 +81,19 @@ describe('event-manager', () => {
         document.body.innerHTML = '';
         vi.clearAllMocks();
         apiMock.verifySolution.mockResolvedValue({ passed: true });
+    });
+
+    describe('restart', () => {
+        it('drops the reveal texts fetched for the pack when progress restarts', () => {
+            const { state, pack, em } = createFixture();
+            state.enterQuest(1);
+            state.completeQuest(1);
+
+            em.handleRestart();
+
+            expect(state.questScores).toEqual({});
+            expect(pack.clearPackCaches).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('keyboard verification', () => {

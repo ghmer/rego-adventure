@@ -93,6 +93,15 @@ export class ModalManager {
     }
 
     /**
+     * Drop the payloads fetched for the pack that is being left, restarted or
+     * re-entered, so nothing a previous pack visit fetched outlives it.
+     */
+    clearCaches() {
+        this.testPayloadCache.clear();
+        this.supportModulesCache.clear();
+    }
+
+    /**
      * Show dialog safely without throwing if already open
      * @param {HTMLDialogElement} dialog - Dialog element
      * @param {boolean} modal - Whether to open as a modal dialog

@@ -50,7 +50,7 @@ const uiManager = new UIManager(editorService);
 const audioManager = new AudioManager(uiManager);
 const questManager = new QuestManager(state, uiManager);
 const modalManager = new ModalManager(state, uiManager);
-const packManager = new PackManager(state, uiManager, audioManager);
+const packManager = new PackManager(state, uiManager, audioManager, questManager, modalManager);
 const eventManager = new EventManager(state, uiManager, questManager, audioManager, modalManager, packManager);
 
 /**

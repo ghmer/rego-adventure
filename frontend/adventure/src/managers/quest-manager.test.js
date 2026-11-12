@@ -315,6 +315,85 @@ describe('quest-manager', () => {
             expect(state.currentQuestHintsUsed).toBe(1);
         });
 
+        it('keeps the paid reveal accounting when the stored reveals cannot be fetched', async () => {
+            const { state, ui, qm } = createFixture([{ id: 1, hints_count: 2, has_solution: false }]);
+            state.enterQuest(1);
+            state.currentQuest = state.quests[0];
+            state.currentQuestHintsUsed = 1;
+            state.persistQuestHintState();
+
+            apiMock.fetchQuestHint.mockRejectedValueOnce(new ApiError('boom', 500));
+            await qm.restoreQuestHints(1);
+
+            // the texts did not arrive, but what the player paid for still counts
+            expect(state.currentQuestHintsUsed).toBe(1);
+            expect(ui.updateHintButtonText).toHaveBeenCalledWith(state.currentQuest, 1, expect.any(String));
+
+            // the next reveal is the second hint, not a second charge for the first
+            await qm.showHint();
+
+            expect(apiMock.fetchQuestHint).toHaveBeenLastCalledWith(PACK_ID, 1, 2);
+            expect(state.currentQuestHintsUsed).toBe(2);
+        });
+
+        it('restores the same reveal record the score was computed from, even when the refetch fails', async () => {
+            const { state, qm } = createFixture([{ id: 1, hints_count: 2, has_solution: false }]);
+            state.enterQuest(1);
+            state.currentQuest = state.quests[0];
+            state.currentQuestHintsUsed = 1;
+            state.completeQuest(1);
+            state.resetQuestState();
+
+            apiMock.fetchQuestHint.mockRejectedValue(new ApiError('boom', 500));
+            await qm.restoreQuestHints(1);
+
+            // score and reveal counters keep describing the same run
+            expect(state.questScores[1].hintsUsed).toBe(1);
+            expect(state.currentQuestHintsUsed).toBe(1);
+        });
+
+        it('settles the reveal overlay back to idle and clears the pending restore', async () => {
+            const { state, qm } = createFixture([{ id: 1, hints_count: 1, has_solution: false }]);
+            state.enterQuest(1);
+            state.currentQuest = state.quests[0];
+            state.currentQuestHintsUsed = 1;
+            state.persistQuestHintState();
+
+            const pending = qm.restoreQuestHints(1);
+
+            expect(qm.revealPhase).toBe('restoring');
+
+            await pending;
+
+            expect(qm.revealPhase).toBe('idle');
+            expect(qm.revealPromise).toBeNull();
+        });
+
+        it('waits for a restore in flight instead of racing it', async () => {
+            const { state, ui, qm } = createFixture([{ id: 1, hints_count: 2, has_solution: false }]);
+            state.enterQuest(1);
+            state.currentQuest = state.quests[0];
+            state.currentQuestHintsUsed = 1;
+            state.persistQuestHintState();
+
+            let settle;
+            apiMock.fetchQuestHint.mockImplementationOnce((packId, questId, hintId) => new Promise(resolve => {
+                settle = () => resolve({ hint: `h${hintId}` });
+            }));
+
+            const restoring = qm.restoreQuestHints(1);
+            const revealing = qm.showHint();
+
+            settle();
+            await Promise.all([restoring, revealing]);
+
+            // one restore fetched hint 1; showHint waited for it and then asked
+            // for the next reveal rather than refetching hint 1
+            expect(apiMock.fetchQuestHint.mock.calls.map(call => call[2])).toEqual([1, 2]);
+            expect(ui.elements.hintsList.children).toHaveLength(2);
+            expect(state.currentQuestHintsUsed).toBe(2);
+        });
+
         it('drops fetched hints when the user navigated away meanwhile', async () => {
             const { state, ui, qm } = createFixture([
                 { id: 1, hints_count: 1, has_solution: false },
@@ -336,6 +415,22 @@ describe('quest-manager', () => {
 
             expect(ui.elements.hintsList.children).toHaveLength(0);
             expect(handleApiError).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('caches of the current pack visit', () => {
+        it('drops the reveal texts it fetched', async () => {
+            const { state, qm } = createFixture([{ id: 1, hints_count: 1, has_solution: false }]);
+            state.currentQuest = state.quests[0];
+            qm.loadQuest(1);
+            await qm.showHint();
+
+            expect(qm.revealCache.size).toBe(1);
+
+            qm.clearCaches();
+
+            expect(qm.revealCache.size).toBe(0);
+            expect(qm.revealPhase).toBe('idle');
         });
     });
 

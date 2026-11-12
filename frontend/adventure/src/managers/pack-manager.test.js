@@ -83,7 +83,16 @@ function createFixture() {
     const state = new GameState();
     const ui = createUi();
     const audio = { setupMusic: vi.fn(), stopMusic: vi.fn() };
-    return { state, ui, audio, pack: new PackManager(state, ui, audio) };
+    const quest = { clearCaches: vi.fn() };
+    const modal = { clearCaches: vi.fn() };
+    return {
+        state,
+        ui,
+        audio,
+        quest,
+        modal,
+        pack: new PackManager(state, ui, audio, quest, modal)
+    };
 }
 
 /**
@@ -109,6 +118,23 @@ describe('PackManager', () => {
         document.querySelectorAll('[data-quest-theme]').forEach(link => link.remove());
         document.querySelectorAll('.npc-avatar, .avatar').forEach(el => el.remove());
         document.body.style.backgroundImage = '';
+    });
+
+    describe('caches of one pack visit', () => {
+        it('drops what was fetched when a pack is entered and when it is left', async () => {
+            apiMock.fetchPackDetails.mockResolvedValue(packData('alpha'));
+            const { pack, quest, modal } = createFixture();
+
+            await pack.startAdventure('alpha');
+
+            expect(quest.clearCaches).toHaveBeenCalledTimes(1);
+            expect(modal.clearCaches).toHaveBeenCalledTimes(1);
+
+            pack.returnHome();
+
+            expect(quest.clearCaches).toHaveBeenCalledTimes(2);
+            expect(modal.clearCaches).toHaveBeenCalledTimes(2);
+        });
     });
 
     describe('entering a pack', () => {

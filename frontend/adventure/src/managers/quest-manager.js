@@ -33,13 +33,80 @@ export class QuestManager {
         this.ui = uiManager;
 
         // Hint texts and the solution are revealed through the API, not
-        // shipped with the pack payload. They are immutable per pack load,
-        // so fetched texts are cached per pack+quest. The in-flight flag
-        // collapses double clicks while a fetch is running; restorePromise
-        // lets showHint wait for an in-flight restore instead of racing it.
+        // shipped with the pack payload. They are immutable while a pack is
+        // open, so fetched texts are cached per pack+quest and dropped when
+        // the pack visit ends (clearCaches).
         this.revealCache = new Map();
-        this.hintRequestInFlight = false;
-        this.restorePromise = null;
+
+        // Reveal concurrency in one record. revealPhase is 'idle', 'restoring'
+        // (re-rendering reveals from a previous session) or 'revealing'
+        // (fetching the next one); revealQuestId is the quest that work
+        // belongs to, and revealPromise is the running restore. Every
+        // continuation checks revealStale instead of comparing the cursor by
+        // hand, and a claim for another quest supersedes the running work.
+        this.revealPhase = 'idle';
+        this.revealQuestId = null;
+        this.revealPromise = null;
+    }
+
+    /**
+     * Drop what was fetched for the pack that is being left, restarted or
+     * re-entered: hint and solution texts, and any reveal work still running
+     * against them.
+     */
+    clearCaches() {
+        this.revealCache.clear();
+        this.revealPhase = 'idle';
+        this.revealQuestId = null;
+        this.revealPromise = null;
+    }
+
+    /**
+     * Claim the reveal overlay for work on a quest. A claim for the same quest
+     * collapses into the work already running; a claim for another quest
+     * supersedes it, and the superseded continuations then find themselves
+     * stale and drop.
+     * @param {string} phase - 'restoring' or 'revealing'
+     * @param {number} questId - Quest the work belongs to
+     * @returns {boolean} false when this quest already owns the overlay
+     */
+    claimReveal(phase, questId) {
+        if (this.revealPhase !== 'idle' && this.revealQuestId === questId) return false;
+
+        this.revealPhase = phase;
+        this.revealQuestId = questId;
+        return true;
+    }
+
+    /**
+     * Release the overlay, but only to the work that still owns it.
+     * @param {number} questId - Quest whose work finished
+     */
+    endReveal(questId) {
+        if (this.revealQuestId !== questId) return;
+
+        this.revealPhase = 'idle';
+        this.revealQuestId = null;
+        this.revealPromise = null;
+    }
+
+    /**
+     * Whether the player still stands on this quest.
+     * @param {number} questId - Quest the work was started for
+     * @returns {boolean} true while it is the quest on screen
+     */
+    isRevealTarget(questId) {
+        return this.state.currentQuestId === questId;
+    }
+
+    /**
+     * Whether fetched reveal text may still be applied: the player may have
+     * navigated away, or another quest's work may own the overlay now.
+     * @param {number} questId - Quest the fetch was made for
+     * @returns {boolean} true when the result no longer belongs on screen
+     */
+    revealStale(questId) {
+        return !this.isRevealTarget(questId) || this.revealQuestId !== questId;
     }
 
     /**
@@ -342,19 +409,23 @@ export class QuestManager {
     }
 
     /**
-     * Re-render hints (and optionally the solution) that were revealed in
-     * a previous session for the given quest, so a page reload does not
-     * hide them while their score penalty persists. Hint texts are fetched
-     * from the API (cached after the first fetch). The promise is stored
-     * on restorePromise so a concurrent showHint waits for it.
+     * Re-render the hints and the solution that were revealed in a previous
+     * session for this quest, so a reload does not hide them while their score
+     * penalty persists. The stored accounting is applied whether or not the
+     * texts arrive: a failed refetch reports the failure and still counts the
+     * reveals the player already paid for, so the next reveal is the one they
+     * have not bought.
      * @param {number} questId - The quest identifier
-     * @returns {Promise<void>} Resolves when the restore has been applied
+     * @returns {Promise<void>|null} the running restore, or null when this
+     *   quest has nothing stored
      */
     restoreQuestHints(questId) {
-        this.restorePromise = (async () => {
-            const saved = this.state.loadQuestHintState(questId);
-            if (!saved || (!saved.hintsUsed && !saved.solutionViewed)) return;
+        const saved = this.state.loadQuestHintState(questId);
+        if (!saved || (!saved.hintsUsed && !saved.solutionViewed)) return null;
 
+        if (!this.claimReveal('restoring', questId)) return this.revealPromise;
+
+        this.revealPromise = (async () => {
             const totalHints = this.state.currentQuest?.hints_count ?? 0;
             const hintsToRestore = Math.min(saved.hintsUsed, totalHints);
 
@@ -365,32 +436,53 @@ export class QuestManager {
                     loads.push(this.loadHintText(questId, i + 1));
                 }
                 await Promise.all(loads);
-                // The user may have navigated elsewhere while hints were loading
-                if (this.state.currentQuestId !== questId) return;
 
-                for (let i = 0; i < hintsToRestore; i++) {
-                    this.appendHintItem(cache.hints[i]);
+                if (!this.revealStale(questId)) {
+                    for (let i = 0; i < hintsToRestore; i++) {
+                        this.appendHintItem(cache.hints[i]);
+                    }
+
+                    if (saved.solutionViewed && this.state.currentQuest?.has_solution) {
+                        const solution = await this.loadSolutionText(questId);
+                        if (!this.revealStale(questId)) {
+                            this.appendSolutionItem(solution);
+                        }
+                    }
                 }
-
-                if (saved.solutionViewed && this.state.currentQuest?.has_solution) {
-                    const solution = await this.loadSolutionText(questId);
-                    if (this.state.currentQuestId !== questId) return;
-                    this.appendSolutionItem(solution);
-                    this.ui.elements.hintBtn.classList.add('hidden');
-                }
-
-                this.state.currentQuestHintsUsed = saved.hintsUsed;
-                this.state.currentQuestSolutionViewed = saved.solutionViewed;
-
-                if (saved.hintsUsed > 0 && !saved.solutionViewed) {
-                    this.ui.updateHintButtonText(this.state.currentQuest, saved.hintsUsed, this.state.label('hintButton'));
-                }
-                this.ui.updateQuestFooterVisibility();
             } catch (error) {
                 handleApiError(error, 'restore hints');
+            } finally {
+                if (!this.revealStale(questId)) {
+                    this.applyStoredReveals(saved);
+                }
+                this.endReveal(questId);
             }
         })();
-        return this.restorePromise;
+
+        return this.revealPromise;
+    }
+
+    /**
+     * Put the stored reveal accounting on the screen: the counters of the
+     * reveals already paid for, the button label that reflects them, and the
+     * button's visibility once the solution was revealed.
+     * @param {Object} saved - {hintsUsed, solutionViewed} as stored
+     */
+    applyStoredReveals(saved) {
+        this.state.currentQuestHintsUsed = saved.hintsUsed;
+        this.state.currentQuestSolutionViewed = saved.solutionViewed;
+
+        if (saved.solutionViewed && this.state.currentQuest?.has_solution) {
+            this.ui.elements.hintBtn.classList.add('hidden');
+        }
+
+        if (saved.hintsUsed > 0) {
+            this.ui.updateHintButtonText(
+                this.state.currentQuest, saved.hintsUsed, this.state.label('hintButton')
+            );
+        }
+
+        this.ui.updateQuestFooterVisibility();
     }
 
     /**
@@ -400,41 +492,39 @@ export class QuestManager {
      */
     async showHint() {
         const quest = this.state.currentQuest;
-        if (!quest || this.hintRequestInFlight) return;
+        if (!quest) return;
 
-        this.hintRequestInFlight = true;
+        const questId = this.state.currentQuestId;
+        if (this.revealPhase === 'restoring' && this.revealQuestId === questId) {
+            // A restore renders this quest's reveals and applies its stored
+            // accounting; wait for it rather than race it
+            await this.revealPromise;
+        }
+        if (!this.isRevealTarget(questId)) return;
+
+        const hintsUsed = this.state.currentQuestHintsUsed;
+        // The reveal progression is defined once in reveal-service so
+        // the button label, the confirmation dialog, and this flow
+        // always agree on what comes next.
+        const reveal = nextReveal(quest, hintsUsed, this.state.currentQuestSolutionViewed);
+        if (!reveal) return;
+
+        if (!this.claimReveal('revealing', questId)) return;
+
         try {
-            const questId = this.state.currentQuestId;
-            if (this.restorePromise) {
-                // A restore in progress renders revealed hints itself;
-                // wait for it so the same hint is never rendered twice
-                await this.restorePromise;
-                if (this.state.currentQuestId !== questId) return;
-            }
-            const hintsUsed = this.state.currentQuestHintsUsed;
-            // The reveal progression is defined once in reveal-service so
-            // the button label, the confirmation dialog, and this flow
-            // always agree on what comes next.
-            const reveal = nextReveal(quest, hintsUsed, this.state.currentQuestSolutionViewed);
-            if (!reveal) return;
-
             if (reveal.kind === 'hint') {
-                // Show next hint
                 const text = await this.loadHintText(questId, reveal.hintId);
-                if (this.state.currentQuestId !== questId) return;
-                if (this.state.currentQuestHintsUsed !== hintsUsed) return;
-                this.appendHintItem(text);
+                if (this.revealStale(questId)) return;
 
+                this.appendHintItem(text);
                 this.state.currentQuestHintsUsed++;
                 this.state.persistQuestHintState();
                 this.ui.updateHintButtonText(quest, hintsUsed + 1, this.state.label('hintButton'));
             } else {
-                // Show solution
                 const solution = await this.loadSolutionText(questId);
-                if (this.state.currentQuestId !== questId) return;
-                if (this.state.currentQuestSolutionViewed) return;
-                this.appendSolutionItem(solution);
+                if (this.revealStale(questId)) return;
 
+                this.appendSolutionItem(solution);
                 this.state.currentQuestSolutionViewed = true;
                 this.state.persistQuestHintState();
                 this.ui.elements.hintBtn.classList.add('hidden');
@@ -443,7 +533,7 @@ export class QuestManager {
         } catch (error) {
             handleApiError(error, 'reveal hint');
         } finally {
-            this.hintRequestInFlight = false;
+            this.endReveal(questId);
         }
     }
 }
