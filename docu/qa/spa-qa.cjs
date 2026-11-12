@@ -346,7 +346,9 @@ async function playingThePack(browser, report, binary) {
         const method = await setSolution(page, SOLUTIONS[1]);
         report.check(`the editor accepts a policy (${method})`, (await editorText(page) || '').includes('input.password'), await editorText(page));
         report.check('typing marks the grimoire dirty', /dirty/.test(await indicatorClass(page)), await indicatorClass(page));
-        await page.waitForFunction(() => document.getElementById('editor-save-indicator').className.includes('saved'), null, { timeout: 1500 })
+        // The autosave debounce is 1500 ms itself, so nothing can land
+        // sooner; a wait the length of the debounce races it.
+        await page.waitForFunction(() => document.getElementById('editor-save-indicator').className.includes('saved'), null, { timeout: 2600 })
             .catch(() => {});
         report.check('the autosave settles to saved', /saved/.test(await indicatorClass(page)), await indicatorClass(page));
 
@@ -365,7 +367,7 @@ async function playingThePack(browser, report, binary) {
         await page.locator('#rego-editor textarea').first().click();
         await page.keyboard.press('End');
         await page.keyboard.type(' ');
-        await page.waitForFunction(() => document.getElementById('editor-save-indicator').className.includes('error'), null, { timeout: 1500 })
+        await page.waitForFunction(() => document.getElementById('editor-save-indicator').className.includes('error'), null, { timeout: 2600 })
             .catch(() => {});
         const failedWrite = await page.evaluate(() => {
             const badge = document.getElementById('editor-save-indicator');
@@ -383,7 +385,7 @@ async function playingThePack(browser, report, binary) {
         await page.locator('#rego-editor textarea').first().click();
         await page.keyboard.press('End');
         await page.keyboard.type('  ');
-        await page.waitForFunction(() => document.getElementById('editor-save-indicator').className.includes('saved'), null, { timeout: 1500 })
+        await page.waitForFunction(() => document.getElementById('editor-save-indicator').className.includes('saved'), null, { timeout: 2600 })
             .catch(() => {});
         report.check('storage working again settles the indicator back to saved', /saved/.test(await indicatorClass(page)), await indicatorClass(page));
 

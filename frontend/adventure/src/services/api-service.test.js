@@ -33,6 +33,7 @@ import {
     fetchSupportModules,
     verifySolution
 } from './api-service.js';
+import { AuthFailure } from './constants.js';
 
 /**
  * Build a fetch-like response object.
@@ -190,6 +191,61 @@ describe('api-service', () => {
             expect(error).toBeInstanceOf(ApiError);
             expect(error.status).toBe(401);
             expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it('names a 401 the renewal could not answer as a renewal failure', async () => {
+            fetchMock.mockResolvedValue(jsonResponse({}, false, 401));
+
+            const error = await fetchPackDetails('fantasy').catch(e => e);
+
+            expect(error.authFailure).toBe(AuthFailure.RenewalFailed);
+            expect(error.message).toBe('Failed to fetch pack details');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(authServiceMock.renewToken).toHaveBeenCalledTimes(1);
+        });
+
+        it('names a 401 that outlives a renewed token as a rejected token', async () => {
+            authServiceMock.renewToken.mockResolvedValue(true);
+            fetchMock.mockResolvedValue(jsonResponse({}, false, 401));
+
+            const error = await fetchPackDetails('fantasy').catch(e => e);
+
+            expect(error.authFailure).toBe(AuthFailure.TokenRejected);
+            expect(error.status).toBe(401);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('reports the retry a renewed token won', async () => {
+            authServiceMock.renewToken.mockResolvedValue(true);
+            fetchMock
+                .mockResolvedValueOnce(jsonResponse({}, false, 401))
+                .mockResolvedValueOnce(jsonResponse([{ id: 'fantasy' }]));
+
+            await expect(fetchPacks()).resolves.toEqual([{ id: 'fantasy' }]);
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('keeps a session failure off responses that are not 401', async () => {
+            fetchMock.mockResolvedValue(jsonResponse({}, false, 503));
+
+            const error = await fetchPacks().catch(e => e);
+
+            expect(error.authFailure).toBeNull();
+            expect(authServiceMock.renewToken).not.toHaveBeenCalled();
+        });
+
+        it('asks the session layer once per request that answers 401', async () => {
+            fetchMock.mockResolvedValue(jsonResponse({}, false, 401));
+
+            const errors = await Promise.all([
+                fetchPacks().catch(e => e),
+                fetchPackDetails('fantasy').catch(e => e)
+            ]);
+
+            expect(errors.map(error => error.authFailure))
+                .toEqual([AuthFailure.RenewalFailed, AuthFailure.RenewalFailed]);
+            expect(authServiceMock.renewToken).toHaveBeenCalledTimes(2);
         });
     });
 });

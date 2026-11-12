@@ -31,7 +31,7 @@ Citation convention: bare frontend names (`quest-manager.js`, `app.js`, `state-s
 | # | Machine | Where | State carrier |
 | --- | --------- | ------- | --------------- |
 | 1 | Application boot | `frontend/adventure/src/app.js:78` | control flow + `beginQuestInFlight` |
-| 2 | Authentication / session (client) | `services/auth-service.js`, `managers/ui-manager.js:677` | `userManager`, `ConfigService.config` |
+| 2 | Authentication / session (client) | `services/auth-service.js`, `managers/ui-manager.js:772` | `userManager`, `ConfigService.config`, `renewalInFlight`, `renewalRefused` |
 | 3 | Screen + pack/theme context | `managers/pack-manager.js`, `managers/ui-manager.js:524` | `hidden` classes, `loadSeq` |
 | 4 | Adventure progression (the big one) | `services/state-service.js`, `managers/quest-manager.js` | `currentQuestId`, `activeQuestId` |
 | 5 | History mode (derived) | `managers/quest-manager.js:158` | `isHistoryMode` |
@@ -58,7 +58,7 @@ Citation convention: bare frontend names (`quest-manager.js`, `app.js`, `state-s
 | 26 | Copy-to-clipboard feedback | `managers/ui-manager.js:366` | `dataset.copyFeedback` |
 | 27 | Interface minimize | `managers/event-manager.js:417` | `game-interface.minimized` |
 | 28 | localStorage persistence / resume | `services/state-service.js:86`, `services/storage-service.js` | `PACK_ID` pointer × `PACK_STATE` |
-| 29 | API request + token renewal | `services/api-service.js:87` | `ApiError.status` |
+| 29 | API request + token renewal | `services/api-service.js:93`, `services/auth-service.js:98` | `ApiError.status`, `ApiError.authFailure` |
 | 30 | Lazy reveal caches | `managers/quest-manager.js:40`, `managers/modal-manager.js:89` | `Map` keys |
 | 31 | Backend process lifecycle | `backend/http/shutdown.go:80`, `main.go` | `context` + `errCh` |
 | 32 | Backend config / auth boot gate | `backend/config/config.go` | `Auth.Enabled`, `JWKS` |
@@ -145,7 +145,8 @@ the DOM.
 | `Callback` | URL has `?code=`, `signinCallback()`, then URL scrubbed |
 | `Authenticated` | user with unexpired `access_token` |
 | `TokenExpired` | `user.expired === true` |
-| `Renewing` | `signinSilent()` |
+| `Renewing` | `renewalInFlight` (`auth-service.js:98-122`): one attempt every caller waits on |
+| `RenewalRefused` | `renewalRefused` (`auth-service.js:115`), held for the life of the page |
 | `SignedOut` | `signoutRedirect()` |
 
 ```mermaid
@@ -159,27 +160,34 @@ stateDiagram-v2
     Callback --> Authenticated : signinCallback ok
     Callback --> Unauthenticated : signinCallback throws, URL cleaned
     Authenticated --> TokenExpired : token expired
-    TokenExpired --> Renewing : getToken or 401 handler
+    TokenExpired --> Renewing : getToken or the 401 path
+    TokenExpired --> RenewalRefused : a renewal was already refused this page
     Renewing --> Authenticated : fresh unexpired token
-    Renewing --> Unauthenticated : silent renew rejected
+    Renewing --> RenewalRefused : silent renew refused
+    RenewalRefused --> Unauthenticated : the quest is closed and the login control offered
     Authenticated --> SignedOut : logout click
     TokenExpired --> SignedOut : logout click
     SignedOut --> [*] : page leaves to issuer
 ```
 
-`ConfigNotLoaded` behaves exactly like `OpenMode` for `isEnabled()`: a missing config is
-indistinguishable from auth-disabled everywhere except inside `init()`. A request made in that
-window would go out without `Authorization` (`api-service.js:57-60`). In practice none is, because
-`ConfigService.load()` is awaited before auth setup, before the event listeners that could trigger
-one, and before `fetchPacks()` (`app.js:87-119`). `/config` itself is a plain `fetch` that never
-carries a token (`config-service.js:29`).
+`ConfigNotLoaded` behaves like `OpenMode` for `isEnabled()`: a missing config is indistinguishable
+from auth-disabled except inside `init()`. A request made in that window goes out without
+`Authorization` (`api-service.js:61-64`). None is made there: `ConfigService.load()` is awaited before
+auth setup, before the listeners that could trigger a request, and before `fetchPacks()`
+(`app.js:98-139`). `/config` is fetched with `API.CONFIG_TIMEOUT_MS` (`config-service.js:35`) and
+never carries a token.
 
-Two details the diagram leaves out:
+Three details the diagram leaves out:
 
-* `Callback` is entered purely from the URL, with no variable involved. The code param is removed in
-  *all* cases, so a failing callback cannot loop (`auth-service.js:51-53`).
-* `renewToken()` failure never marks the user logged out. The UI keeps showing logged-in chrome
-  until an API call returns 401 (`error-service.js:50`).
+* `Callback` is entered from the URL alone, with no variable involved. The code param is removed in
+  *all* cases, so a failing callback cannot loop (`auth-service.js:63-71`).
+* One attempt serves every caller: `getToken` and the 401 path await the same `renewalInFlight`, so
+  concurrent 401s cannot start a second `signinSilent()` over the same OIDC storage keys.
+* A refusal is held for the life of the page. `announceSessionLost` runs the handler at
+  `app.js:113-116`, which calls `PackManager.returnHome()` (progress flushed and kept, pack pointer
+  cleared) and `updateAuthUI(false, true)`. The message is the `renewal_failed` branch of
+  `apiErrorHint` (`error-service.js:51`), the one the failed request shows as a toast. Login and
+  logout clear the refusal by leaving the page.
 
 ---
 
@@ -1062,7 +1070,7 @@ stateDiagram-v2
 
 A third micro-machine runs before any of this. `migrateStorageKeys()` moves
 `adventureTutorialCompleted` → `rego_tutorial_completed` once at startup
-(`storage-service.js:96-110`), called before `init()` (`app.js:155-156`). That legacy-key state
+(`storage-service.js:96-110`), called before `init()` (`app.js:173-174`). That legacy-key state
 decides whether the tutorial machine (#24) starts `Eligible` or `Skipped`.
 
 A fourth wrinkle: the *body* is also read from the `GameState` constructor
@@ -1078,35 +1086,35 @@ stateDiagram-v2
     [*] --> Preparing : AuthService.getToken injects Bearer when present
     Preparing --> InFlight : fetch with AbortSignal.timeout
     InFlight --> NetworkFailure : TimeoutError or AbortError, status 0
-    InFlight --> Renewal : status 401 and renewToken true
-    Renewal --> InFlight : single retry, same options
-    Renewal --> Failure : renew failed
+    InFlight --> Renewal : status 401
+    Renewal --> InFlight : renewToken true, single retry with the same options
+    Renewal --> Failure : renewToken false, authFailure renewal_failed
+    InFlight --> Failure : still 401 after a renewal, authFailure token_rejected
     InFlight --> Success : response ok
     InFlight --> Failure : status kept on ApiError
-    Failure --> [*] : handleApiError maps status to a user hint
+    Failure --> [*] : apiErrorHint maps status and authFailure to a sentence
 ```
 
-`status` on `ApiError` is the machine's observable state. The UI branches on it
-(`error-service.js:50-66`) rather than on message text: `401` → session expired, `0` → server down,
-`408` → policy timeout, `>=500` → server error.
+`status` on `ApiError` is the machine's observable state, and on a 401 `authFailure` says which
+session path it came from. The UI branches on those rather than on message text
+(`error-service.js:51-72`): `401` with `renewal_failed` → the session could not be renewed, `401`
+otherwise → session expired, `0` → server down, `408` → policy timeout, `>=500` → server error. The
+same sentence is what the start screen writes when the failure happens during `init()`.
 
-Two boundaries of this machine matter. `/config` is fetched by a bare `fetch` outside it
-(`config-service.js:29`), with no timeout, no token and no `ApiError`. And the client's own 30 s
-`AbortSignal.timeout` (`api-service.js:87`, `65`) is longer than every server clock on the same
+Two boundaries of this machine matter. `/config` sits outside it: a `fetch` with
+`AbortSignal.timeout(API.CONFIG_TIMEOUT_MS)`, no token and no `ApiError` (`config-service.js:31-47`).
+The answer is bounded, and a timeout or an error status leaves `get()` returning null, which is what
+the start screen's "configuration could not be loaded" message keys on. The client's own 30 s
+`AbortSignal.timeout` (`api-service.js:69`, `94`) is longer than every server clock on the same
 request (#12, #31), so a stalled verify is always decided server-side first.
 
-* Renewal lives at **two** layers of the same machine and both swallow their failures. `getToken`
-  renews inline before the request (`auth-service.js:81-92`; `renewToken` returns `false` on any
-  error with only a `console.warn`, `70-79`), and `fetchWithAuth` renews again after a 401
-  (`api-service.js:88-91`). An expired token therefore costs up to two silent-renewal attempts and
-  three round-trips.
-* A 401 whose renewal fails is **returned, not thrown** (`api-service.js:88-92`). It only becomes an
-  error in `ensureOk` (`102-105`). "Renewal failed" and "the server rejected the token" are therefore
-  one indistinguishable `ApiError` with `status === 401` (#12).
-* Renewal is per-request, with no coalescing. N concurrent 401s fire N overlapping `signinSilent()`
-  calls, which race on the same OIDC storage keys.
-* `AuthService.init()` runs *after* the config gate (`app.js:86-94`), and a failed `signinCallback()`
-  is only logged (`auth-service.js:46-50`). A broken callback leaves the app "unauthenticated but
+* Renewal is reached from two places, `getToken` before the request (`auth-service.js:124-135`) and
+  the 401 path after it (`api-service.js:96-104`), and both wait on the one in-flight attempt. A
+  refused renewal is remembered, so an expired token costs one silent renewal and one round trip.
+* A 401 whose renewal could not be attempted and a 401 that outlived a renewed token are different
+  outcomes and carry different `authFailure` values (#12).
+* `AuthService.init()` runs *after* the config gate (`app.js:98-105`), and a failed `signinCallback()`
+  is only logged (`auth-service.js:64-70`). A broken callback leaves the app "unauthenticated but
   running" rather than in an error state (#1, #2).
 
 ---

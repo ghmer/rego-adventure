@@ -14,19 +14,24 @@
    limitations under the License.
 */
 
+import { API } from './constants.js';
+
 /**
  * Config Service
  * Loads the application configuration from the backend.
  *
  * Contract: load() resolves with the configuration or rejects with the
  * load error; get() returns the last successfully loaded configuration
- * (null before the first successful load or after a failed one).
+ * (null before the first successful load or after a failed one). The request is
+ * bounded by API.CONFIG_TIMEOUT_MS.
  */
 export const ConfigService = {
     config: null,
     async load() {
         try {
-            const res = await fetch('/config');
+            const res = await fetch('/config', {
+                signal: AbortSignal.timeout(API.CONFIG_TIMEOUT_MS)
+            });
             if (!res.ok) {
                 throw new Error(`Failed to load config (HTTP ${res.status})`);
             }

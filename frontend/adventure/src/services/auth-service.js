@@ -19,6 +19,24 @@ import { ConfigService } from './config-service.js';
 let userManager = null;
 let UserManager = null;
 
+// One signinSilent() at a time; concurrent callers await it. Overlapping calls
+// race on the same OIDC storage keys.
+let renewalInFlight = null;
+// Set when the issuer refuses a silent renewal. Cleared only by login or
+// logout, both of which leave the page.
+let renewalRefused = false;
+const sessionLostHandlers = [];
+
+function announceSessionLost() {
+    for (const handler of sessionLostHandlers) {
+        try {
+            handler();
+        } catch (error) {
+            console.error('[Auth] Session-lost handler failed:', error);
+        }
+    }
+}
+
 export const AuthService = {
     async init() {
         const config = ConfigService.get();
@@ -64,18 +82,43 @@ export const AuthService = {
     },
 
     /**
-     * Attempt a silent token renewal via the UserManager.
+     * Register a handler for a refused silent renewal. It runs once per failed
+     * attempt, after the refusal is recorded.
+     * @param {Function} handler - Called with no arguments
+     */
+    onSessionLost(handler) {
+        sessionLostHandlers.push(handler);
+    },
+
+    /**
+     * Attempt a silent renewal. Concurrent callers await the attempt in flight,
+     * and a refusal is held rather than re-asked.
      * @returns {Promise<boolean>} True if a fresh, unexpired token was obtained
      */
-    async renewToken() {
-        if (!userManager) return false;
-        try {
-            const user = await userManager.signinSilent();
-            return Boolean(user?.access_token && !user.expired);
-        } catch (e) {
-            console.warn('Silent token renewal failed:', e);
-            return false;
-        }
+    renewToken() {
+        if (!userManager || renewalRefused) return Promise.resolve(false);
+        if (renewalInFlight) return renewalInFlight;
+
+        const attempt = (async () => {
+            try {
+                const user = await userManager.signinSilent();
+                return Boolean(user?.access_token && !user.expired);
+            } catch (error) {
+                console.warn('Silent token renewal failed:', error);
+                return false;
+            }
+        })();
+
+        renewalInFlight = attempt.then((renewed) => {
+            renewalInFlight = null;
+            if (!renewed) {
+                renewalRefused = true;
+                announceSessionLost();
+            }
+            return renewed;
+        });
+
+        return renewalInFlight;
     },
 
     async getToken() {

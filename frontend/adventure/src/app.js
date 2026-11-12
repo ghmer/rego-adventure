@@ -32,6 +32,7 @@ if (document.readyState === 'loading') {
 import { ConfigService } from './services/config-service.js';
 import { AuthService } from './services/auth-service.js';
 import { ApiError, fetchPacks } from './services/api-service.js';
+import { apiErrorHint } from './services/error-service.js';
 import { GameState } from './services/state-service.js';
 import { ErrorLevel } from './services/constants.js';
 import { showToast } from './services/toast-service.js';
@@ -103,6 +104,15 @@ async function init() {
         }
         await AuthService.init();
 
+        // A refused silent renewal ends the signed-in view: return to the start
+        // screen (progress flushed and kept, pack pointer cleared) and offer the
+        // login control. The failed request reports its own cause through
+        // apiErrorHint.
+        AuthService.onSessionLost(() => {
+            packManager.returnHome();
+            uiManager.updateAuthUI(false, true);
+        });
+
         // Handle impressum footer visibility based on config
         const config = ConfigService.get();
         uiManager.updateImpressumVisibility(config.show_impressum);
@@ -148,12 +158,12 @@ async function init() {
         }
     } catch (error) {
         console.error("Failed to initialize:", error);
-        if (error instanceof ApiError && error.status === 401) {
-            uiManager.elements.questPackList.innerHTML =
-                '<p>Your session has expired. Please log out and log in again.</p>';
-        } else {
-            uiManager.elements.questPackList.innerHTML = "<p>Error loading adventures. Is the backend running?</p>";
-        }
+        // The start screen describes a session failure the way a toast would, so
+        // a renewal the issuer refused is not reported as an expired session.
+        const sentence = error instanceof ApiError && error.status === 401
+            ? apiErrorHint(error)
+            : 'Error loading adventures. Is the backend running?';
+        uiManager.elements.questPackList.innerHTML = `<p>${sentence}</p>`;
     }
 }
 

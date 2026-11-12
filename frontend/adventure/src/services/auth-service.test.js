@@ -26,6 +26,9 @@ const oidc = vi.hoisted(() => {
         lastSettings: null,
         getUserQueue: [],
         silentUser: undefined,
+        silentCalls: 0,
+        // Set to a promise to hold signinSilent open while another caller asks
+        silentGate: null,
         callbackCalled: false,
         redirectCalled: false,
         signoutCalled: false,
@@ -47,6 +50,8 @@ const oidc = vi.hoisted(() => {
                 if (oidc.callbackError) throw oidc.callbackError;
             }
             async signinSilent() {
+                oidc.silentCalls++;
+                if (oidc.silentGate) await oidc.silentGate;
                 if (oidc.silentError) throw oidc.silentError;
                 return oidc.silentUser;
             }
@@ -85,6 +90,8 @@ describe('auth-service', () => {
         oidc.lastSettings = null;
         oidc.getUserQueue = [];
         oidc.silentUser = undefined;
+        oidc.silentCalls = 0;
+        oidc.silentGate = null;
         oidc.silentError = null;
         oidc.callbackError = null;
         oidc.callbackCalled = false;
@@ -237,6 +244,81 @@ describe('auth-service', () => {
             oidc.silentUser = { expired: true };
 
             await expect(AuthService.renewToken()).resolves.toBe(false);
+        });
+
+        it('renews once while several callers ask together', async () => {
+            await AuthService.init();
+            oidc.silentUser = { access_token: 'new', expired: false };
+            let release;
+            oidc.silentGate = new Promise((resolve) => {
+                release = resolve;
+            });
+
+            const first = AuthService.renewToken();
+            const second = AuthService.renewToken();
+            release();
+
+            await expect(first).resolves.toBe(true);
+            await expect(second).resolves.toBe(true);
+            expect(oidc.silentCalls).toBe(1);
+        });
+
+        it('asks again once an attempt that succeeded has finished', async () => {
+            await AuthService.init();
+            oidc.silentUser = { access_token: 'new', expired: false };
+
+            await expect(AuthService.renewToken()).resolves.toBe(true);
+            await expect(AuthService.renewToken()).resolves.toBe(true);
+
+            expect(oidc.silentCalls).toBe(2);
+        });
+
+        it('does not ask the issuer again after a refusal', async () => {
+            await AuthService.init();
+            oidc.silentError = new Error('refresh denied');
+
+            await expect(AuthService.renewToken()).resolves.toBe(false);
+
+            // The refusal is held: the issuer is not asked a second time.
+            oidc.silentError = null;
+            oidc.silentUser = { access_token: 'new', expired: false };
+
+            await expect(AuthService.renewToken()).resolves.toBe(false);
+            expect(oidc.silentCalls).toBe(1);
+        });
+
+        it('spends one renewal on an expired token, not one per request path', async () => {
+            await AuthService.init();
+            oidc.getUserQueue.push({ access_token: 'old', expired: true });
+            oidc.silentError = new Error('refresh denied');
+
+            await expect(AuthService.getToken()).resolves.toBeNull();
+            await expect(AuthService.renewToken()).resolves.toBe(false);
+
+            expect(oidc.silentCalls).toBe(1);
+        });
+
+        it('announces the session once, when a renewal is refused', async () => {
+            await AuthService.init();
+            const lost = vi.fn();
+            AuthService.onSessionLost(lost);
+            oidc.silentError = new Error('refresh denied');
+
+            await expect(AuthService.renewToken()).resolves.toBe(false);
+            await AuthService.renewToken();
+
+            expect(lost).toHaveBeenCalledTimes(1);
+        });
+
+        it('announces nothing when the renewal succeeds', async () => {
+            await AuthService.init();
+            const lost = vi.fn();
+            AuthService.onSessionLost(lost);
+            oidc.silentUser = { access_token: 'new', expired: false };
+
+            await expect(AuthService.renewToken()).resolves.toBe(true);
+
+            expect(lost).not.toHaveBeenCalled();
         });
 
         it('redirects to the identity provider on login and signout', async () => {

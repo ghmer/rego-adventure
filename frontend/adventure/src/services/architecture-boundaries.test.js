@@ -257,4 +257,44 @@ describe('progression source boundaries', () => {
         expect(uiCalls.map(hit => `ui-manager.js: ${hit}`), 'footer recomputed inside the ui manager')
             .toEqual([]);
     });
+
+    it('describes a session failure in the error service only', () => {
+        const copy = /session (?:has expired|could not be renewed)/g;
+        const outside = matches(copy, all.filter(file => !file.path.endsWith('error-service.js')));
+
+        expect(outside).toEqual([]);
+        expect(matches(/apiErrorHint\(/g, all).length, 'sentence reader').toBeGreaterThan(1);
+    });
+
+    it('renews the token in the auth service only', () => {
+        // A second caller of signinSilent would be a second attempt racing on
+        // the same OIDC storage keys.
+        const outside = matches(/signinSilent\s*\(/g, all.filter(file =>
+            !file.path.endsWith('auth-service.js')));
+
+        expect(outside).toEqual([]);
+        expect(matches(/AuthService\.renewToken\(/g, all).length, 'renewal caller')
+            .toBeGreaterThan(0);
+    });
+
+    it('hands a lost session to one subscriber', () => {
+        const auth = all.find(file => file.path.endsWith('auth-service.js'));
+        expect(methodSource(auth.text, 'renewToken'), 'renewToken').toContain('announceSessionLost');
+
+        const subscriptions = matches(/AuthService\.onSessionLost\(/g, all.filter(file => file !== auth));
+        expect(subscriptions).toHaveLength(1);
+    });
+
+    it('writes the signed-in chrome in one renderer', () => {
+        const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
+        const renderer = methodSource(uiManager.text, 'updateAuthUI');
+        expect(renderer, 'updateAuthUI').not.toBe('');
+
+        const chrome = /(?:loginContainer|logoutBtn|logoutContainerStart)\.classList\.(?:add|remove)\(/g;
+        const elsewhere = matches(chrome, all.filter(file => file !== uiManager));
+        const otherUiMethods = (uiManager.text.replace(renderer, '').match(chrome) || [])
+            .map(hit => `ui-manager.js: ${hit}`);
+
+        expect([...elsewhere, ...otherUiMethods], 'auth chrome').toEqual([]);
+    });
 });
