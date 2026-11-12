@@ -56,31 +56,60 @@ type Asset struct {
 //go:embed assets/bg-music.m4a
 var placeholderMusic []byte
 
-// packScaffold records the paths a generation run creates, so a run that
-// fails part way through can be taken back: a pack directory is either the
-// complete pack or exactly what it held before the run started.
+// packScaffold records what a generation run changes, so a run that fails part
+// way through can be taken back: a pack directory is either the complete pack or
+// exactly what it held before the run started.
 type packScaffold struct {
 	created []string
+	prior   map[string]priorContent
 }
 
-// noteBefore records path for rollback when nothing is at it yet. Anything
-// already there belongs to the pack author and is never removed, so a step
-// that fails part way through its write can leave such a file shortened.
+type priorContent struct {
+	data []byte
+	mode os.FileMode
+}
+
+// noteBefore records path just before a step writes to it. A path that was not
+// there is removed again by undo. A path that was there belongs to the pack
+// author: it is never removed, and what it held is kept so that a step which
+// overwrote it can put the author's content back.
 func (s *packScaffold) noteBefore(path string) {
-	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
 		s.created = append(s.created, path)
+		return
 	}
+	if err != nil || !info.Mode().IsRegular() {
+		return
+	}
+	if _, recorded := s.prior[path]; recorded {
+		return
+	}
+
+	data, readErr := os.ReadFile(path) // #nosec G304 -- path from the run's own step list
+	if readErr != nil {
+		return
+	}
+	if s.prior == nil {
+		s.prior = make(map[string]priorContent)
+	}
+	s.prior[path] = priorContent{data: data, mode: info.Mode().Perm()}
 }
 
-// undo removes the recorded paths, innermost first. Removal errors are
-// ignored: the point is to leave no half-written pack, not to report why a
-// leftover could not be deleted.
+// undo removes the paths the run created, innermost first, and writes back the
+// content of the files it overwrote. Errors are ignored: the point is to leave no
+// half-written pack, not to report why a leftover could not be removed.
 func (s *packScaffold) undo() {
 	slices.Reverse(s.created)
 	for _, path := range s.created {
 		_ = os.RemoveAll(path)
 	}
 	s.created = nil
+
+	for path, content := range s.prior {
+		_ = os.WriteFile(path, content.data, content.mode) // #nosec G304 -- path noted before writing
+	}
+	s.prior = nil
 }
 
 // GenerateTheme creates a new quest pack theme with assets, quests.json, theme.css, custom.css, and README.md.

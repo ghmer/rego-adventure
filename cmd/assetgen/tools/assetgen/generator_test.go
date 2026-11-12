@@ -136,6 +136,46 @@ func TestGenerateThemeRollsBackAFailedStep(t *testing.T) {
 	}
 }
 
+// TestGenerateThemeRestoresAnOverwrittenFile: a step that wrote into a file the
+// pack author already had must give its content back when a later step fails.
+func TestGenerateThemeRestoresAnOverwrittenFile(t *testing.T) {
+	out := t.TempDir()
+	theme := "restorepack"
+	pack := filepath.Join(out, theme)
+
+	authored := []byte("{\"authored\":true}")
+	if err := os.MkdirAll(pack, 0750); err != nil {
+		t.Fatalf("failed to create pack directory: %v", err)
+	}
+	authoredPath := filepath.Join(pack, "quests.json")
+	if err := os.WriteFile(authoredPath, authored, 0600); err != nil { // #nosec G304 -- path under t.TempDir()
+		t.Fatalf("failed to place the authored file: %v", err)
+	}
+	blocker := filepath.Join(pack, "theme.css")
+	if err := os.MkdirAll(blocker, 0750); err != nil {
+		t.Fatalf("failed to place the blocker: %v", err)
+	}
+
+	if err := GenerateTheme(theme, out); err == nil {
+		t.Fatal("GenerateTheme succeeded although theme.css cannot be written")
+	}
+
+	got, err := os.ReadFile(authoredPath) // #nosec G304 -- path under t.TempDir()
+	if err != nil {
+		t.Fatalf("the authored file is gone: %v", err)
+	}
+	if string(got) != string(authored) {
+		t.Errorf("the authored file holds %q, want %q", got, authored)
+	}
+	info, err := os.Stat(authoredPath)
+	if err != nil {
+		t.Fatalf("failed to stat the authored file: %v", err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Errorf("the authored file has mode %v, want -rw-------", info.Mode().Perm())
+	}
+}
+
 // TestGenerateThemeLeavesPackContentsOnAnEarlyFailure: when the very first
 // step fails, the pack directory keeps exactly what it held before.
 func TestGenerateThemeLeavesPackContentsOnAnEarlyFailure(t *testing.T) {
