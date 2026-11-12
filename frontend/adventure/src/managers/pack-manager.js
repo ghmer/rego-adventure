@@ -214,7 +214,7 @@ export class PackManager {
      */
     async startAdventure(packId) {
         this.clearPackCaches();
-        this.ui.hidePerfectScoreButton();
+        this.ui.renderPerfectScoreButton(false);
 
         // Set pack in state; the returned loaded state tells us whether
         // there is saved progress to resume
@@ -261,7 +261,7 @@ export class PackManager {
      */
     returnHome() {
         this.clearPackCaches();
-        this.ui.hidePerfectScoreButton();
+        this.ui.renderPerfectScoreButton(false);
 
         // Flush progress and clear the active pack pointer so a reload
         // stays on the start screen; progress itself is kept for resume

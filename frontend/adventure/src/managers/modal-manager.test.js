@@ -46,6 +46,7 @@ import {
 import { ApiError } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
+import { cleanupEffects } from '../effects.js';
 
 describe('modal-manager pure helpers', () => {
     describe('formatPolicyError', () => {
@@ -350,6 +351,56 @@ describe('modal-manager', () => {
 
         it('does not throw when closing an already closed dialog', () => {
             expect(() => modal.closeHintConfirmation()).not.toThrow();
+        });
+    });
+
+    describe('dialog modality and effect cleanup', () => {
+        it('opens the result dialog modally, never as a plain dialog', () => {
+            const showModal = vi.spyOn(ui.elements.resultModal, 'showModal');
+            const show = vi.spyOn(ui.elements.resultModal, 'show');
+
+            modal.showResult({ passed: true, results: [] }, 10);
+
+            expect(showModal).toHaveBeenCalledTimes(1);
+            expect(show).not.toHaveBeenCalled();
+        });
+
+        it('opens the perfect-score dialog modally', () => {
+            const showModal = vi.spyOn(ui.elements.perfectScoreModal, 'showModal');
+            const show = vi.spyOn(ui.elements.perfectScoreModal, 'show');
+
+            modal.showPerfectScore();
+
+            expect(showModal).toHaveBeenCalledTimes(1);
+            expect(show).not.toHaveBeenCalled();
+        });
+
+        it('stops the effects when the result dialog closes', () => {
+            modal.showResult({ passed: false, results: [] });
+
+            ui.elements.resultModal.close();
+
+            expect(cleanupEffects).toHaveBeenCalledTimes(1);
+        });
+
+        it('stops the effects when the perfect-score dialog closes', () => {
+            modal.showPerfectScore();
+
+            ui.elements.perfectScoreModal.close();
+
+            expect(cleanupEffects).toHaveBeenCalledTimes(1);
+        });
+
+        it('focuses the action on the result and the cancel on a confirmation', () => {
+            const nextQuest = vi.spyOn(ui.elements.nextQuestBtn, 'focus');
+            const cancel = vi.spyOn(ui.elements.cancelHintBtn, 'focus');
+
+            modal.showResult({ passed: true, results: [] }, 10);
+            expect(nextQuest).toHaveBeenCalledTimes(1);
+
+            state.currentQuest = { hints_count: 2, has_solution: false };
+            modal.showHintConfirmation({});
+            expect(cancel).toHaveBeenCalledTimes(1);
         });
     });
 });

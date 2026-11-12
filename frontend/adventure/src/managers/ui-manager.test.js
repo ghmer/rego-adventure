@@ -44,6 +44,43 @@ describe('ui-manager', () => {
         document.body.innerHTML = '';
     });
 
+    describe('renderPerfectScoreButton', () => {
+        /**
+         * Build a UIManager over a quest footer holding the button.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createFooterUi() {
+            document.body.innerHTML = `
+                <div class="quest-footer">
+                    <button id="perfect-score-btn" class="hidden"></button>
+                </div>
+            `;
+            return new UIManager({ textarea: document.createElement('textarea') });
+        }
+
+        it('shows the button with the pack label and hides it again', () => {
+            const ui = createFooterUi();
+
+            ui.renderPerfectScoreButton(true, 'A prize waits');
+            expect(ui.elements.perfectScoreBtn.classList.contains('hidden')).toBe(false);
+            expect(ui.elements.perfectScoreBtn.textContent).toBe('A prize waits');
+            expect(document.querySelector('.quest-footer').classList.contains('hidden')).toBe(false);
+
+            ui.renderPerfectScoreButton(false);
+            expect(ui.elements.perfectScoreBtn.classList.contains('hidden')).toBe(true);
+            expect(document.querySelector('.quest-footer').classList.contains('hidden')).toBe(true);
+        });
+
+        it('hides an already hidden button and refreshes the footer', () => {
+            const ui = createFooterUi();
+
+            ui.renderPerfectScoreButton(false);
+
+            expect(ui.elements.perfectScoreBtn.classList.contains('hidden')).toBe(true);
+            expect(document.querySelector('.quest-footer').classList.contains('hidden')).toBe(true);
+        });
+    });
+
     describe('renderInteractionGate', () => {
         for (const [name, gate] of GATES) {
             it(`writes the ${name} gate to the controls`, () => {

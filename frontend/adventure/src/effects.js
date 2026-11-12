@@ -17,15 +17,30 @@
 import confetti from 'canvas-confetti';
 import { TIMING, CONFETTI } from './services/constants.js';
 
-// Visual effects for the result modal
+// Visual effects for the result and perfect-score dialogs
 
 // Store confetti interval reference to prevent memory leaks
 let confettiInterval = null;
 
 /**
- * Creates a confetti effect across the entire screen
+ * The player's visual-effects opt-out, read from the body class the settings
+ * toggle maintains. Every effect this module produces consults it once, at
+ * its own edge, so no caller has to remember which effects honour it.
+ * @returns {boolean} false when the player turned effects off
+ */
+function effectsEnabled() {
+    return !document.body.classList.contains('effects-disabled');
+}
+
+/**
+ * Creates a confetti effect across the entire screen. Does nothing while the
+ * player has effects off.
  */
 export function showConfetti() {
+    if (!effectsEnabled()) {
+        return;
+    }
+
     // Clear any existing interval to prevent accumulation
     if (confettiInterval) {
         clearInterval(confettiInterval);
@@ -76,9 +91,14 @@ export function showConfetti() {
 }
 
 /**
- * Creates a dark overlay effect for failure
+ * Creates a dark overlay effect for failure. Does nothing while the player
+ * has effects off.
  */
 function showDarkOverlay() {
+    if (!effectsEnabled()) {
+        return;
+    }
+
     // Check if overlay already exists
     let overlay = document.getElementById('dark-overlay');
     
@@ -104,14 +124,16 @@ function hideDarkOverlay() {
 }
 
 /**
- * Trigger appropriate effect based on success/failure
+ * Trigger the effect for a verification result. Removing a leftover overlay
+ * is unconditional, so a result cannot leave one behind even when effects are
+ * off.
  * @param {boolean} isSuccess - Whether the result was successful
  */
 export function triggerResultEffect(isSuccess) {
     if (isSuccess) {
         hideDarkOverlay();
         showConfetti();
-    } else if (!document.body.classList.contains('effects-disabled')) {
+    } else {
         showDarkOverlay();
     }
 }

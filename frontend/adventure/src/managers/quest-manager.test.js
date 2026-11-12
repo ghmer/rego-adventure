@@ -71,10 +71,12 @@ function createUi() {
             questTask: document.createElement('p'),
             questCounter: document.createElement('span'),
             questTitle: document.createElement('h2'),
-            startAdventureBtn: document.createElement('button')
+            startAdventureBtn: document.createElement('button'),
+            perfectScoreBtn: document.createElement('button')
         },
         renderQuest: vi.fn(),
         resetQuestUI: vi.fn(),
+        renderPerfectScoreButton: vi.fn(),
         renderInteractionGate: vi.fn(),
         updateQuestFooterVisibility: vi.fn(),
         updateHintButtonText: vi.fn(),
@@ -644,6 +646,56 @@ describe('quest-manager', () => {
             expect(epilogue.ui.renderInteractionGate).toHaveBeenLastCalledWith({
                 editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: false
             });
+        });
+    });
+
+    describe('perfect score button', () => {
+        /**
+         * Record a run that finished the pack without paying for a reveal.
+         * @param {Object} state - State with one quest loaded
+         */
+        function recordPerfectRun(state) {
+            state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            state.totalScore = 10;
+        }
+
+        it('appears on the epilogue of a pack finished without reveals', () => {
+            const { state, ui, qm } = createFixture([{ id: 1 }]);
+            recordPerfectRun(state);
+
+            qm.loadQuest(2);
+
+            expect(ui.renderPerfectScoreButton)
+                .toHaveBeenLastCalledWith(true, DEFAULT_TEXT.PERFECT_SCORE_BUTTON);
+        });
+
+        it('stays hidden on an epilogue that is not a perfect score', () => {
+            const { ui, qm } = createFixture([{ id: 1 }]);
+
+            qm.loadQuest(2);
+
+            expect(ui.renderPerfectScoreButton).toHaveBeenLastCalledWith(false);
+        });
+
+        it('is gone from the footer when the player walks back from the epilogue', () => {
+            const { state, ui, qm } = createFixture([{ id: 1 }]);
+            recordPerfectRun(state);
+            qm.loadQuest(2);
+            expect(ui.renderPerfectScoreButton.mock.calls.at(-1)[0]).toBe(true);
+
+            qm.loadQuest(1);
+
+            expect(ui.renderPerfectScoreButton).toHaveBeenLastCalledWith(false);
+        });
+
+        it('is gone from the footer on the prologue of the same pack', () => {
+            const { state, ui, qm } = createFixture([{ id: 1 }]);
+            recordPerfectRun(state);
+            qm.loadQuest(2);
+
+            qm.loadQuest(0);
+
+            expect(ui.renderPerfectScoreButton).toHaveBeenLastCalledWith(false);
         });
     });
 });

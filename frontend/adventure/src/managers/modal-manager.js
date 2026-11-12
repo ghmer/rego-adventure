@@ -27,10 +27,6 @@ import { showToast } from '../services/toast-service.js';
 import { SCORING, ErrorLevel } from '../services/constants.js';
 
 /**
- * Manages modal dialogs
- */
-
-/**
  * Format a structured policy error for display. Locations are 1-based
  * line/column positions in the player's policy code.
  * @param {Object} detail - PolicyError from the verification API
@@ -78,6 +74,28 @@ export function buildHintConfirmationText(quest, revealedCount) {
     return 'Reveal the solution? This reduces the points you can earn for this quest.';
 }
 
+/**
+ * Manages the seven dialogs of the game interface.
+ *
+ * Dismissal policy. Every dialog opens with showModal(), so the page behind
+ * it is unreachable while it is open, and focuses the control that states the
+ * intent of opening it: cancel for the destructive confirmations, the action
+ * for the result.
+ *
+ * | Dialog            | Backdrop | ESC      | Focus on open       | On close        |
+ * |-------------------|----------|----------|---------------------|-----------------|
+ * | manual            | closes   | closes   | close button        | -               |
+ * | test payload      | closes   | closes   | close button        | -               |
+ * | support modules   | closes   | closes   | close button        | -               |
+ * | hint confirmation | closes   | closes   | cancel button       | -               |
+ * | restart           | blocked  | blocked  | cancel button       | -               |
+ * | result            | closes   | closes   | Next Quest / Close  | effects cleanup |
+ * | perfect score     | closes   | closes   | close button        | effects cleanup |
+ *
+ * The restart confirmation is button-only on purpose: restarting discards
+ * progress, so leaving it takes an explicit click. The tutorial prompt in
+ * tutorial.js follows the same policy and forwards ESC to Decline.
+ */
 export class ModalManager {
     constructor(state, uiManager) {
         this.state = state;
@@ -102,17 +120,15 @@ export class ModalManager {
     }
 
     /**
-     * Show dialog safely without throwing if already open
+     * Open a dialog modally, without throwing if one is already open. Nothing
+     * opens a dialog non-modally: a non-modal dialog leaves the page behind it
+     * reachable, so the state that dialog describes could change while it is
+     * on screen.
      * @param {HTMLDialogElement} dialog - Dialog element
-     * @param {boolean} modal - Whether to open as a modal dialog
      */
-    openDialog(dialog, modal = true) {
+    openDialog(dialog) {
         if (!dialog?.open) {
-            if (modal) {
-                dialog.showModal();
-            } else {
-                dialog.show();
-            }
+            dialog.showModal();
         }
     }
 
@@ -151,12 +167,18 @@ export class ModalManager {
             });
         });
 
-        // Ensure visual effects are removed for all close paths (button, ESC, backdrop).
-        if (this.ui.elements.resultModal) {
-            this.ui.elements.resultModal.addEventListener('close', () => {
+        // Both dialogs that start an effect remove it on every close path
+        // (button, ESC, backdrop), so no effect outlives the dialog that
+        // triggered it.
+        [this.ui.elements.resultModal, this.ui.elements.perfectScoreModal].forEach(dialog => {
+            if (!dialog) {
+                return;
+            }
+
+            dialog.addEventListener('close', () => {
                 cleanupEffects();
             });
-        }
+        });
 
         // Keep restart confirmation explicit (buttons only).
         if (this.ui.elements.restartModal) {
@@ -272,7 +294,9 @@ export class ModalManager {
     }
 
     /**
-     * Show result modal with test results
+     * Show the result dialog with test results. The dialog is modal, so the
+     * verify button, the reveals and the navigation behind it cannot be
+     * reached while a result is on screen.
      * @param {Object} result - Verification result from API
      * @param {number|null} [pointsEarned=null] - Points earned on success
      * (computed and persisted by the caller that owns the state transition)
@@ -355,8 +379,8 @@ export class ModalManager {
         // Trigger visual effects
         triggerResultEffect(isSuccess);
         
-        // Show modal
-        this.openDialog(this.ui.elements.resultModal, false);
+        // Open modally: nothing behind the result is reachable while it shows
+        this.openDialog(this.ui.elements.resultModal);
         if (isSuccess) {
             this.ui.elements.nextQuestBtn.focus();
         } else {
@@ -372,7 +396,9 @@ export class ModalManager {
     }
 
     /**
-     * Show perfect score modal
+     * Show perfect score modal. The celebration it starts is removed by the
+     * dialog's close handler, and never started at all while the player has
+     * effects off.
      */
     showPerfectScore() {
         this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/perfect_score.png`;

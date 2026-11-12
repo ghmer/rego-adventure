@@ -15,10 +15,10 @@
 */
 
 /**
- * Source-level boundaries of the progression machine. The behaviour that
- * follows from them is covered by quest-manager.test.js and
- * state-service.test.js; these assertions keep a second owner of a rule or a
- * second writer of a progression field from appearing anywhere else.
+ * Source-level single-owner boundaries. The behaviour that follows from them
+ * is covered by the manager and service suites; these assertions keep a
+ * second owner of a rule, or a second writer of a field the machine already
+ * owns, from appearing anywhere else.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
@@ -123,6 +123,29 @@ describe('progression source boundaries', () => {
         for (const guard of ['canNavigateBack', 'canNavigateForward']) {
             expect(matches(new RegExp(`^\\s+${guard}\\(\\) \\{`, 'gm'), all)).toHaveLength(1);
         }
+    });
+
+    it('opens every dialog modally', () => {
+        const modalManager = all.find(file => file.path.endsWith('modal-manager.js'));
+        expect(methodSource(modalManager.text, 'openDialog')).toContain('showModal');
+
+        // A dialog opened non-modally leaves the page behind it live, which is
+        // how a result screen re-created reveal state and lowered the frontier.
+        expect(matches(/\.show\(\)/g, all)).toEqual([]);
+        expect(matches(/openDialog\([^)]*,/g, all)).toEqual([]);
+    });
+
+    it('writes the perfect-score button visibility in one renderer', () => {
+        const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
+        const renderer = methodSource(uiManager.text, 'renderPerfectScoreButton');
+        expect(renderer, 'renderPerfectScoreButton').not.toBe('');
+
+        const button = /perfectScoreBtn\.classList\.(?:add|remove)\(['"]hidden['"]\)/g;
+        const elsewhere = matches(button, all.filter(file => file !== uiManager));
+        const otherUiMethods = (uiManager.text.replace(renderer, '').match(button) || [])
+            .map(hit => `ui-manager.js: ${hit}`);
+
+        expect([...elsewhere, ...otherUiMethods]).toEqual([]);
     });
 
     it('writes the interaction gate in one renderer only', () => {

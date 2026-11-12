@@ -501,12 +501,25 @@ export class UIManager {
     }
 
     /**
-     * Hide the perfect score button and refresh the quest footer
+     * Render the perfect-score button and refresh the quest footer. This is
+     * the only writer of its visibility: a screen offers it when the pack is
+     * finished with a perfect score, every other screen renders it hidden.
+     * @param {boolean} visible - Whether the screen on offer is this one
+     * @param {string} [label] - Button text, applied when visible
      */
-    hidePerfectScoreButton() {
-        if (this.elements.perfectScoreBtn) {
-            this.elements.perfectScoreBtn.classList.add('hidden');
+    renderPerfectScoreButton(visible, label) {
+        const perfectScoreBtn = this.elements.perfectScoreBtn;
+        if (perfectScoreBtn) {
+            if (visible) {
+                if (label !== undefined) {
+                    perfectScoreBtn.textContent = label;
+                }
+                perfectScoreBtn.classList.remove('hidden');
+            } else {
+                perfectScoreBtn.classList.add('hidden');
+            }
         }
+
         this.updateQuestFooterVisibility();
     }
 

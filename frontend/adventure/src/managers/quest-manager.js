@@ -219,7 +219,7 @@ export class QuestManager {
         // Reset UI
         this.ui.resetQuestUI();
         this.ui.renderInteractionGate(this.state.getInteractionGate());
-        this.ui.updateQuestFooterVisibility();
+        this.ui.renderPerfectScoreButton(false);
         this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.label('hintButton'));
 
         // Re-render hints revealed in a previous session
@@ -271,6 +271,7 @@ export class QuestManager {
         this.ui.elements.hintsList.classList.add('hidden');
 
         this.ui.renderInteractionGate(this.state.getInteractionGate());
+        this.ui.renderPerfectScoreButton(false);
 
         this.updateQuestNavigationButtons();
     }
@@ -315,26 +316,14 @@ export class QuestManager {
 
         this.ui.elements.startAdventureBtn.classList.add('hidden');
 
-        // Check for perfect score
+        // The epilogue of a pack finished without reveals is the only screen
+        // that offers the perfect-score button. Its click handler is wired
+        // once in EventManager and opens ModalManager.showPerfectScore.
         if (this.state.hasPerfectScore()) {
-            this.showPerfectScoreButton();
+            this.ui.renderPerfectScoreButton(true, this.state.label('perfectScoreButtonText'));
         } else {
-            this.ui.updateQuestFooterVisibility();
+            this.ui.renderPerfectScoreButton(false);
         }
-    }
-
-    /**
-     * Show perfect score button (visibility only; the click handler is
-     * wired once in EventManager and opens ModalManager.showPerfectScore)
-     */
-    showPerfectScoreButton() {
-        const perfectScoreBtn = this.ui.elements.perfectScoreBtn;
-        if (!perfectScoreBtn) return;
-
-        perfectScoreBtn.textContent = this.state.label('perfectScoreButtonText');
-        perfectScoreBtn.classList.remove('hidden');
-
-        this.ui.updateQuestFooterVisibility();
     }
 
     /**

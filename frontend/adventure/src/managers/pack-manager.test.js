@@ -69,7 +69,7 @@ function createUi() {
         updateGrimoireTitle: vi.fn(),
         updateHintButtonText: vi.fn(),
         updateTitles: vi.fn(),
-        hidePerfectScoreButton: vi.fn(),
+        renderPerfectScoreButton: vi.fn(),
         showScreen: vi.fn(),
         updateScoreDisplay: vi.fn()
     };
@@ -134,6 +134,22 @@ describe('PackManager', () => {
 
             expect(quest.clearCaches).toHaveBeenCalledTimes(2);
             expect(modal.clearCaches).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('perfect-score button', () => {
+        it('is rendered hidden when a pack is entered and when it is left', async () => {
+            apiMock.fetchPackDetails.mockResolvedValue(packData('alpha'));
+            const { ui, pack } = createFixture();
+
+            await pack.startAdventure('alpha');
+
+            expect(ui.renderPerfectScoreButton).toHaveBeenCalledTimes(1);
+            expect(ui.renderPerfectScoreButton).toHaveBeenCalledWith(false);
+
+            pack.returnHome();
+
+            expect(ui.renderPerfectScoreButton).toHaveBeenCalledTimes(2);
         });
     });
 

@@ -401,7 +401,7 @@ export class EventManager {
         // Reset UI
         this.modal.closeRestartConfirmation();
 
-        this.ui.hidePerfectScoreButton();
+        this.ui.renderPerfectScoreButton(false);
         
         // Update score display
         this.ui.updateScoreDisplay(this.state.totalScore);
