@@ -200,4 +200,61 @@ describe('progression source boundaries', () => {
             expect([...elsewhere, ...otherUiMethods], name).toEqual([]);
         }
     });
+
+    it('gives the adventure button one DOM home, in the quest footer', () => {
+        const page = new DOMParser().parseFromString(
+            readFileSync(join(globalThis.process.cwd(), 'index.html'), 'utf8'), 'text/html'
+        );
+
+        const footers = page.querySelectorAll('.quest-footer');
+        expect(footers.length, 'quest footers').toBe(1);
+
+        const offered = Array.from(footers[0].querySelectorAll('button'))
+            .filter(button => !button.classList.contains('hidden'))
+            .map(button => button.id);
+        expect(offered, 'the footer starts empty of offers').toEqual([]);
+
+        const ids = Array.from(footers[0].querySelectorAll('button')).map(button => button.id);
+        expect(ids, 'closed input set').toEqual(['perfect-score-btn', 'start-adventure']);
+        expect(footers[0].classList.contains('hidden'), 'the footer starts without an offer')
+            .toBe(true);
+
+        const editorFooter = page.querySelector('.editor-footer');
+        expect(editorFooter.querySelector('#start-adventure'), 'not in the editor footer').toBe(null);
+    });
+
+    it('never moves a button between footers', () => {
+        expect(matches(/appendChild\([^)]*startAdventureBtn/g, all)).toEqual([]);
+        expect(matches(/startAdventureBtn\.classList\.(?:add|remove)\(['"]hidden['"]\)/g,
+            all.filter(file => !file.path.endsWith('ui-manager.js')))).toEqual([]);
+    });
+
+    it('writes the adventure offer in one renderer of the ui manager', () => {
+        const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
+        const renderer = methodSource(uiManager.text, 'renderQuestButtonVisibility');
+        expect(renderer, 'renderQuestButtonVisibility').not.toBe('');
+
+        const offer = /startAdventureBtn\.classList\.(?:add|remove)\(['"]hidden['"]\)/g;
+        const elsewhere = matches(offer, all.filter(file => file !== uiManager));
+        const otherUiMethods = (uiManager.text.replace(renderer, '').match(offer) || [])
+            .map(hit => `ui-manager.js: ${hit}`);
+
+        expect([...elsewhere, ...otherUiMethods], 'adventure offer').toEqual([]);
+    });
+
+    it('recomputes the quest footer in the screen render only', () => {
+        const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
+        expect(methodSource(uiManager.text, 'renderQuestFooter'), 'renderQuestFooter')
+            .toContain("classList.toggle('hidden'");
+
+        // The old per-site recompute is gone, and the renderer is called only by
+        // the quest render pipeline
+        expect(matches(/updateQuestFooterVisibility/g, all)).toEqual([]);
+        expect(matches(/renderQuestFooter\(/g, all.filter(file =>
+            !file.path.endsWith('ui-manager.js') && !file.path.endsWith('quest-manager.js')))).toEqual([]);
+
+        const uiCalls = uiManager.text.match(/(?:this|ui)\.renderQuestFooter\(/g) || [];
+        expect(uiCalls.map(hit => `ui-manager.js: ${hit}`), 'footer recomputed inside the ui manager')
+            .toEqual([]);
+    });
 });

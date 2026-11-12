@@ -39,6 +39,8 @@ export class UIManager {
     constructor(editorService) {
         this.editorService = editorService;
         this.elements = this.initializeElements();
+        // Interface minimize state, rendered by renderInterfaceMinimized
+        this.interfaceMinimized = false;
     }
 
     /**
@@ -72,6 +74,7 @@ export class UIManager {
             
             // Navigation buttons
             startAdventureBtn: document.getElementById('start-adventure'),
+            questFooter: document.querySelector('.quest-footer'),
             restartBtn: document.getElementById('restart-btn'),
             minimizeBtn: document.getElementById('minimize-btn'),
             homeBtn: document.getElementById('home-btn'),
@@ -484,12 +487,16 @@ export class UIManager {
     }
 
     /**
-     * Update quest footer visibility based on button states.
-     * Element visibility is managed exclusively via the `hidden` class;
-     * the footer's flex layout comes from CSS when visible.
+     * Recompute the quest footer. It is shown exactly while one of the two
+     * buttons it holds is offered, so this reads their visibility instead of
+     * deciding it: the prologue offers the adventure button
+     * (renderQuestButtonVisibility) and the epilogue of a pack finished
+     * without reveals offers the perfect-score button
+     * (renderPerfectScoreButton). The quest render pipeline calls it after
+     * every screen; nothing else writes the footer's own visibility.
      */
-    updateQuestFooterVisibility() {
-        const footer = document.querySelector('.quest-footer');
+    renderQuestFooter() {
+        const footer = this.elements.questFooter;
         if (!footer) return;
 
         const buttons = footer.querySelectorAll('button');
@@ -501,9 +508,30 @@ export class UIManager {
     }
 
     /**
-     * Render the perfect-score button and refresh the quest footer. This is
-     * the only writer of its visibility: a screen offers it when the pack is
-     * finished with a perfect score, every other screen renders it hidden.
+     * Render the adventure offer of the prologue screen. This is the only
+     * writer of the button's visibility: the prologue offers it and every
+     * other screen withdraws it.
+     * @param {boolean} visible - Whether this screen offers the adventure
+     * @param {string} [label] - Button text, applied when visible
+     */
+    renderQuestButtonVisibility(visible, label) {
+        const button = this.elements.startAdventureBtn;
+        if (!button) return;
+
+        if (visible) {
+            if (label !== undefined) {
+                button.textContent = label;
+            }
+            button.classList.remove('hidden');
+        } else {
+            button.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Render the perfect-score button. This is the only writer of its
+     * visibility: a screen offers it when the pack is finished with a perfect
+     * score, every other screen renders it hidden.
      * @param {boolean} visible - Whether the screen on offer is this one
      * @param {string} [label] - Button text, applied when visible
      */
@@ -519,8 +547,51 @@ export class UIManager {
                 perfectScoreBtn.classList.add('hidden');
             }
         }
+    }
 
-        this.updateQuestFooterVisibility();
+    /**
+     * Render the interface minimize state. The layout class, the button icon
+     * and its pressed state are one state written together, and a visit change
+     * returns it to normal (resetInterfaceMinimized).
+     * @param {boolean} minimized - Whether the interface is minimized
+     */
+    renderInterfaceMinimized(minimized) {
+        this.interfaceMinimized = minimized;
+
+        const button = this.elements.minimizeBtn;
+        if (!this.elements.gameInterface || !button) return;
+
+        this.elements.gameInterface.classList.toggle('minimized', minimized);
+
+        const icon = button.querySelector('i');
+        if (minimized) {
+            icon?.classList.replace('fa-minus', 'fa-expand');
+            button.setAttribute('aria-label', 'Restore interface');
+            button.setAttribute('aria-pressed', 'true');
+            button.title = 'Restore the interface';
+        } else {
+            icon?.classList.replace('fa-expand', 'fa-minus');
+            button.setAttribute('aria-label', 'Minimize interface');
+            button.setAttribute('aria-pressed', 'false');
+            button.title = 'Minimize the interface to reveal the background';
+        }
+    }
+
+    /**
+     * Minimize the interface, or return it to normal.
+     */
+    toggleInterfaceMinimized() {
+        this.renderInterfaceMinimized(!this.interfaceMinimized);
+    }
+
+    /**
+     * Return the interface to normal. Entering a pack, leaving it and
+     * restarting its progress all start a view that is not minimized.
+     */
+    resetInterfaceMinimized() {
+        if (!this.interfaceMinimized) return;
+
+        this.renderInterfaceMinimized(false);
     }
 
     /**
@@ -577,7 +648,6 @@ export class UIManager {
      * Reset UI for new quest
      */
     resetQuestUI() {
-        this.elements.startAdventureBtn.classList.add('hidden');
         this.elements.hintsList.classList.add('hidden');
         this.elements.hintsList.innerHTML = '';
         this.elements.hintBtn.classList.remove('hidden');

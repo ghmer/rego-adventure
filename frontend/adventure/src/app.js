@@ -33,6 +33,8 @@ import { ConfigService } from './services/config-service.js';
 import { AuthService } from './services/auth-service.js';
 import { ApiError, fetchPacks } from './services/api-service.js';
 import { GameState } from './services/state-service.js';
+import { ErrorLevel } from './services/constants.js';
+import { showToast } from './services/toast-service.js';
 import { migrateStorageKeys } from './services/storage-service.js';
 import { EditorService } from './services/editor-service.js';
 import { UIManager } from './managers/ui-manager.js';
@@ -66,7 +68,10 @@ const eventManager = new EventManager(
  */
 let beginQuestInFlight = false;
 async function beginQuest(packId) {
-    if (beginQuestInFlight) return;
+    if (beginQuestInFlight) {
+        showToast('An adventure is already loading. Please wait for it.', ErrorLevel.INFO);
+        return;
+    }
     beginQuestInFlight = true;
     try {
         const entered = await packManager.startAdventure(packId);

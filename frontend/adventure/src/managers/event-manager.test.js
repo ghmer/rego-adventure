@@ -66,6 +66,12 @@ function createFixture() {
     });
 
     document.body.innerHTML = `
+        <div id="game-interface" class="app-container">
+            <button id="minimize-btn" class="icon-btn" aria-label="Minimize interface"
+                aria-pressed="false" title="Minimize the interface to reveal the background">
+                <i class="fa-solid fa-minus"></i>
+            </button>
+        </div>
         <div id="editor-pane"></div>
         <button id="verify-btn"><span data-label>Verify</span></button>
         <button id="hint-btn"></button>
@@ -78,7 +84,13 @@ function createFixture() {
     `;
 
     const ui = new UIManager({ textarea: document.getElementById('editor') });
-    const quest = { updateQuestNavigationButtons: vi.fn(), loadQuest: vi.fn(), clearCaches: vi.fn() };
+    const quest = {
+        updateQuestNavigationButtons: vi.fn(),
+        loadQuest: vi.fn(),
+        clearCaches: vi.fn(),
+        leavePrologue: vi.fn(),
+        proceedToNextQuest: vi.fn()
+    };
     const modal = { showResult: vi.fn(), closeRestartConfirmation: vi.fn(), clearCaches: vi.fn() };
     const pack = { clearPackCaches: vi.fn() };
     const autosave = new GrimoireAutosave(state, ui);
@@ -234,6 +246,51 @@ describe('event-manager', () => {
             pressVerifyShortcut();
 
             expect(apiMock.verifySolution).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('interface minimize', () => {
+        it('renders the interface and the button from one click', () => {
+            const { ui, em } = createFixture();
+            em.setupMinimizeListener();
+            const button = ui.elements.minimizeBtn;
+
+            button.click();
+
+            expect(ui.elements.gameInterface.classList.contains('minimized')).toBe(true);
+            expect(button.querySelector('i').className).toBe('fa-solid fa-expand');
+            expect(button.getAttribute('aria-pressed')).toBe('true');
+
+            button.click();
+
+            expect(ui.elements.gameInterface.classList.contains('minimized')).toBe(false);
+            expect(button.querySelector('i').className).toBe('fa-solid fa-minus');
+            expect(button.getAttribute('aria-pressed')).toBe('false');
+        });
+
+        it('returns the interface to normal when progress restarts', () => {
+            const { ui, em } = createFixture();
+            em.setupMinimizeListener();
+            ui.elements.minimizeBtn.click();
+            expect(ui.elements.gameInterface.classList.contains('minimized')).toBe(true);
+
+            em.handleRestart();
+
+            expect(ui.elements.gameInterface.classList.contains('minimized')).toBe(false);
+        });
+    });
+
+    // Entering a pack and leaving it are covered in pack-manager.test.js
+
+    describe('adventure button', () => {
+        it('hands the prologue offer to the quest manager', () => {
+            const { ui, quest, em } = createFixture();
+            em.setupNextButtonListener();
+
+            ui.elements.startAdventureBtn.click();
+
+            expect(quest.leavePrologue).toHaveBeenCalledTimes(1);
+            expect(ui.elements.startAdventureBtn.classList.contains('hidden')).toBe(false);
         });
     });
 });

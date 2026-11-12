@@ -78,7 +78,8 @@ function createUi() {
         resetQuestUI: vi.fn(),
         renderPerfectScoreButton: vi.fn(),
         renderInteractionGate: vi.fn(),
-        updateQuestFooterVisibility: vi.fn(),
+        renderQuestFooter: vi.fn(),
+        renderQuestButtonVisibility: vi.fn(),
         updateHintButtonText: vi.fn(),
         updateSupportModulesButton: vi.fn(),
         renderLore: vi.fn(),
@@ -117,6 +118,76 @@ describe('quest-manager', () => {
             <template id="hint-item-template"><li><code></code></li></template>
             <template id="hint-solution-template"><li><code></code></li></template>
         `;
+    });
+
+    describe('screen render', () => {
+        it('recomputes the quest footer once per screen', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+
+            fixture.qm.loadQuest(0);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(1);
+
+            fixture.qm.loadQuest(1);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(2);
+
+            fixture.qm.loadQuest(3);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(3);
+        });
+
+        it('renders the adventure offer into the footer the markup put it in', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+            const footer = document.createElement('div');
+            footer.className = 'quest-footer';
+            footer.appendChild(fixture.ui.elements.startAdventureBtn);
+            document.body.appendChild(footer);
+
+            fixture.qm.loadQuest(0);
+
+            expect(fixture.ui.elements.startAdventureBtn.parentNode).toBe(footer);
+            expect(fixture.ui.renderQuestButtonVisibility)
+                .toHaveBeenCalledWith(true, expect.any(String));
+        });
+
+        it('withdraws the adventure offer when a quest screen replaces it', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+
+            fixture.qm.loadQuest(0);
+            fixture.qm.loadQuest(1);
+
+            expect(fixture.ui.renderQuestButtonVisibility).toHaveBeenLastCalledWith(false);
+        });
+
+        it('withdraws the adventure offer when the epilogue replaces it', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+
+            fixture.qm.loadQuest(0);
+            fixture.qm.loadQuest(3);
+
+            expect(fixture.ui.renderQuestButtonVisibility).toHaveBeenLastCalledWith(false);
+        });
+
+        it('withdraws the offer itself when no screen follows the prologue', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+            fixture.qm.loadQuest(0);
+            vi.spyOn(fixture.qm, 'proceedToNextQuest').mockReturnValue(false);
+
+            const advanced = fixture.qm.leavePrologue();
+
+            expect(advanced).toBe(false);
+            expect(fixture.ui.renderQuestButtonVisibility).toHaveBeenLastCalledWith(false);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(2);
+        });
+
+        it('recomputes the footer through the screen when the prologue advances', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+            fixture.qm.loadQuest(0);
+
+            const advanced = fixture.qm.leavePrologue();
+
+            expect(advanced).toBe(true);
+            expect(fixture.ui.renderQuestButtonVisibility).toHaveBeenLastCalledWith(false);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(2);
+        });
     });
 
     describe('loadQuestCode', () => {

@@ -75,6 +75,7 @@ function createUi() {
         updateHintButtonText: vi.fn(),
         updateTitles: vi.fn(),
         renderPerfectScoreButton: vi.fn(),
+        resetInterfaceMinimized: vi.fn(),
         showScreen: vi.fn(),
         updateScoreDisplay: vi.fn()
     };
@@ -155,6 +156,19 @@ describe('PackManager', () => {
             pack.returnHome();
 
             expect(ui.renderPerfectScoreButton).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('interface minimize', () => {
+        it('returns a minimized interface to normal when a pack is entered and left', async () => {
+            apiMock.fetchPackDetails.mockResolvedValue(packData('alpha'));
+            const { ui, pack } = createFixture();
+
+            await pack.startAdventure('alpha');
+            expect(ui.resetInterfaceMinimized).toHaveBeenCalledTimes(1);
+
+            pack.returnHome();
+            expect(ui.resetInterfaceMinimized).toHaveBeenCalledTimes(2);
         });
     });
 

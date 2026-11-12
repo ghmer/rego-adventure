@@ -365,27 +365,46 @@ export class TutorialSystem {
     }
 
     /**
-     * Start the tutorial
+     * Start the tutorial. The unhide/restore pair is a transaction: every way
+     * out of here that leaves no tour running owes the restore, whether there
+     * was nothing to show or the driver failed to start.
      */
     startTutorial() {
         // Temporarily unhide elements needed for tutorial
         this.temporarilyUnhideElements();
 
-        // Only include steps whose element exists and is actually visible;
-        // the overlay blocks interaction, so visibility cannot change mid-tour
-        const steps = this.defineTutorialSteps().filter(step => {
-            const element = document.querySelector(step.element);
-            if (!element) return false;
-            const computedStyle = window.getComputedStyle(element);
-            return computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
-        });
+        let running = false;
 
-        if (steps.length === 0) {
-            this.restoreHiddenElements();
-            return;
+        try {
+            // Only include steps whose element exists and is actually visible;
+            // the overlay blocks interaction, so visibility cannot change mid-tour
+            const steps = this.defineTutorialSteps().filter(step => {
+                const element = document.querySelector(step.element);
+                if (!element) return false;
+                const computedStyle = window.getComputedStyle(element);
+                return computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
+            });
+
+            if (steps.length > 0) {
+                this.driverObj = this.startDriver(steps);
+                this.driverObj.drive();
+                running = true;
+            }
+        } finally {
+            if (!running) {
+                this.driverObj = null;
+                this.restoreHiddenElements();
+            }
         }
+    }
 
-        this.driverObj = driver({
+    /**
+     * Build the driver for the given steps.
+     * @param {Array<Object>} steps - Steps whose elements are visible
+     * @returns {Object} driver.js instance, not yet started
+     */
+    startDriver(steps) {
+        return driver({
             steps,
             popoverClass: 'tutorial-driver-popover',
             showProgress: true,
@@ -410,6 +429,7 @@ export class TutorialSystem {
                 requestAnimationFrame(() => popover.nextButton.focus());
             },
             onDestroyed: () => {
+                // The undo path of a tour that ran
                 this.driverObj = null;
                 this.restoreHiddenElements();
                 // Hand keyboard focus to the primary call to action so
@@ -422,8 +442,6 @@ export class TutorialSystem {
                 }
             }
         });
-
-        this.driverObj.drive();
     }
 }
 

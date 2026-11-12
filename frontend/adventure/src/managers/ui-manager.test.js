@@ -72,20 +72,17 @@ describe('ui-manager', () => {
             ui.renderPerfectScoreButton(true, 'A prize waits');
             expect(ui.elements.perfectScoreBtn.classList.contains('hidden')).toBe(false);
             expect(ui.elements.perfectScoreBtn.textContent).toBe('A prize waits');
-            expect(document.querySelector('.quest-footer').classList.contains('hidden')).toBe(false);
 
             ui.renderPerfectScoreButton(false);
             expect(ui.elements.perfectScoreBtn.classList.contains('hidden')).toBe(true);
-            expect(document.querySelector('.quest-footer').classList.contains('hidden')).toBe(true);
         });
 
-        it('hides an already hidden button and refreshes the footer', () => {
+        it('hides an already hidden button', () => {
             const ui = createFooterUi();
 
             ui.renderPerfectScoreButton(false);
 
             expect(ui.elements.perfectScoreBtn.classList.contains('hidden')).toBe(true);
-            expect(document.querySelector('.quest-footer').classList.contains('hidden')).toBe(true);
         });
     });
 
@@ -168,6 +165,129 @@ describe('ui-manager', () => {
             expect(ui.elements.verifyBtn.disabled).toBe(true);
             expect(ui.elements.hintBtn.disabled).toBe(true);
             expect(ui.elements.editorPane.classList.contains('hidden')).toBe(false);
+        });
+    });
+
+    describe('renderQuestFooter', () => {
+        /**
+         * Build a UIManager over the quest footer of the shipped markup.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createFooterUi() {
+            document.body.innerHTML = `
+                <div class="quest-footer">
+                    <button id="perfect-score-btn" class="action-btn hidden"></button>
+                    <button id="start-adventure" class="action-btn primary hidden"></button>
+                </div>
+            `;
+            return new UIManager({ textarea: document.createElement('textarea') });
+        }
+
+        it('is visible exactly while one of its buttons is visible', () => {
+            const ui = createFooterUi();
+            const footer = document.querySelector('.quest-footer');
+
+            ui.renderPerfectScoreButton(true, 'A prize waits');
+            ui.renderQuestFooter();
+            expect(footer.classList.contains('hidden')).toBe(false);
+
+            ui.renderPerfectScoreButton(false);
+            ui.renderQuestButtonVisibility(false);
+            ui.renderQuestFooter();
+            expect(footer.classList.contains('hidden')).toBe(true);
+
+            ui.renderQuestButtonVisibility(true);
+            ui.renderQuestFooter();
+            expect(footer.classList.contains('hidden')).toBe(false);
+        });
+
+        it('renders the button visibility of the screen from one input', () => {
+            const ui = createFooterUi();
+
+            ui.renderQuestButtonVisibility(true);
+            expect(ui.elements.startAdventureBtn.classList.contains('hidden')).toBe(false);
+            ui.renderQuestButtonVisibility(false);
+            expect(ui.elements.startAdventureBtn.classList.contains('hidden')).toBe(true);
+        });
+
+        it('touches no button of its own', () => {
+            const ui = createFooterUi();
+            ui.renderQuestButtonVisibility(true);
+
+            const visible = Array.from(document.querySelectorAll('.quest-footer button'))
+                .filter(button => !button.classList.contains('hidden'));
+
+            ui.renderQuestFooter();
+
+            expect(Array.from(document.querySelectorAll('.quest-footer button'))
+                .filter(button => !button.classList.contains('hidden'))).toEqual(visible);
+        });
+    });
+
+    describe('interface minimize', () => {
+        /**
+         * Build a UIManager over the interface the minimize button controls.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createMinimizeUi() {
+            document.body.innerHTML = `
+                <div id="game-interface" class="app-container">
+                    <button id="minimize-btn" class="icon-btn" aria-label="Minimize interface"
+                        aria-pressed="false" title="Minimize the interface to reveal the background">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                </div>
+            `;
+            return new UIManager({ textarea: document.createElement('textarea') });
+        }
+
+        /**
+         * The three renderings of the minimize state.
+         * @param {UIManager} ui - Manager under test
+         * @returns {Object} Layout class, icon, pressed state and labels
+         */
+        function minimizeState(ui) {
+            const button = ui.elements.minimizeBtn;
+            return {
+                minimized: ui.elements.gameInterface.classList.contains('minimized'),
+                icon: button.querySelector('i').className,
+                pressed: button.getAttribute('aria-pressed'),
+                label: button.getAttribute('aria-label')
+            };
+        }
+
+        it('renders layout, icon and pressed state together', () => {
+            const ui = createMinimizeUi();
+
+            ui.toggleInterfaceMinimized();
+            expect(minimizeState(ui)).toEqual({
+                minimized: true,
+                icon: 'fa-solid fa-expand',
+                pressed: 'true',
+                label: 'Restore interface'
+            });
+            expect(ui.elements.minimizeBtn.title).toBe('Restore the interface');
+
+            ui.toggleInterfaceMinimized();
+            expect(minimizeState(ui)).toEqual({
+                minimized: false,
+                icon: 'fa-solid fa-minus',
+                pressed: 'false',
+                label: 'Minimize interface'
+            });
+        });
+
+        it('returns a minimized interface to normal when the visit changes', () => {
+            const ui = createMinimizeUi();
+            ui.toggleInterfaceMinimized();
+
+            ui.resetInterfaceMinimized();
+
+            expect(minimizeState(ui).minimized).toBe(false);
+            expect(minimizeState(ui).icon).toBe('fa-solid fa-minus');
+
+            ui.resetInterfaceMinimized();
+            expect(minimizeState(ui).minimized).toBe(false);
         });
     });
 });

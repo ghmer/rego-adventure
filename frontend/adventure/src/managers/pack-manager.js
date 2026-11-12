@@ -216,6 +216,7 @@ export class PackManager {
     async startAdventure(packId) {
         this.clearPackCaches();
         this.ui.renderPerfectScoreButton(false);
+        this.ui.resetInterfaceMinimized();
 
         // Set pack in state; the entry it returns says whether there is saved
         // progress to resume, and whether a saved body could not be read
@@ -242,7 +243,9 @@ export class PackManager {
         this.ui.showScreen('game');
         this.ui.updateScoreDisplay(this.state.totalScore);
 
-        // Show tutorial prompt when entering an adventure (not when resuming)
+        // The tour is offered on a fresh entry only. A resumed adventure finds
+        // the player mid-policy, where a tour would interrupt the work they came
+        // back to; the offer stays open to them until they take it.
         if (!isResuming) {
             setTimeout(() => {
                 tutorial.showTutorialPrompt();
@@ -269,6 +272,7 @@ export class PackManager {
     returnHome() {
         this.clearPackCaches();
         this.ui.renderPerfectScoreButton(false);
+        this.ui.resetInterfaceMinimized();
 
         // Flush progress and clear the active pack pointer so a reload
         // stays on the start screen; progress itself is kept for resume

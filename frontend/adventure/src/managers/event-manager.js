@@ -339,12 +339,12 @@ export class EventManager {
     }
 
     /**
-     * Setup start adventure button listener (for prologue)
+     * Setup the adventure offer listener. The quest manager withdraws the
+     * offer and recomputes the footer; this edge only forwards the request.
      */
     setupNextButtonListener() {
         this.ui.elements.startAdventureBtn.addEventListener('click', () => {
-            this.quest.proceedToNextQuest();
-            this.ui.updateQuestFooterVisibility();
+            this.quest.leavePrologue();
         });
     }
 
@@ -378,13 +378,13 @@ export class EventManager {
         this.modal.closeRestartConfirmation();
 
         this.ui.renderPerfectScoreButton(false);
-        
+        this.ui.resetInterfaceMinimized();
+
         // Update score display
         this.ui.updateScoreDisplay(this.state.totalScore);
-        
+
         // Load the prologue
         this.quest.loadQuest(0);
-        this.ui.updateQuestFooterVisibility();
     }
 
     /**
@@ -403,22 +403,7 @@ export class EventManager {
         if (!this.ui.elements.minimizeBtn) return;
 
         this.ui.elements.minimizeBtn.addEventListener('click', () => {
-            const container = this.ui.elements.gameInterface;
-            const btn = this.ui.elements.minimizeBtn;
-            const icon = btn.querySelector('i');
-            const isMinimized = container.classList.toggle('minimized');
-
-            if (isMinimized) {
-                icon.classList.replace('fa-minus', 'fa-expand');
-                btn.setAttribute('aria-label', 'Restore interface');
-                btn.setAttribute('aria-pressed', 'true');
-                btn.title = 'Restore the interface';
-            } else {
-                icon.classList.replace('fa-expand', 'fa-minus');
-                btn.setAttribute('aria-label', 'Minimize interface');
-                btn.setAttribute('aria-pressed', 'false');
-                btn.title = 'Minimize the interface to reveal the background';
-            }
+            this.ui.toggleInterfaceMinimized();
         });
     }
 }

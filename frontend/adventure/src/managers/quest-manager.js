@@ -190,6 +190,16 @@ export class QuestManager {
     loadQuest(questId) {
         this.autosave.cancel();
 
+        this.renderScreen(questId);
+
+        // The footer is derived from the offers the screen just rendered
+        this.ui.renderQuestFooter();
+    }
+
+    /**
+     * Render the screen the cursor points at: prologue, quest or epilogue.
+     */
+    renderScreen(questId) {
         // Handle Prologue
         if (questId === 0) {
             this.state.enterQuest(0);
@@ -224,6 +234,7 @@ export class QuestManager {
         // Reset UI
         this.ui.resetQuestUI();
         this.ui.renderInteractionGate(this.state.getInteractionGate());
+        this.ui.renderQuestButtonVisibility(false);
         this.ui.renderPerfectScoreButton(false);
         this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.label('hintButton'));
 
@@ -293,16 +304,7 @@ export class QuestManager {
             this.state.meta?.initial_objective || DEFAULT_TEXT.PROLOGUE_OBJECTIVE
         );
 
-        // Show Start Adventure button
-        this.ui.elements.startAdventureBtn.classList.remove('hidden');
-        this.ui.elements.startAdventureBtn.textContent = this.state.label('beginAdventureButton');
-
-        // Move start adventure button to quest footer
-        const footer = document.querySelector('.quest-footer');
-        if (footer) {
-            footer.appendChild(this.ui.elements.startAdventureBtn);
-        }
-        this.ui.updateQuestFooterVisibility();
+        this.ui.renderQuestButtonVisibility(true, this.state.label('beginAdventureButton'));
     }
 
     /**
@@ -319,7 +321,7 @@ export class QuestManager {
             this.state.meta?.final_objective || DEFAULT_TEXT.EPILOGUE_OBJECTIVE
         );
 
-        this.ui.elements.startAdventureBtn.classList.add('hidden');
+        this.ui.renderQuestButtonVisibility(false);
 
         // The epilogue of a pack finished without reveals is the only screen
         // that offers the perfect-score button. Its click handler is wired
@@ -379,9 +381,24 @@ export class QuestManager {
      * completed frontier quest, which the arrow guard deliberately refuses.
      */
     proceedToNextQuest() {
-        if (!this.state.advanceQuest()) return;
+        if (!this.state.advanceQuest()) return false;
 
         this.loadQuest(this.state.currentQuestId);
+        return true;
+    }
+
+    /**
+     * Leave the prologue on the player's request. The screen that replaces it
+     * withdraws the adventure offer and recomputes the footer; a pack with
+     * nothing to advance to withdraws the offer here instead.
+     * @returns {boolean} true when a screen replaced the prologue
+     */
+    leavePrologue() {
+        if (this.proceedToNextQuest()) return true;
+
+        this.ui.renderQuestButtonVisibility(false);
+        this.ui.renderQuestFooter();
+        return false;
     }
 
     /**
@@ -475,8 +492,6 @@ export class QuestManager {
                 this.state.currentQuest, saved.hintsUsed, this.state.label('hintButton')
             );
         }
-
-        this.ui.updateQuestFooterVisibility();
     }
 
     /**
@@ -522,7 +537,6 @@ export class QuestManager {
                 this.state.currentQuestSolutionViewed = true;
                 this.state.persistQuestHintState();
                 this.ui.elements.hintBtn.classList.add('hidden');
-                this.ui.updateQuestFooterVisibility();
             }
         } catch (error) {
             handleApiError(error, 'reveal hint');
