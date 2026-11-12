@@ -271,6 +271,17 @@ describe('state-service', () => {
     });
 
     describe('saveGrimoire outcomes', () => {
+        it('names the screens that have a grimoire to write', () => {
+            const state = createState(2);
+
+            expect(state.isGrimoireScreen(1)).toBe(true);
+            expect(state.isGrimoireScreen(0)).toBe(false);
+            expect(state.isGrimoireScreen(3)).toBe(false);
+
+            state.clearCurrentPack();
+            expect(state.isGrimoireScreen(1)).toBe(false);
+        });
+
         it('reports saved only together with a written body', () => {
             const state = createState(2);
 

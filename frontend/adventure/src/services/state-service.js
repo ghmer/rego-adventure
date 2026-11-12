@@ -363,6 +363,17 @@ export class GameState {
     }
 
     /**
+     * Whether the screen a cursor points at has a grimoire whose write the
+     * editor can report: the quest screens of an open pack. The prologue, the
+     * epilogue and a closed pack have none.
+     * @param {number} questId - The quest identifier the cursor points at
+     * @returns {boolean} true when a grimoire belongs to this screen
+     */
+    isGrimoireScreen(questId) {
+        return Boolean(this.currentPackId) && this.questsMap?.has(questId) === true;
+    }
+
+    /**
      * Persist the editor content (grimoire) of a quest.
      * @param {number} questId - The quest identifier
      * @param {string} code - The editor content to store
@@ -371,7 +382,7 @@ export class GameState {
      *   store (no pack, or a narrative screen)
      */
     saveGrimoire(questId, code) {
-        if (!this.currentPackId || !this.questsMap?.has(questId)) return SaveStatus.IDLE;
+        if (!this.isGrimoireScreen(questId)) return SaveStatus.IDLE;
 
         this.grimoires[questId] = code;
         return this.savePackState() ? SaveStatus.SAVED : SaveStatus.FAILED;

@@ -19,7 +19,7 @@
  * Handles quest loading, navigation, and state management
  */
 
-import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
+import { DEFAULT_TEXT, DEFAULT_REGO_CODE, SaveStatus } from '../services/constants.js';
 import { fetchQuestHint, fetchQuestSolution } from '../services/api-service.js';
 import { nextReveal } from '../services/reveal-service.js';
 import { handleApiError } from '../services/error-service.js';
@@ -189,6 +189,12 @@ export class QuestManager {
      */
     loadQuest(questId) {
         this.autosave.cancel();
+
+        // A screen with no grimoire says so, rather than keeping the colour of a
+        // write made on the screen the player left.
+        if (!this.state.isGrimoireScreen(questId)) {
+            this.ui.renderSaveStatus(SaveStatus.IDLE);
+        }
 
         this.renderScreen(questId);
 

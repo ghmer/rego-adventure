@@ -17,7 +17,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuestManager } from './quest-manager.js';
 import { GameState } from '../services/state-service.js';
-import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
+import { DEFAULT_TEXT, DEFAULT_REGO_CODE, SaveStatus } from '../services/constants.js';
 import { getLocalStorage, getPackKey, STORAGE_KEYS } from '../services/storage-service.js';
 
 const apiMock = vi.hoisted(() => ({
@@ -80,6 +80,7 @@ function createUi() {
         renderInteractionGate: vi.fn(),
         renderQuestFooter: vi.fn(),
         renderQuestButtonVisibility: vi.fn(),
+        renderSaveStatus: vi.fn(),
         updateHintButtonText: vi.fn(),
         updateSupportModulesButton: vi.fn(),
         renderLore: vi.fn(),
@@ -744,6 +745,24 @@ describe('quest-manager', () => {
             qm.loadQuest(0);
 
             expect(autosave.cancel).toHaveBeenCalledTimes(1);
+        });
+
+        it('says a narrative screen has nothing to save, rather than reporting the last write', () => {
+            const quests = [{ id: 1 }];
+
+            const questScreen = createFixture(quests);
+            questScreen.ui.renderSaveStatus(SaveStatus.SAVED);
+            questScreen.qm.loadQuest(1);
+            expect(questScreen.ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.SAVED);
+
+            const prologue = createFixture(quests);
+            prologue.qm.loadQuest(0);
+            expect(prologue.ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.IDLE);
+
+            const epilogue = createFixture(quests);
+            epilogue.state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            epilogue.qm.loadQuest(2);
+            expect(epilogue.ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.IDLE);
         });
     });
 
