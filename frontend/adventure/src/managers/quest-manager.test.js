@@ -67,7 +67,6 @@ function createUi() {
             questBackBtn: document.createElement('button'),
             questForwardBtn: document.createElement('button'),
             editor: document.createElement('textarea'),
-            outcomeArea: document.createElement('section'),
             editorPane: document.createElement('section'),
             questTask: document.createElement('p'),
             startAdventureBtn: document.createElement('button')

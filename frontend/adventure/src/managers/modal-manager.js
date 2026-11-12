@@ -24,7 +24,7 @@ import { fetchTestPayload, fetchSupportModules } from '../services/api-service.j
 import { nextReveal } from '../services/reveal-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
-import { SCORING } from '../services/constants.js';
+import { SCORING, ErrorLevel } from '../services/constants.js';
 
 /**
  * Manages modal dialogs
@@ -220,7 +220,7 @@ export class ModalManager {
                 handleApiError(error, 'load test payload data');
             }
         } else {
-            showToast('No test data available for this quest.', 'info');
+            showToast('No test data available for this quest.', ErrorLevel.INFO);
         }
     }
 

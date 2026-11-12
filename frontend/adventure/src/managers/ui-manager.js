@@ -32,11 +32,11 @@ import { regoHighlighter } from '../services/rego-highlighter.js';
  */
 export class UIManager {
     /**
-     * @param {EditorService|null} [editorService] - Editor service owning the
-     *   Yace instance; when absent the editor falls back to a plain textarea
-     *   (used by tests and any page without the editor service wired up)
+     * @param {EditorService} editorService - Editor service owning the Yace
+     *   instance. Required: the editor element is always the service's native
+     *   textarea, which is what the typing gates and value reads act on.
      */
-    constructor(editorService = null) {
+    constructor(editorService) {
         this.editorService = editorService;
         this.elements = this.initializeElements();
     }
@@ -56,22 +56,15 @@ export class UIManager {
             loreNextBtn: document.getElementById('lore-next-btn'),
             lorePageIndicator: document.getElementById('lore-page-indicator'),
             questTask: document.getElementById('quest-task'),
-            
+
             // Hints
             hintsList: document.getElementById('hints-list'),
             hintBtn: document.getElementById('hint-btn'),
-            
-            // Outcome
-            outcomeArea: document.getElementById('outcome-area'),
-            outcomeMessage: document.getElementById('outcome-message'),
-            testResults: document.getElementById('test-results'),
-            
-            // Editor: with the editor service wired up this is the native
-            // textarea inside the Yace instance; listeners, value reads and
-            // read-only toggling work on it like on any plain textarea
-            editor: this.editorService
-                ? this.editorService.textarea
-                : document.getElementById('rego-editor'),
+
+            // Editor: the native textarea inside the Yace instance;
+            // listeners, value reads and read-only toggling work on it like
+            // on any plain textarea
+            editor: this.editorService.textarea,
             verifyBtn: document.getElementById('verify-btn'),
             verifyBtnLabel: document.querySelector('#verify-btn [data-label]'),
             editorPane: document.getElementById('editor-pane'),
@@ -557,7 +550,6 @@ export class UIManager {
      * Reset UI for new quest
      */
     resetQuestUI() {
-        this.elements.outcomeArea.classList.add('hidden');
         this.elements.startAdventureBtn.classList.add('hidden');
         this.elements.hintsList.classList.add('hidden');
         this.elements.hintsList.innerHTML = '';
@@ -585,11 +577,7 @@ export class UIManager {
      * @param {string} value - New editor content
      */
     setEditorValue(value) {
-        if (this.editorService) {
-            this.editorService.setValue(value);
-        } else if (this.elements.editor) {
-            this.elements.editor.value = value;
-        }
+        this.editorService.setValue(value);
     }
 
     /**

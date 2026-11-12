@@ -213,13 +213,4 @@ export class EditorService {
     set readOnly(readOnly) {
         this.instance.textarea.readOnly = readOnly;
     }
-
-    /**
-     * Tear down the editor and restore the mount node
-     */
-    destroy() {
-        this.instance.textarea.removeEventListener('scroll', this.handleScroll);
-        window.removeEventListener('resize', this.handleResize);
-        this.instance.destroy();
-    }
 }

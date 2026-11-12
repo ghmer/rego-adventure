@@ -45,6 +45,12 @@ The system breaks down into two main parts. A Go backend handles HTTP requests, 
 - [`frontend/adventure/`](frontend/adventure/) - Main game interface
 - [`frontend/quests/`](frontend/quests/) - Quest pack definitions (JSON) and assets
 
+**Startup reveal and CSP:** `frontend/adventure/index.html` hides the document in an inline
+`<style>` block and reveals it once the SPA entry point adds the `loaded` class. That inline block
+requires the `style-src 'unsafe-inline'` entry of the Content-Security-Policy set in
+`backend/http/middleware.go`. Tightening `style-src` without adding a hash for that block makes the
+application boot invisible.
+
 ## Prerequisites
 
 You'll need Go 1.27 or higher. Docker is optional but useful for containerized deployment, and Kubernetes if you are going that route.

@@ -16,7 +16,7 @@
 
 /* ============================================
    COMPONENTS.CSS - Shared Component Styles
-   Start screen, buttons, lore, tasks, outcomes, editor, modals, tests, tutorial
+   Start screen, buttons, lore, tasks, editor, modals, tests, tutorial
    ============================================ */
 
 /* ============================================
@@ -307,30 +307,8 @@ button[onclick*="login"]:hover {
 }
 
 /* ============================================
-   OUTCOME COMPONENTS
+   TEST RESULT COMPONENTS
    ============================================ */
-
-.outcome-area {
-    margin-top: 1rem;
-    padding: 1rem;
-    border: 2px dashed var(--accent-color);
-    background-color: rgba(0, 0, 0, 0.2);
-}
-
-.outcome-area.success {
-    border-color: var(--success-color);
-    background-color: rgba(var(--accent-rgb), 0.1);
-}
-
-.outcome-area.failure {
-    border-color: var(--error-color);
-    background-color: rgba(var(--accent-rgb), 0.1);
-}
-
-#test-results {
-    list-style: none;
-    margin-top: 0.5rem;
-}
 
 .test-result {
     display: flex;

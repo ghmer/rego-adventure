@@ -209,7 +209,6 @@ export class QuestManager {
         // Narrative stages never have support modules
         this.ui.updateSupportModulesButton(null);
 
-        this.ui.elements.outcomeArea.classList.add('hidden');
         this.ui.elements.hintsList.classList.add('hidden');
         this.ui.elements.editorPane.classList.add('hidden');
 

@@ -119,7 +119,7 @@ export class TutorialSystem {
                 popover: {
                     title: 'Quest Title',
                     description: 'This shows the current quest you\'re working on. Each adventure has multiple quests to complete. '
-                        + 'Navigate with the buttons, the arrow keys, or Enter; press Esc to leave the tour at any point.',
+                        + 'Move through the tour with its Next and Previous buttons, the Left and Right arrow keys, or Enter; press Esc to leave the tour at any point.',
                     side: 'bottom',
                     align: 'center'
                 }
