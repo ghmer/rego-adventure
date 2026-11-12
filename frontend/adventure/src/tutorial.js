@@ -254,7 +254,7 @@ export class TutorialSystem {
                 element: '#music-btn',
                 popover: {
                     title: 'Music Control',
-                    description: 'Toggle background music on or off. Immerse yourself in the adventure!',
+                    description: 'Toggle background music on or off, when the pack provides a track. Immerse yourself in the adventure!',
                     side: 'bottom',
                     align: 'center'
                 }

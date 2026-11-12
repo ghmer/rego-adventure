@@ -755,7 +755,7 @@ Use custom.css for unique visual effects:
 
 Replace %bg-music.m4a% with your theme's background music. Recommended:
 - Format: M4A
-- Duration: 2-5 minutes (will loop)
+- Duration: 2-5 minutes (the player starts it per toggle; it does not loop)
 - Style: Atmospheric, non-intrusive
 
 ### 5. Replace Visual Assets

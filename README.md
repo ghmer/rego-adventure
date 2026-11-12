@@ -353,7 +353,7 @@ go run cmd/assetgen/main.go -theme western -output frontend/quests
   - `icon-success.png` (128x128) - Success icon
   - `icon-failure.png` (128x128) - Failure icon
   - `perfect_score.png` (512x512) - Perfect score image
-  - `bg-music.m4a` - Empty placeholder for background music
+  - `bg-music.m4a` - Silent placeholder track for background music
 
 All generated images are solid color placeholders. Replace with theme-appropriate artwork before deployment.
 

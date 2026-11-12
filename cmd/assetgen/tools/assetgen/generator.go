@@ -18,6 +18,7 @@
 package assetgen
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -40,6 +41,18 @@ type Asset struct {
 	Height   int
 	HexColor string
 }
+
+// placeholderMusic is a valid, silent 5 second AAC/M4A track written into
+// every generated pack so the music control has something playable to load.
+// A 0-byte placeholder is not playable: the media element rejects it and
+// the player sees a music button that does nothing.
+//
+// Regenerate with:
+//
+//	ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 5 -c:a aac -b:a 24k assets/bg-music.m4a
+//
+//go:embed assets/bg-music.m4a
+var placeholderMusic []byte
 
 // GenerateTheme creates a new quest pack theme with assets, quests.json, theme.css, custom.css, and README.md.
 func GenerateTheme(themeName, outputDir string) error {
@@ -89,7 +102,7 @@ func GenerateTheme(themeName, outputDir string) error {
 }
 
 // generateAssets creates the assets directory with placeholder images and
-// the placeholder background music file.
+// the silent placeholder background music track.
 func generateAssets(assetsDir string) error {
 	if err := os.MkdirAll(assetsDir, 0750); err != nil {
 		return fmt.Errorf("error creating directory: %w", err)
@@ -111,12 +124,13 @@ func generateAssets(assetsDir string) error {
 		fmt.Printf("Generated %s\n", asset.Filename)
 	}
 
-	// Create placeholder audio file
+	// Silent placeholder track: decodes and plays, so the music control is
+	// truthful until the pack author replaces it.
 	audioPath := filepath.Join(assetsDir, "bg-music.m4a")
-	if err := os.WriteFile(audioPath, []byte{}, 0600); err != nil {
+	if err := os.WriteFile(audioPath, placeholderMusic, 0600); err != nil {
 		return fmt.Errorf("error creating placeholder audio: %w", err)
 	}
-	fmt.Printf("Generated bg-music.m4a (placeholder - replace with actual audio)\n")
+	fmt.Printf("Generated bg-music.m4a (silent placeholder - replace with actual audio)\n")
 	return nil
 }
 
