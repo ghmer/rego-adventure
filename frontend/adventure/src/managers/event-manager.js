@@ -38,6 +38,9 @@ export class EventManager {
         this.pack = packManager;
         // Pending debounced grimoire save (set by setupEditorListeners)
         this.saveTimeout = 0;
+        // One verification at a time: the keyboard shortcut cannot be stopped
+        // by a button attribute, so the action carries its own guard
+        this.verifying = false;
     }
 
     /**
@@ -312,7 +315,8 @@ export class EventManager {
      * the Ctrl/Cmd+Enter shortcut.
      */
     async handleVerify() {
-        if (this.ui.elements.verifyBtn.disabled) return;
+        const gate = this.state.getInteractionGate();
+        if (!gate.verifyEnabled || this.verifying) return;
 
         // Save grimoire content before verifying
         this.saveGrimoire();
@@ -320,11 +324,13 @@ export class EventManager {
         const code = this.ui.elements.editor.value;
         if (!code.trim()) return;
 
-        const btn = this.ui.elements.verifyBtn;
         const label = this.ui.elements.verifyBtnLabel;
         const originalLabel = label ? label.textContent : null;
 
-        btn.disabled = true;
+        this.verifying = true;
+        // The gate with verification taken away, so the button cannot start a
+        // second request while one runs
+        this.ui.renderInteractionGate({ ...gate, verifyEnabled: false });
         if (label) {
             label.textContent = this.state.label('verifying');
         }
@@ -346,7 +352,10 @@ export class EventManager {
         } catch (e) {
             handleApiError(e, 'verify solution');
         } finally {
-            btn.disabled = false;
+            this.verifying = false;
+            // The state did not change unless the tests passed, in which case
+            // the derived gate is what belongs on screen now
+            this.ui.renderInteractionGate(this.state.getInteractionGate());
             if (label && originalLabel !== null) {
                 label.textContent = originalLabel;
             }
@@ -390,8 +399,7 @@ export class EventManager {
 
         // Reset UI
         this.modal.closeRestartConfirmation();
-        this.ui.setEditorReadOnly(false);
-        
+
         this.ui.hidePerfectScoreButton();
         
         // Update score display

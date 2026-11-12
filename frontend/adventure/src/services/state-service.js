@@ -468,6 +468,27 @@ export class GameState {
     }
 
     /**
+     * What the screen the cursor stands on allows: a quest the player can act
+     * on is playable, a completed quest behind the frontier is read only, and
+     * anything else - prologue, epilogue, no pack, pack data not arrived -
+     * has no editor at all. Derived from the cursor and the history mode, so
+     * no layout function decides what a screen permits and nothing outside
+     * the gate renderer writes those controls.
+     * @returns {Object} {editorReadOnly, verifyEnabled, hintEnabled, editorVisible}
+     */
+    getInteractionGate() {
+        const questScreen = this.quests.length > 0 && this.currentQuestId > 0 && !this.isEpilogueCursor();
+        const playable = questScreen && !this.isHistoryMode;
+
+        return {
+            editorReadOnly: !playable,
+            verifyEnabled: playable,
+            hintEnabled: playable,
+            editorVisible: questScreen
+        };
+    }
+
+    /**
      * The back rule, used by the arrow's disabled state and by the arrow
      * action alike: one implementation decides both, so a disabled control is
      * never the only thing keeping a navigation step from happening.

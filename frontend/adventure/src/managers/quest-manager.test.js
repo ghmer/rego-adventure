@@ -75,11 +75,11 @@ function createUi() {
         },
         renderQuest: vi.fn(),
         resetQuestUI: vi.fn(),
+        renderInteractionGate: vi.fn(),
         updateQuestFooterVisibility: vi.fn(),
         updateHintButtonText: vi.fn(),
         updateSupportModulesButton: vi.fn(),
         renderLore: vi.fn(),
-        setEditorReadOnly: vi.fn(),
         setEditorValue: vi.fn()
     };
 }
@@ -509,7 +509,7 @@ describe('quest-manager', () => {
     });
 
     describe('loadQuest', () => {
-        it('enables history mode and read-only editor for completed quests', () => {
+        it('renders the read-only gate for a completed quest behind the frontier', () => {
             const { state, ui, qm } = createFixture([{ id: 1 }]);
             state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
             state.activeQuestId = 2;
@@ -518,17 +518,37 @@ describe('quest-manager', () => {
             qm.loadQuest(1);
 
             expect(state.isHistoryMode).toBe(true);
-            expect(ui.setEditorReadOnly).toHaveBeenCalledWith(true);
+            expect(ui.renderInteractionGate).toHaveBeenCalledWith({
+                editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: true
+            });
             expect(ui.setEditorValue).toHaveBeenCalledWith('package done');
         });
 
-        it('keeps the active quest editable', () => {
+        it('renders the playable gate for the quest the player may act on', () => {
             const { state, ui, qm } = createFixture([{ id: 1 }]);
 
             qm.loadQuest(1);
 
             expect(state.isHistoryMode).toBe(false);
-            expect(ui.setEditorReadOnly).not.toHaveBeenCalled();
+            expect(ui.renderInteractionGate).toHaveBeenCalledWith({
+                editorReadOnly: false, verifyEnabled: true, hintEnabled: true, editorVisible: true
+            });
+        });
+
+        it('applies the gate after the cursor moved, for prologue and epilogue alike', () => {
+            const quests = [{ id: 1 }];
+            const prologue = createFixture(quests);
+            prologue.qm.loadQuest(0);
+            expect(prologue.ui.renderInteractionGate).toHaveBeenLastCalledWith({
+                editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: false
+            });
+
+            const epilogue = createFixture(quests);
+            epilogue.state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            epilogue.qm.loadQuest(2);
+            expect(epilogue.ui.renderInteractionGate).toHaveBeenLastCalledWith({
+                editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: false
+            });
         });
     });
 });

@@ -63,6 +63,28 @@ function matches(pattern, files) {
     return hits;
 }
 
+/**
+ * The source of a method, brace matched from its definition.
+ * @param {string} text - File contents
+ * @param {string} name - Method name
+ * @returns {string} The method source, empty when the method is absent
+ */
+function methodSource(text, name) {
+    const definition = new RegExp(`^\\s+${name}\\(`, 'm').exec(text);
+    if (!definition) return '';
+
+    const start = text.indexOf('{', definition.index);
+    let depth = 0;
+    for (let index = start; index < text.length; index++) {
+        if (text[index] === '{') depth++;
+        if (text[index] === '}') {
+            depth--;
+            if (depth === 0) return text.slice(start, index + 1);
+        }
+    }
+    return '';
+}
+
 describe('progression source boundaries', () => {
     const all = sources();
     const writers = /(?:this|state)\.(?:currentQuestId|activeQuestId)\s*(?:\+\+|--|[-+*/]?=(?!=))/g;
@@ -100,6 +122,27 @@ describe('progression source boundaries', () => {
     it('defines each guard once', () => {
         for (const guard of ['canNavigateBack', 'canNavigateForward']) {
             expect(matches(new RegExp(`^\\s+${guard}\\(\\) \\{`, 'gm'), all)).toHaveLength(1);
+        }
+    });
+
+    it('writes the interaction gate in one renderer only', () => {
+        const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
+        const renderer = methodSource(uiManager.text, 'renderInteractionGate');
+        expect(renderer).not.toBe('');
+
+        const gatedControls = [
+            ['verify button enabled', /verifyBtn\.disabled\s*=(?!=)/g],
+            ['hint button enabled', /hintBtn\.disabled\s*=(?!=)/g],
+            ['editor read-only', /\.editor\.readOnly\s*=(?!=)/g],
+            ['editor pane visibility', /editorPane\.classList\.(?:add|remove|toggle)\(['"]hidden['"]\)/g]
+        ];
+
+        for (const [name, pattern] of gatedControls) {
+            const elsewhere = matches(pattern, all.filter(file => file !== uiManager));
+            const otherUiMethods = (uiManager.text.replace(renderer, '').match(pattern) || [])
+                .map(hit => `ui-manager.js: ${hit}`);
+
+            expect([...elsewhere, ...otherUiMethods], name).toEqual([]);
         }
     });
 });

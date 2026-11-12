@@ -554,20 +554,19 @@ export class UIManager {
         this.elements.hintsList.classList.add('hidden');
         this.elements.hintsList.innerHTML = '';
         this.elements.hintBtn.classList.remove('hidden');
-        this.elements.editorPane.classList.remove('hidden');
-        this.elements.editor.readOnly = false;
-        this.elements.verifyBtn.disabled = false;
-        this.elements.hintBtn.disabled = false;
     }
 
     /**
-     * Set editor to read-only mode (for history mode)
-     * @param {boolean} readOnly - Whether to enable read-only mode
+     * Render the interaction gate. This is the only place the editor, the
+     * verify button, the hint button and the editor pane are enabled or
+     * disabled; the values come from GameState.getInteractionGate.
+     * @param {Object} gate - {editorReadOnly, verifyEnabled, hintEnabled, editorVisible}
      */
-    setEditorReadOnly(readOnly) {
-        this.elements.editor.readOnly = readOnly;
-        this.elements.verifyBtn.disabled = readOnly;
-        this.elements.hintBtn.disabled = readOnly;
+    renderInteractionGate(gate) {
+        this.elements.editor.readOnly = gate.editorReadOnly;
+        this.elements.verifyBtn.disabled = !gate.verifyEnabled;
+        this.elements.hintBtn.disabled = !gate.hintEnabled;
+        this.elements.editorPane.classList.toggle('hidden', !gate.editorVisible);
     }
 
     /**

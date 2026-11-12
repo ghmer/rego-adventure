@@ -120,8 +120,8 @@ export class QuestManager {
     loadQuest(questId) {
         // Handle Prologue
         if (questId === 0) {
-            this.showPrologue();
             this.state.enterQuest(0);
+            this.showPrologue();
             return;
         }
 
@@ -139,6 +139,10 @@ export class QuestManager {
             return;
         }
 
+        // The cursor moves before anything is drawn: the interaction gate and
+        // the navigation buttons are both derived from it
+        this.state.enterQuest(questId);
+
         this.state.currentQuest = questSummary;
         this.ui.renderQuest(this.state.currentQuest, this.state.quests.length);
         
@@ -147,6 +151,7 @@ export class QuestManager {
         
         // Reset UI
         this.ui.resetQuestUI();
+        this.ui.renderInteractionGate(this.state.getInteractionGate());
         this.ui.updateQuestFooterVisibility();
         this.ui.updateHintButtonText(this.state.currentQuest, 0, this.state.label('hintButton'));
 
@@ -156,17 +161,8 @@ export class QuestManager {
         // Render lore
         this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
 
-        // Move the cursor onto the quest, which derives its history mode
-        this.state.enterQuest(questId);
-        
-        // Load code
         this.loadQuestCode(questId);
-        
-        // Set read-only mode for history
-        if (this.state.isHistoryMode) {
-            this.ui.setEditorReadOnly(true);
-        }
-        
+
         this.updateQuestNavigationButtons();
     }
 
@@ -201,13 +197,13 @@ export class QuestManager {
         this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
 
         this.ui.elements.questTask.textContent = taskText;
-        this.ui.setEditorReadOnly(true);
 
         // Narrative stages never have support modules
         this.ui.updateSupportModulesButton(null);
 
         this.ui.elements.hintsList.classList.add('hidden');
-        this.ui.elements.editorPane.classList.add('hidden');
+
+        this.ui.renderInteractionGate(this.state.getInteractionGate());
 
         this.updateQuestNavigationButtons();
     }

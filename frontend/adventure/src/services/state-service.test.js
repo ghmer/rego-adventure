@@ -508,6 +508,78 @@ describe('state-service', () => {
         });
     });
 
+    describe('getInteractionGate', () => {
+        const GATES = {
+            playable: { editorReadOnly: false, verifyEnabled: true, hintEnabled: true, editorVisible: true },
+            readOnly: { editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: true },
+            narrative: { editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: false }
+        };
+
+        it('is playable on an unfinished quest', () => {
+            const state = createState(3);
+            state.enterQuest(1);
+
+            expect(state.getInteractionGate()).toEqual(GATES.playable);
+        });
+
+        it('is read only on a completed quest behind the frontier', () => {
+            const state = createState(3);
+            for (const id of [1, 2]) {
+                state.enterQuest(id);
+                state.completeQuest(id);
+            }
+
+            state.enterQuest(1);
+
+            expect(state.getInteractionGate()).toEqual(GATES.readOnly);
+        });
+
+        it('stays playable while the player stands on a quest they just completed', () => {
+            const state = createState(3);
+            state.enterQuest(1);
+            state.completeQuest(1);
+
+            // Verify runs where the player is standing; the gate follows the
+            // cursor, not the frontier that just moved past it
+            expect(state.getInteractionGate()).toEqual(GATES.playable);
+        });
+
+        it('hides the editor on the prologue', () => {
+            const state = createState(3);
+            state.enterQuest(0);
+
+            expect(state.getInteractionGate()).toEqual(GATES.narrative);
+        });
+
+        it('hides the editor on the epilogue', () => {
+            const state = createState(2);
+            for (const id of [1, 2]) {
+                state.enterQuest(id);
+                state.completeQuest(id);
+            }
+
+            state.visitEpilogue();
+
+            expect(state.getInteractionGate()).toEqual(GATES.narrative);
+        });
+
+        it('permits nothing while no pack is loaded', () => {
+            const state = new GameState();
+
+            expect(state.getInteractionGate()).toEqual(GATES.narrative);
+        });
+
+        it('permits nothing before the pack data has arrived', () => {
+            const state = new GameState();
+            state.setCurrentPack(PACK_ID);
+            state.enterQuest(1);
+
+            // the cursor is on a quest number, the quests behind it are not
+            // there yet, so nothing on screen may be acted on
+            expect(state.getInteractionGate()).toEqual(GATES.narrative);
+        });
+    });
+
     describe('resetProgress', () => {
         it('clears all progress and persists the reset', () => {
             const state = createState(3);
