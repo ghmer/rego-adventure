@@ -19,8 +19,10 @@
  * Manages game state with encapsulation and persistence
  */
 
-import { getLocalStorage, setLocalStorage, removeLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
-import { SCORING, DEFAULT_TEXT } from './constants.js';
+import {
+    getLocalStorage, setLocalStorage, removeLocalStorage, getPackKey, getCorruptPackKey, STORAGE_KEYS
+} from './storage-service.js';
+import { SCORING, DEFAULT_TEXT, SaveStatus } from './constants.js';
 
 /**
  * Maps label accessor keys to the pack's snake_case ui_labels key and
@@ -89,50 +91,54 @@ export class GameState {
     }
 
     /**
-     * Load state for a specific pack from localStorage
+     * Read the saved body of a pack and apply the progress it holds. An
+     * unparseable body is copied to a backup key before anything fresh is
+     * written, so what storage held is not destroyed by the fresh start that
+     * follows; the caller decides what the player is told about it.
      * @param {string} packId - The pack identifier
-     * @returns {Object|null} The loaded batched state, or null when no
-     * valid saved state exists
+     * @returns {{resumed: Object|null, corrupt: boolean}} resumed is the
+     *   readable body when one was stored; corrupt reports that a body was
+     *   there but could not be read
      */
     loadPackState(packId) {
         const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
-
-        if (packedState) {
-            try {
-                const state = JSON.parse(packedState);
-                this.currentQuestId = state.questId || 0;
-                this.questScores = state.questScores || {};
-                this.questHints = state.questHints || {};
-                this.grimoires = state.grimoires || {};
-                this.activeQuestId = state.activeQuestId || this.currentQuestId;
-
-                // totalScore is derived from the quest records, so a stored
-                // total that drifted from them is corrected on load. The
-                // field is still written on save for readers that predate the
-                // derivation.
-                this.totalScore = this.sumQuestScores();
-                return state;
-            } catch (e) {
-                console.warn(`Ignoring corrupt saved state for pack "${packId}":`, e);
-                return null;
-            }
+        if (!packedState) {
+            return { resumed: null, corrupt: false };
         }
 
-        return null;
+        try {
+            const state = JSON.parse(packedState);
+            this.currentQuestId = state.questId || 0;
+            this.questScores = state.questScores || {};
+            this.questHints = state.questHints || {};
+            this.grimoires = state.grimoires || {};
+            this.activeQuestId = state.activeQuestId || this.currentQuestId;
+
+            // totalScore is derived from the quest records, so a stored
+            // total that drifted from them is corrected on load. The
+            // field is still written on save for readers that predate the
+            // derivation.
+            this.totalScore = this.sumQuestScores();
+            return { resumed: state, corrupt: false };
+        } catch (e) {
+            setLocalStorage(getCorruptPackKey(STORAGE_KEYS.PACK_STATE, packId), packedState);
+            return { resumed: null, corrupt: true };
+        }
     }
 
     /**
-     * Set the current pack and initialize its state
+     * Set the current pack and start its adventure.
      * @param {string} packId - The pack identifier
-     * @returns {Object|null} The loaded batched state when resuming an
-     * adventure, or null when starting fresh (state was reset)
+     * @returns {{resumed: Object|null, corrupt: boolean}} resumed is the saved
+     *   body when the adventure continues, null when it starts fresh; corrupt
+     *   reports a saved body that could not be read and was kept aside
      */
     setCurrentPack(packId) {
         this.currentPackId = packId;
         setLocalStorage(STORAGE_KEYS.PACK_ID, packId);
 
-        const loaded = this.loadPackState(packId);
-        if (!loaded || !loaded.questId) {
+        const entry = this.loadPackState(packId);
+        if (!entry.resumed || !entry.resumed.questId) {
             // Starting new adventure - reset everything
             this.currentQuestId = 0;
             this.activeQuestId = 0;
@@ -141,10 +147,10 @@ export class GameState {
             this.questHints = {};
             this.grimoires = {};
             this.savePackState();
-            return null;
+            return { resumed: null, corrupt: entry.corrupt };
         }
 
-        return loaded;
+        return entry;
     }
 
     /**
@@ -177,10 +183,12 @@ export class GameState {
     }
 
     /**
-     * Save current pack state to localStorage
+     * Write the packed state of the current pack.
+     * @returns {boolean} true when storage accepted the body; false when there
+     *   is no pack to write for or the write was refused
      */
     savePackState() {
-        if (!this.currentPackId) return;
+        if (!this.currentPackId) return false;
         
         // Batch all state into a single JSON object
         const state = {
@@ -192,7 +200,7 @@ export class GameState {
             activeQuestId: this.activeQuestId
         };
         
-        setLocalStorage(
+        return setLocalStorage(
             getPackKey(STORAGE_KEYS.PACK_STATE, this.currentPackId),
             JSON.stringify(state)
         );
@@ -355,17 +363,18 @@ export class GameState {
     }
 
     /**
-     * Persist the editor content (grimoire) of a quest
+     * Persist the editor content (grimoire) of a quest.
      * @param {number} questId - The quest identifier
      * @param {string} code - The editor content to store
-     * @returns {boolean} True when the content was persisted
+     * @returns {string} SaveStatus: SAVED when the body was written, FAILED
+     *   when storage refused it, IDLE when this screen has no grimoire to
+     *   store (no pack, or a narrative screen)
      */
     saveGrimoire(questId, code) {
-        if (!this.currentPackId || !this.questsMap?.has(questId)) return false;
+        if (!this.currentPackId || !this.questsMap?.has(questId)) return SaveStatus.IDLE;
 
         this.grimoires[questId] = code;
-        this.savePackState();
-        return true;
+        return this.savePackState() ? SaveStatus.SAVED : SaveStatus.FAILED;
     }
 
     /**

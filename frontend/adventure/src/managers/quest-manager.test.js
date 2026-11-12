@@ -87,14 +87,23 @@ function createUi() {
 }
 
 /**
+ * An autosave double: the quest screen only tells it to drop a pending write.
+ * @returns {Object} Autosave double
+ */
+function createAutosave() {
+    return { markDirty: vi.fn(), flush: vi.fn(), cancel: vi.fn() };
+}
+
+/**
  * Create a quest manager wired to fresh state and UI doubles.
  * @param {Array<Object>} quests - Quest definitions
- * @returns {Object} { state, ui, qm }
+ * @param {Object} [autosave] - Autosave collaborator double
+ * @returns {Object} { state, ui, autosave, qm }
  */
-function createFixture(quests) {
+function createFixture(quests, autosave = createAutosave()) {
     const state = createState(quests);
     const ui = createUi();
-    return { state, ui, qm: new QuestManager(state, ui) };
+    return { state, ui, autosave, qm: new QuestManager(state, ui, autosave) };
 }
 
 describe('quest-manager', () => {
@@ -267,7 +276,7 @@ describe('quest-manager', () => {
 
             // Second session: same persisted state, fresh UI and cache
             const ui = createUi();
-            const qm = new QuestManager(first.state, ui);
+            const qm = new QuestManager(first.state, ui, createAutosave());
             qm.loadQuest(1);
             await vi.waitFor(() => expect(ui.elements.hintsList.children).toHaveLength(2));
 
@@ -288,7 +297,7 @@ describe('quest-manager', () => {
             await first.qm.showHint();
 
             const ui = createUi();
-            const qm = new QuestManager(first.state, ui);
+            const qm = new QuestManager(first.state, ui, createAutosave());
             qm.loadQuest(1);
             await vi.waitFor(() => expect(ui.elements.hintsList.children).toHaveLength(2));
 
@@ -584,7 +593,7 @@ describe('quest-manager', () => {
             resumed.setCurrentPack(PACK_ID);
             resumed.loadPackData({ quests, prologue: ['p'], epilogue: ['e'], meta: null, ui_labels: {} });
             const ui = createUi();
-            const qm = new QuestManager(resumed, ui);
+            const qm = new QuestManager(resumed, ui, createAutosave());
 
             expect(resumed.currentQuestId).toBe(4);
 
@@ -646,6 +655,24 @@ describe('quest-manager', () => {
             expect(epilogue.ui.renderInteractionGate).toHaveBeenLastCalledWith({
                 editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: false
             });
+        });
+    });
+
+    describe('pending editor write', () => {
+        it('drops a pending editor write when a new screen takes the editor', () => {
+            const { qm, autosave } = createFixture([{ id: 1 }]);
+
+            qm.loadQuest(1);
+
+            expect(autosave.cancel).toHaveBeenCalledTimes(1);
+        });
+
+        it('drops a pending editor write on a narrative screen as well', () => {
+            const { qm, autosave } = createFixture([{ id: 1 }]);
+
+            qm.loadQuest(0);
+
+            expect(autosave.cancel).toHaveBeenCalledTimes(1);
         });
     });
 

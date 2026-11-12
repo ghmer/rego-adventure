@@ -14,20 +14,23 @@
    limitations under the License.
 */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventManager } from './event-manager.js';
+import { GrimoireAutosave } from './grimoire-autosave.js';
 import { UIManager } from './ui-manager.js';
 import { GameState } from '../services/state-service.js';
 
 const apiMock = vi.hoisted(() => ({
     verifySolution: vi.fn()
 }));
+const toastMock = vi.hoisted(() => ({ showToast: vi.fn() }));
 
 vi.mock('../services/api-service.js', async (importOriginal) => {
     const actual = await importOriginal();
     return { ...actual, verifySolution: apiMock.verifySolution };
 });
 vi.mock('../services/error-service.js', () => ({ handleApiError: vi.fn() }));
+vi.mock('../services/toast-service.js', () => ({ showToast: toastMock.showToast }));
 
 const PACK_ID = 'testpack';
 const CODE = 'package quest {\ndefault allow := true\n}';
@@ -38,6 +41,13 @@ const CODE = 'package quest {\ndefault allow := true\n}';
  */
 function pressVerifyShortcut() {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }));
+}
+
+/**
+ * Press Ctrl+S, the shortcut that writes the grimoire immediately.
+ */
+function pressSaveShortcut() {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }));
 }
 
 /**
@@ -63,24 +73,100 @@ function createFixture() {
         <span id="experience-points">0 XP</span>
         <ul id="hints-list"></ul>
         <textarea id="editor">${CODE}</textarea>
+        <span id="editor-save-indicator" class="save-indicator saved" role="status"
+            aria-live="polite"></span>
     `;
 
     const ui = new UIManager({ textarea: document.getElementById('editor') });
     const quest = { updateQuestNavigationButtons: vi.fn(), loadQuest: vi.fn(), clearCaches: vi.fn() };
     const modal = { showResult: vi.fn(), closeRestartConfirmation: vi.fn(), clearCaches: vi.fn() };
     const pack = { clearPackCaches: vi.fn() };
-    const em = new EventManager(state, ui, quest, {}, modal, pack);
+    const autosave = new GrimoireAutosave(state, ui);
+    const em = new EventManager(state, ui, quest, {}, modal, pack, autosave);
     em.setupKeyboardShortcuts();
 
-    return { state, ui, quest, modal, pack, em };
+    return { state, ui, quest, modal, pack, autosave, em };
 }
 
 describe('event-manager', () => {
+    // Shortcut listeners live on the document, so the handlers a fixture
+    // registers are dropped after its test: otherwise a key press answers
+    // every fixture that came before it.
+    let documentListeners;
+
+    afterEach(() => {
+        for (const listener of documentListeners) {
+            document.removeEventListener(listener.type, listener.listener, listener.options);
+        }
+        documentListeners = [];
+
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+    });
+
     beforeEach(() => {
         localStorage.clear();
         document.body.innerHTML = '';
         vi.clearAllMocks();
+
+        documentListeners = [];
+        const addEventListener = document.addEventListener.bind(document);
+        vi.spyOn(document, 'addEventListener').mockImplementation((type, listener, options) => {
+            documentListeners.push({ type, listener, options });
+            addEventListener(type, listener, options);
+        });
         apiMock.verifySolution.mockResolvedValue({ passed: true });
+    });
+
+    describe('save indicator', () => {
+        it('turns red when the storage refused the write', () => {
+            const { state, ui } = createFixture();
+            state.enterQuest(1);
+            const setItem = vi.spyOn(globalThis.localStorage, 'setItem').mockImplementation(() => {
+                throw new Error('QuotaExceededError');
+            });
+
+            pressSaveShortcut();
+            setItem.mockRestore();
+
+            expect(ui.elements.saveIndicator.classList.contains('error')).toBe(true);
+            expect(ui.elements.saveIndicator.title).toContain('Saving failed');
+        });
+
+        it('reports a write that succeeded and confirms it once', () => {
+            const { state, ui } = createFixture();
+            state.enterQuest(1);
+
+            pressSaveShortcut();
+
+            expect(ui.elements.saveIndicator.classList.contains('saved')).toBe(true);
+            expect(toastMock.showToast).toHaveBeenCalledWith('Policy saved.', 'info');
+        });
+
+        it('shows no failure for a screen that has nothing to save', () => {
+            const { state, ui } = createFixture();
+            state.enterQuest(1);
+
+            // a flush that arrives after the player left the pack
+            state.clearCurrentPack();
+            pressSaveShortcut();
+
+            const indicator = ui.elements.saveIndicator;
+            expect(indicator.classList.contains('error')).toBe(false);
+            expect(indicator.classList.contains('idle')).toBe(true);
+            expect(toastMock.showToast).not.toHaveBeenCalled();
+        });
+
+        it('marks the editor dirty while the player types', () => {
+            const { state, ui, em } = createFixture();
+            state.enterQuest(1);
+            em.setupEditorListeners();
+
+            ui.elements.editor.dispatchEvent(new Event('input'));
+
+            expect(ui.elements.saveIndicator.classList.contains('dirty')).toBe(true);
+            expect(ui.elements.saveIndicator.classList.contains('saved')).toBe(false);
+        });
     });
 
     describe('restart', () => {

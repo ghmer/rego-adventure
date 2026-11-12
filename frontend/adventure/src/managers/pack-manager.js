@@ -21,7 +21,8 @@
 
 import { fetchPackDetails } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
-import { DEFAULT_TEXT, TIMING } from '../services/constants.js';
+import { DEFAULT_TEXT, ErrorLevel, TIMING } from '../services/constants.js';
+import { showToast } from '../services/toast-service.js';
 import { tutorial } from '../tutorial.js';
 
 /**
@@ -216,10 +217,16 @@ export class PackManager {
         this.clearPackCaches();
         this.ui.renderPerfectScoreButton(false);
 
-        // Set pack in state; the returned loaded state tells us whether
-        // there is saved progress to resume
-        const loaded = this.state.setCurrentPack(packId);
-        const isResuming = loaded !== null;
+        // Set pack in state; the entry it returns says whether there is saved
+        // progress to resume, and whether a saved body could not be read
+        const entry = this.state.setCurrentPack(packId);
+        const isResuming = entry.resumed !== null;
+        if (entry.corrupt) {
+            showToast(
+                `Saved progress for pack "${packId}" could not be read. It is kept aside and the adventure starts fresh.`,
+                ErrorLevel.WARNING
+            );
+        }
 
         // Load pack details (errors are shown via handleApiError in loadPack)
         let applied;

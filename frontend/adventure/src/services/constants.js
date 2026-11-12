@@ -46,7 +46,19 @@ export const TIMING = {
     FADE_DURATION: 250,              // Audio fade in/out duration
     TUTORIAL_SHOW_DELAY: 250,        // Delay before showing tutorial after quest load
     CONFETTI_DURATION: 3000,         // Confetti animation duration
-    CONFETTI_INTERVAL: 250           // Confetti particle spawn interval
+    CONFETTI_INTERVAL: 250,          // Confetti particle spawn interval
+    GRIMOIRE_AUTOSAVE_DELAY: 1500    // Debounce before the editor writes
+};
+
+/**
+ * Editor save indicator states. The colour comes from what the last write
+ * actually did, never from an intention to write.
+ */
+export const SaveStatus = {
+    IDLE: 'idle',        // this screen has no grimoire to write
+    DIRTY: 'dirty',      // a write is pending
+    SAVED: 'saved',      // the last write reached storage
+    FAILED: 'failed'     // storage refused the last write
 };
 
 /**

@@ -685,6 +685,11 @@ dialog#result-modal[open] {
     box-shadow: 0 0 6px var(--error-color);
 }
 
+.save-indicator.idle {
+    background-color: var(--muted-color, #a8a29e);
+    box-shadow: none;
+}
+
 .result-test-list .test-result {
     display: flex;
     align-items: center;

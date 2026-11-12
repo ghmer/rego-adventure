@@ -16,6 +16,14 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { UIManager } from './ui-manager.js';
+import { SaveStatus } from '../services/constants.js';
+
+const SAVE_STATES = [
+    [SaveStatus.SAVED, 'saved'],
+    [SaveStatus.DIRTY, 'dirty'],
+    [SaveStatus.FAILED, 'error'],
+    [SaveStatus.IDLE, 'idle']
+];
 
 const GATES = [
     ['playable', { editorReadOnly: false, verifyEnabled: true, hintEnabled: true, editorVisible: true }],
@@ -78,6 +86,60 @@ describe('ui-manager', () => {
 
             expect(ui.elements.perfectScoreBtn.classList.contains('hidden')).toBe(true);
             expect(document.querySelector('.quest-footer').classList.contains('hidden')).toBe(true);
+        });
+    });
+
+    describe('renderSaveStatus', () => {
+        /**
+         * Build a UIManager over a save indicator left in another state.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createIndicatorUi() {
+            document.body.innerHTML = `
+                <span id="editor-save-indicator" class="save-indicator saved" role="status"
+                    aria-live="polite"></span>
+            `;
+            return new UIManager({ textarea: document.createElement('textarea') });
+        }
+
+        for (const [status, cssClass] of SAVE_STATES) {
+            it(`paints exactly one state class for ${status}`, () => {
+                const ui = createIndicatorUi();
+
+                ui.renderSaveStatus(status);
+
+                const indicator = ui.elements.saveIndicator;
+                expect(indicator.classList.contains(cssClass)).toBe(true);
+                const others = SAVE_STATES.map(([, cls]) => cls).filter(cls => cls !== cssClass);
+                for (const cls of others) {
+                    expect(indicator.classList.contains(cls), cls).toBe(false);
+                }
+            });
+        }
+
+        it('names the state in the accessible label', () => {
+            const ui = createIndicatorUi();
+
+            ui.renderSaveStatus(SaveStatus.FAILED);
+
+            expect(ui.elements.saveIndicator.title).toContain('Saving failed');
+            expect(ui.elements.saveIndicator.getAttribute('aria-label')).toBe(ui.elements.saveIndicator.title);
+        });
+
+        it('says the screen has no policy to save rather than claiming one is saved', () => {
+            const ui = createIndicatorUi();
+
+            ui.renderSaveStatus(SaveStatus.IDLE);
+
+            expect(ui.elements.saveIndicator.title).toContain('No policy to save');
+        });
+
+        it('falls back to idle for a status it does not know', () => {
+            const ui = createIndicatorUi();
+
+            ui.renderSaveStatus('unsaved');
+
+            expect(ui.elements.saveIndicator.classList.contains('idle')).toBe(true);
         });
     });
 

@@ -28,9 +28,12 @@ import { handleApiError } from '../services/error-service.js';
  * Manages quest loading and navigation
  */
 export class QuestManager {
-    constructor(state, uiManager) {
+    constructor(state, uiManager, autosave) {
         this.state = state;
         this.ui = uiManager;
+        // The editor's pending write. A screen change replaces the editor
+        // content, so an armed write must not land under the new quest.
+        this.autosave = autosave;
 
         // Hint texts and the solution are revealed through the API, not
         // shipped with the pack payload. They are immutable while a pack is
@@ -185,6 +188,8 @@ export class QuestManager {
      * @param {number} questId - Quest ID to load (0 = prologue, > quests.length = epilogue, 1-quests.length = actual quests)
      */
     loadQuest(questId) {
+        this.autosave.cancel();
+
         // Handle Prologue
         if (questId === 0) {
             this.state.enterQuest(0);

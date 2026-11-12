@@ -148,6 +148,38 @@ describe('progression source boundaries', () => {
         expect([...elsewhere, ...otherUiMethods]).toEqual([]);
     });
 
+    it('writes a grimoire draft in the state service only', () => {
+        const drafts = /\.grimoires(?:\[[^\]]*\])?\s*=(?!=)/g;
+
+        expect(matches(drafts, all.filter(file => !file.path.endsWith('state-service.js')))).toEqual([]);
+        expect(matches(drafts, all).length, 'draft writer').toBeGreaterThan(0);
+    });
+
+    it('renders the save indicator in one method only', () => {
+        const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
+        const renderer = methodSource(uiManager.text, 'renderSaveStatus');
+        expect(renderer, 'renderSaveStatus').not.toBe('');
+
+        const light = /saveIndicator\.classList\.(?:add|remove|toggle)\(/g;
+        const elsewhere = matches(light, all.filter(file => file !== uiManager));
+        const otherUiMethods = (uiManager.text.replace(renderer, '').match(light) || [])
+            .map(hit => `ui-manager.js: ${hit}`);
+
+        expect([...elsewhere, ...otherUiMethods], 'indicator class').toEqual([]);
+    });
+
+    it('arms and reports the pending grimoire write in the autosave only', () => {
+        const autosave = all.find(file => file.path.endsWith('grimoire-autosave.js'));
+        const markDirty = methodSource(autosave.text, 'markDirty');
+        expect(markDirty, 'markDirty').not.toBe('');
+        expect(markDirty).toContain('setTimeout');
+        expect(markDirty).toContain('SaveStatus.DIRTY');
+
+        const elsewhere = all.filter(file =>
+            !file.path.endsWith('grimoire-autosave.js') && !file.path.endsWith('ui-manager.js'));
+        expect(matches(/SaveStatus\.DIRTY/g, elsewhere)).toEqual([]);
+    });
+
     it('writes the interaction gate in one renderer only', () => {
         const uiManager = all.find(file => file.path.endsWith('ui-manager.js'));
         const renderer = methodSource(uiManager.text, 'renderInteractionGate');

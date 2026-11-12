@@ -23,7 +23,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { nextReveal } from '../services/reveal-service.js';
-import { DEFAULT_TEXT, ErrorLevel } from '../services/constants.js';
+import { DEFAULT_TEXT, ErrorLevel, SaveStatus } from '../services/constants.js';
 import { showToast } from '../services/toast-service.js';
 import { regoHighlighter } from '../services/rego-highlighter.js';
 
@@ -538,25 +538,39 @@ export class UIManager {
     }
 
     /**
-     * Update the editor save indicator light
-     * @param {string} status - 'saved' (green), 'dirty' (orange, typing),
-     * or 'error' (red, writing to localStorage failed)
+     * Render the editor save indicator. This is the only writer of its state
+     * class, and the class it paints describes a real write: SAVED reached
+     * storage, DIRTY has a write pending, FAILED was refused by storage, and
+     * IDLE means this screen has no grimoire to write.
+     * @param {string} status - A SaveStatus value
      */
-    setSaveIndicator(status) {
+    renderSaveStatus(status) {
         const indicator = this.elements.saveIndicator;
         if (!indicator) return;
 
+        const classes = {
+            saved: 'saved',
+            dirty: 'dirty',
+            failed: 'error',
+            idle: 'idle'
+        };
         const messages = {
             saved: 'All changes saved',
             dirty: 'Unsaved changes',
-            error: 'Saving failed'
+            failed: 'Saving failed',
+            idle: 'No policy to save here'
         };
-        const state = messages[status] ? status : 'saved';
 
-        indicator.classList.remove('saved', 'dirty', 'error');
-        indicator.classList.add(state);
-        indicator.title = `Editor save status: ${messages[state]}`;
-        indicator.setAttribute('aria-label', indicator.title);
+        const state = classes[status] ? status : SaveStatus.IDLE;
+
+        for (const cssClass of Object.values(classes)) {
+            indicator.classList.remove(cssClass);
+        }
+        indicator.classList.add(classes[state]);
+
+        const label = `Editor save status: ${messages[state]}`;
+        indicator.title = label;
+        indicator.setAttribute('aria-label', label);
     }
 
     /**

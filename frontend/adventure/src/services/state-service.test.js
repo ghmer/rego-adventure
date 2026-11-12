@@ -14,10 +14,12 @@
    limitations under the License.
 */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameState } from './state-service.js';
-import { SCORING, DEFAULT_TEXT } from './constants.js';
-import { getLocalStorage, setLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
+import { SCORING, DEFAULT_TEXT, SaveStatus } from './constants.js';
+import {
+    getLocalStorage, setLocalStorage, getPackKey, getCorruptPackKey, STORAGE_KEYS
+} from './storage-service.js';
 
 const PACK_ID = 'testpack';
 
@@ -55,9 +57,10 @@ describe('state-service', () => {
     describe('setCurrentPack', () => {
         it('starts a fresh adventure when no saved state exists', () => {
             const state = new GameState();
-            const loaded = state.setCurrentPack(PACK_ID);
+            const entry = state.setCurrentPack(PACK_ID);
 
-            expect(loaded).toBeNull();
+            expect(entry.resumed).toBeNull();
+            expect(entry.corrupt).toBe(false);
             expect(state.currentPackId).toBe(PACK_ID);
             expect(state.currentQuestId).toBe(0);
             expect(state.totalScore).toBe(0);
@@ -70,13 +73,43 @@ describe('state-service', () => {
             expect(getLocalStorage(STORAGE_KEYS.PACK_ID)).toBe(PACK_ID);
         });
 
-        it('ignores corrupt saved state and starts fresh', () => {
-            setLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID), 'not json{');
+        it('keeps an unreadable body aside and starts fresh', () => {
+            const corruptBody = 'not json{';
+            setLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID), corruptBody);
 
             const state = new GameState();
-            const loaded = state.setCurrentPack(PACK_ID);
+            const entry = state.setCurrentPack(PACK_ID);
 
-            expect(loaded).toBeNull();
+            expect(entry.resumed).toBeNull();
+            expect(entry.corrupt).toBe(true);
+            expect(state.currentQuestId).toBe(0);
+            expect(getLocalStorage(getCorruptPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID)))
+                .toBe(corruptBody);
+        });
+
+        it('never lets a later save touch the body that was kept aside', () => {
+            const corruptBody = '{questId: 3,';
+            setLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID), corruptBody);
+
+            const state = createState(2);
+            state.enterQuest(1);
+            state.saveGrimoire(1, 'package one');
+            state.completeQuest(1);
+
+            expect(getLocalStorage(getCorruptPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID)))
+                .toBe(corruptBody);
+            expect(readBody().questScores[1].pointsEarned).toBe(SCORING.POINTS_PER_QUEST);
+        });
+
+        it('does not read a kept-aside body back as a pack body', () => {
+            setLocalStorage(
+                getCorruptPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID), JSON.stringify({ questId: 3 })
+            );
+
+            const state = new GameState();
+            const entry = state.setCurrentPack(PACK_ID);
+
+            expect(entry.resumed).toBeNull();
             expect(state.currentQuestId).toBe(0);
         });
     });
@@ -99,7 +132,7 @@ describe('state-service', () => {
 
             // ... but re-entering the pack resumes the progress
             const restored = new GameState();
-            expect(restored.setCurrentPack(PACK_ID)).not.toBeNull();
+            expect(restored.setCurrentPack(PACK_ID).resumed).not.toBeNull();
             expect(restored.currentQuestId).toBe(2);
         });
 
@@ -159,10 +192,10 @@ describe('state-service', () => {
             state.rollbackPackEntry();
 
             const reentered = new GameState();
-            const loaded = reentered.setCurrentPack(PACK_ID);
-            expect(loaded).not.toBeNull();
-            expect(loaded.questId).toBe(1);
-            expect(loaded.questScores[1].pointsEarned).toBe(SCORING.POINTS_PER_QUEST);
+            const resumed = reentered.setCurrentPack(PACK_ID).resumed;
+            expect(resumed).not.toBeNull();
+            expect(resumed.questId).toBe(1);
+            expect(resumed.questScores[1].pointsEarned).toBe(SCORING.POINTS_PER_QUEST);
         });
 
         it('leaves the same field shape as an instance that never entered a pack', () => {
@@ -227,14 +260,65 @@ describe('state-service', () => {
             }));
 
             const state = new GameState();
-            const loaded = state.setCurrentPack(PACK_ID);
+            const resumed = state.setCurrentPack(PACK_ID).resumed;
 
-            expect(loaded.questId).toBe(2);
+            expect(resumed.questId).toBe(2);
             expect(state.currentQuestId).toBe(2);
             expect(state.activeQuestId).toBe(2);
             expect(state.totalScore).toBe(SCORING.POINTS_PER_QUEST);
             expect(state.loadQuestHintState(2)).toEqual({ hintsUsed: 1, solutionViewed: false });
             expect(state.loadGrimoire(1)).toBe('package quest one');
+    });
+
+    describe('saveGrimoire outcomes', () => {
+        it('reports saved only together with a written body', () => {
+            const state = createState(2);
+
+            expect(state.saveGrimoire(1, 'package one')).toBe(SaveStatus.SAVED);
+            expect(readBody().grimoires[1]).toBe('package one');
+        });
+
+        it('reports a write the storage refused', () => {
+            const state = createState(2);
+            const setItem = vi.spyOn(globalThis.localStorage, 'setItem').mockImplementation(() => {
+                throw new Error('QuotaExceededError');
+            });
+
+            expect(state.saveGrimoire(1, 'package one')).toBe(SaveStatus.FAILED);
+
+            setItem.mockRestore();
+        });
+
+        it('says there is nothing to save on a narrative screen', () => {
+            const state = createState(2);
+            state.enterQuest(0);
+
+            expect(state.saveGrimoire(0, 'package none')).toBe(SaveStatus.IDLE);
+        });
+
+        it('says there is nothing to save once the pack was left', () => {
+            const state = createState(2);
+            state.clearCurrentPack();
+
+            expect(state.saveGrimoire(1, 'package one')).toBe(SaveStatus.IDLE);
+        });
+
+        it('reports the result of writing the packed body', () => {
+            const state = createState(2);
+            expect(state.savePackState()).toBe(true);
+
+            const setItem = vi.spyOn(globalThis.localStorage, 'setItem').mockImplementation(() => {
+                throw new Error('QuotaExceededError');
+            });
+            expect(state.savePackState()).toBe(false);
+            setItem.mockRestore();
+        });
+
+        it('writes nothing when no pack is loaded', () => {
+            const state = new GameState();
+
+            expect(state.savePackState()).toBe(false);
+        });
     });
 
     describe('calculateQuestScore', () => {
@@ -706,7 +790,7 @@ describe('state-service', () => {
         it('rejects saves for quests that do not exist', () => {
             const state = createState(3);
 
-            expect(state.saveGrimoire(99, 'package junk')).toBe(false);
+            expect(state.saveGrimoire(99, 'package junk')).toBe(SaveStatus.IDLE);
             expect(state.loadGrimoire(99)).toBeNull();
         });
 

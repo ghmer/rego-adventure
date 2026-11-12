@@ -36,6 +36,7 @@ import { GameState } from './services/state-service.js';
 import { migrateStorageKeys } from './services/storage-service.js';
 import { EditorService } from './services/editor-service.js';
 import { UIManager } from './managers/ui-manager.js';
+import { GrimoireAutosave } from './managers/grimoire-autosave.js';
 import { QuestManager } from './managers/quest-manager.js';
 import { AudioManager } from './managers/audio-manager.js';
 import { ModalManager } from './managers/modal-manager.js';
@@ -48,10 +49,13 @@ const editorService = new EditorService('#rego-editor');
 const state = new GameState();
 const uiManager = new UIManager(editorService);
 const audioManager = new AudioManager(uiManager);
-const questManager = new QuestManager(state, uiManager);
+const grimoireAutosave = new GrimoireAutosave(state, uiManager);
+const questManager = new QuestManager(state, uiManager, grimoireAutosave);
 const modalManager = new ModalManager(state, uiManager);
 const packManager = new PackManager(state, uiManager, audioManager, questManager, modalManager);
-const eventManager = new EventManager(state, uiManager, questManager, audioManager, modalManager, packManager);
+const eventManager = new EventManager(
+    state, uiManager, questManager, audioManager, modalManager, packManager, grimoireAutosave
+);
 
 /**
  * Start (or resume) the given pack and load its current quest.

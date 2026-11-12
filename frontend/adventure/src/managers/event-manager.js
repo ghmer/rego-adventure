@@ -29,15 +29,16 @@ import { ErrorLevel } from '../services/constants.js';
  * Manages all event listeners
  */
 export class EventManager {
-    constructor(state, uiManager, questManager, audioManager, modalManager, packManager) {
+    constructor(state, uiManager, questManager, audioManager, modalManager, packManager, autosave) {
         this.state = state;
         this.ui = uiManager;
         this.quest = questManager;
         this.audio = audioManager;
         this.modal = modalManager;
         this.pack = packManager;
-        // Pending debounced grimoire save (set by setupEditorListeners)
-        this.saveTimeout = 0;
+        // The editor's pending write: timer, storage write and indicator are
+        // one collaborator, shared with the quest screens that replace content
+        this.autosave = autosave;
         // One verification at a time: the keyboard shortcut cannot be stopped
         // by a button attribute, so the action carries its own guard
         this.verifying = false;
@@ -125,65 +126,39 @@ export class EventManager {
     setupQuestNavigationListeners() {
         if (this.ui.elements.questBackBtn) {
             this.ui.elements.questBackBtn.addEventListener('click', () => {
-                this.saveGrimoire();
+                this.autosave.flush();
                 this.quest.navigateToPreviousQuest();
             });
         }
 
         if (this.ui.elements.questForwardBtn) {
             this.ui.elements.questForwardBtn.addEventListener('click', () => {
-                this.saveGrimoire();
+                this.autosave.flush();
                 this.quest.navigateToNextQuest();
             });
         }
     }
 
     /**
-     * Save the grimoire content of the current quest via the game state
-     * and update the save indicator. No-op on narrative screens (prologue
-     * or epilogue), where there is no quest to save for.
-     * @returns {boolean} True when the content was written successfully
-     */
-    saveGrimoire() {
-        if (!this.state.questsMap?.has(this.state.currentQuestId)) {
-            return false;
-        }
-
-        const saved = this.state.saveGrimoire(this.state.currentQuestId, this.ui.elements.editor.value);
-        this.ui.setSaveIndicator(saved ? 'saved' : 'error');
-        return saved;
-    }
-
-    /**
-     * Setup editor listeners. The 1.5s debounce keeps localStorage writes
-     * off every keystroke; pagehide/visibilitychange flushes make sure the
-     * pending save cannot be lost when the page goes away.
+     * Setup editor listeners. The autosave's debounce keeps storage writes off
+     * every keystroke; blur and the pagehide/visibilitychange flushes make sure
+     * a pending write cannot be lost when the editor or the page goes away.
      */
     setupEditorListeners() {
-        // Debounced save on input
         this.ui.elements.editor.addEventListener('input', () => {
-            this.ui.setSaveIndicator('dirty');
-            clearTimeout(this.saveTimeout);
-            this.saveTimeout = setTimeout(() => {
-                this.saveGrimoire();
-            }, 1500);
+            this.autosave.markDirty();
         });
 
-        // Save immediately when editor loses focus
         this.ui.elements.editor.addEventListener('blur', () => {
-            clearTimeout(this.saveTimeout);
-            this.saveGrimoire();
+            this.autosave.flush();
         });
 
-        // Flush pending saves when the page is hidden or closed
         window.addEventListener('pagehide', () => {
-            clearTimeout(this.saveTimeout);
-            this.saveGrimoire();
+            this.autosave.flush();
         });
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
-                clearTimeout(this.saveTimeout);
-                this.saveGrimoire();
+                this.autosave.flush();
             }
         });
     }
@@ -203,7 +178,7 @@ export class EventManager {
                 this.handleVerify();
             } else if (event.key === 's' || event.key === 'S') {
                 event.preventDefault();
-                if (this.saveGrimoire()) {
+                if (this.autosave.flush()) {
                     showToast('Policy saved.', ErrorLevel.INFO);
                 }
             }
@@ -318,8 +293,9 @@ export class EventManager {
         const gate = this.state.getInteractionGate();
         if (!gate.verifyEnabled || this.verifying) return;
 
-        // Save grimoire content before verifying
-        this.saveGrimoire();
+        // Write the grimoire before verifying, so the code that is checked is
+        // the code on screen
+        this.autosave.flush();
 
         const code = this.ui.elements.editor.value;
         if (!code.trim()) return;

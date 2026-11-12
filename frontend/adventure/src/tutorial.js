@@ -182,7 +182,7 @@ export class TutorialSystem {
                 element: '#editor-save-indicator',
                 popover: {
                     title: 'Save Indicator',
-                    description: 'This light shows the save state of your policy: green means all changes are saved, orange means you are still typing, and red means saving failed. Saving happens automatically, but you can also press Ctrl/Cmd+S to save at any time.',
+                    description: 'This light shows the save state of your policy: green means your changes are saved, orange means you are still typing, red means saving failed, and grey means this screen has no policy to save. Saving happens automatically, but you can also press Ctrl/Cmd+S to save at any time.',
                     side: 'bottom',
                     align: 'center'
                 }

@@ -17,8 +17,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PackManager } from './pack-manager.js';
 import { GameState } from '../services/state-service.js';
-import { getLocalStorage, getPackKey, STORAGE_KEYS } from '../services/storage-service.js';
-import { TIMING } from '../services/constants.js';
+import {
+    getLocalStorage, setLocalStorage, getPackKey, getCorruptPackKey, STORAGE_KEYS
+} from '../services/storage-service.js';
+import { ErrorLevel, TIMING } from '../services/constants.js';
 
 const apiMock = vi.hoisted(() => ({
     fetchPackDetails: vi.fn()
@@ -32,6 +34,9 @@ vi.mock('../services/error-service.js', () => ({ handleApiError: vi.fn() }));
 
 const tutorialMock = vi.hoisted(() => ({ showTutorialPrompt: vi.fn() }));
 vi.mock('../tutorial.js', () => ({ tutorial: { showTutorialPrompt: tutorialMock.showTutorialPrompt } }));
+
+const toastMock = vi.hoisted(() => ({ showToast: vi.fn() }));
+vi.mock('../services/toast-service.js', () => ({ showToast: toastMock.showToast }));
 
 import { handleApiError } from '../services/error-service.js';
 
@@ -154,6 +159,20 @@ describe('PackManager', () => {
     });
 
     describe('entering a pack', () => {
+        it('keeps an unreadable saved body aside and says so', async () => {
+            apiMock.fetchPackDetails.mockResolvedValue(packData('alpha'));
+            const corruptBody = 'not json{';
+            setLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, 'alpha'), corruptBody);
+
+            const { pack } = createFixture();
+            await pack.startAdventure('alpha');
+
+            expect(getLocalStorage(getCorruptPackKey(STORAGE_KEYS.PACK_STATE, 'alpha')))
+                .toBe(corruptBody);
+            expect(toastMock.showToast)
+                .toHaveBeenCalledWith(expect.stringContaining('alpha'), ErrorLevel.WARNING);
+        });
+
         it('applies data, labels, titles, theme links and music', async () => {
             apiMock.fetchPackDetails.mockResolvedValue(packData('alpha'));
             const { state, ui, audio, pack } = createFixture();
