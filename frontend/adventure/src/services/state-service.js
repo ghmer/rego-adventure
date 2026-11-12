@@ -44,14 +44,30 @@ const LABEL_KEYS = {
  */
 export class GameState {
     constructor() {
+        this.initNoPackState();
         this.currentPackId = getLocalStorage(STORAGE_KEYS.PACK_ID);
+
+        // Load pack-specific data if pack is set
+        if (this.currentPackId) {
+            this.loadPackState(this.currentPackId);
+        }
+    }
+
+    /**
+     * The state shape when no pack is loaded. The constructor and a rolled
+     * back pack entry both end here, so neither can leave a pack-scoped field
+     * behind.
+     */
+    initNoPackState() {
+        this.currentPackId = null;
+
         this.quests = [];
-        this.questsMap = null; // Map for O(1) quest lookup by ID
+        this.questsMap = new Map(); // Map for O(1) quest lookup by ID
         this.prologue = [];
         this.epilogue = [];
         this.meta = null;
-        this.currentQuestId = 0;
         this.currentQuest = null;
+        this.currentQuestId = 0;
         this.currentLoreIndex = 0;
 
         // Scoring
@@ -70,13 +86,8 @@ export class GameState {
 
         // UI Labels (loaded from pack metadata; accessed via label())
         this.uiLabels = {};
-
-        // Load pack-specific data if pack is set
-        if (this.currentPackId) {
-            this.loadPackState(this.currentPackId);
-        }
     }
-    
+
     /**
      * Load state for a specific pack from localStorage
      * @param {string} packId - The pack identifier
@@ -144,7 +155,22 @@ export class GameState {
         removeLocalStorage(STORAGE_KEYS.PACK_ID);
         this.currentPackId = null;
     }
-    
+
+    /**
+     * Discard a pack entry whose details never finished loading. The pointer
+     * and every pack-scoped field in memory go with it; nothing is written,
+     * so saved bodies on disk stay exactly as they were. Without this, a
+     * failed entry leaves the pointer on a pack that was never loaded and
+     * the previously loaded pack's quests behind. A fresh body written while
+     * the entry was being made is left alone; it holds no progress.
+     */
+    rollbackPackEntry() {
+        if (!this.currentPackId) return;
+
+        removeLocalStorage(STORAGE_KEYS.PACK_ID);
+        this.initNoPackState();
+    }
+
     /**
      * Save current pack state to localStorage
      */

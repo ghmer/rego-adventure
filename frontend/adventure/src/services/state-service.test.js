@@ -104,6 +104,91 @@ describe('state-service', () => {
         });
     });
 
+    describe('rollbackPackEntry', () => {
+        it('drops the pointer and every pack-scoped field without writing', () => {
+            const loaded = createState(3);
+            loaded.setCurrentQuest(2);
+            loaded.completeQuest(1);
+            const savedBefore = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID));
+
+            // A second pack entry whose details will never arrive
+            const entrant = new GameState();
+            entrant.setCurrentPack('brokenpack');
+            entrant.loadPackData({
+                quests: [{ id: 1 }],
+                prologue: [],
+                epilogue: [],
+                meta: { title: 'Broken' },
+                ui_labels: {}
+            });
+
+            entrant.rollbackPackEntry();
+
+            expect(entrant.currentPackId).toBeNull();
+            expect(getLocalStorage(STORAGE_KEYS.PACK_ID)).toBeNull();
+            expect(entrant.quests).toEqual([]);
+            expect(entrant.questsMap.size).toBe(0);
+            expect(entrant.meta).toBeNull();
+            expect(entrant.currentQuest).toBeNull();
+            expect(entrant.currentQuestId).toBe(0);
+            expect(entrant.activeQuestId).toBe(0);
+            expect(entrant.totalScore).toBe(0);
+            expect(entrant.questScores).toEqual({});
+            expect(entrant.questHints).toEqual({});
+            expect(entrant.grimoires).toEqual({});
+            expect(entrant.isHistoryMode).toBe(false);
+
+            // Nothing was written, so the progress saved by the other pack
+            // is byte for byte what it was
+            expect(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID))).toBe(savedBefore);
+        });
+
+        it('leaves the pack list ready to re-enter the loaded pack', () => {
+            const state = createState(2);
+            state.setCurrentQuest(1);
+            state.completeQuest(1);
+
+            state.rollbackPackEntry();
+
+            const reentered = new GameState();
+            const loaded = reentered.setCurrentPack(PACK_ID);
+            expect(loaded).not.toBeNull();
+            expect(loaded.questId).toBe(1);
+            expect(loaded.questScores[1].pointsEarned).toBe(SCORING.POINTS_PER_QUEST);
+        });
+
+        it('leaves the same field shape as an instance that never entered a pack', () => {
+            const state = createState(2);
+            state.setCurrentQuest(2);
+            state.loadPackData({
+                quests: [{ id: 1 }, { id: 2 }],
+                prologue: [],
+                epilogue: [],
+                meta: { title: 'Alpha' },
+                ui_labels: { verifyButton: 'Verify' }
+            });
+
+            state.rollbackPackEntry();
+
+            const fresh = new GameState();
+
+            // Same fields, same values: nothing pack-scoped survives, and no
+            // field is left in a state a fresh instance would not be in
+            expect(Object.keys(state).sort()).toEqual(Object.keys(fresh).sort());
+            for (const field of Object.keys(fresh)) {
+                expect(state[field]).toEqual(fresh[field]);
+            }
+        });
+
+        it('is a no-op without an active pack', () => {
+            const state = new GameState();
+
+            state.rollbackPackEntry();
+
+            expect(getLocalStorage(STORAGE_KEYS.PACK_ID)).toBeNull();
+        });
+    });
+
     describe('savePackState / loadPackState roundtrip', () => {
         it('restores quest position, score, and quest scores', () => {
             const state = createState(3);

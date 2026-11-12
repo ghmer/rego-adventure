@@ -33,7 +33,7 @@ import { ConfigService } from './services/config-service.js';
 import { AuthService } from './services/auth-service.js';
 import { ApiError, fetchPacks } from './services/api-service.js';
 import { GameState } from './services/state-service.js';
-import { removeLocalStorage, migrateStorageKeys, STORAGE_KEYS } from './services/storage-service.js';
+import { migrateStorageKeys } from './services/storage-service.js';
 import { EditorService } from './services/editor-service.js';
 import { UIManager } from './managers/ui-manager.js';
 import { QuestManager } from './managers/quest-manager.js';
@@ -65,7 +65,8 @@ async function beginQuest(packId) {
     if (beginQuestInFlight) return;
     beginQuestInFlight = true;
     try {
-        await packManager.startAdventure(packId);
+        const entered = await packManager.startAdventure(packId);
+        if (!entered) return;
         questManager.loadQuest(state.currentQuestId);
     } finally {
         beginQuestInFlight = false;
@@ -130,12 +131,10 @@ async function init() {
             try {
                 await beginQuest(state.currentPackId);
             } catch (e) {
-                console.error("Failed to resume:", e);
-                // Persisted pointer is cleared so the next page load
-                // starts clean instead of retrying the broken pack
-                removeLocalStorage(STORAGE_KEYS.PACK_ID);
-                state.currentPackId = null;
-                state.currentQuestId = 0;
+                // A failed entry is rolled back where it was made: the
+                // pointer and all pack-scoped state are gone, so this page
+                // load stays on the pack list
+                console.error('Failed to resume:', e);
             }
         }
     } catch (error) {

@@ -32,41 +32,57 @@ export class PackManager {
         this.state = state;
         this.ui = uiManager;
         this.audio = audioManager;
-        // Incremented on every pack entry/exit; stale async asset
-        // continuations compare against it and bail out
+        // Generation token for the pack and theme context, the single place
+        // its contract is stated: incremented by every pack entry (loadPack)
+        // and by resetToDefaultTheme, and compared by an async continuation
+        // before it writes. loadPack compares it once its fetch settles,
+        // loadPackAssets compares it again after preloading images.
         this.loadSeq = 0;
     }
 
     /**
-     * Load pack details and setup theming
+     * Load the pack's details and apply everything that belongs to the pack:
+     * state data, UI labels, page titles, theme links, asset paints and
+     * music. The generation token is compared as soon as the fetch settles,
+     * so an entry that has been superseded cannot write any of them - only
+     * the fetch itself is allowed to finish.
      * @param {string} packId - Pack identifier
+     * @returns {Promise<boolean>} false when a newer entry, or a move back to
+     *   the default theme, took the page over while these details were in
+     *   flight; true when this entry applied them
+     * @throws {Error} Surfaced through the error service and rethrown so the
+     *   caller can roll the pack entry back
      */
     async loadPack(packId) {
         const seq = ++this.loadSeq;
         try {
             const data = await fetchPackDetails(packId);
-            
+
+            if (seq !== this.loadSeq) return false;
+
             // Load pack data into state
             this.state.loadPackData(data);
-            
+
             // Update UI with pack-specific labels
             this.ui.updateGrimoireTitle(this.state.label('grimoireTitle'));
             this.ui.elements.verifyBtnLabel.textContent = this.state.label('verifyButton');
             this.ui.updateHintButtonText(null, 0, this.state.label('hintButton'));
-            
+
             // Update page titles
             const adventureTitle = this.state.meta?.title || DEFAULT_TEXT.ADVENTURE_TITLE;
             this.ui.updateTitles(adventureTitle);
-            
+
             // Load pack-specific theming
             this.loadPackTheme(packId);
-            
+
             // Load pack-specific assets (not awaited: images appear when
             // preloaded; loadPackAssets checks for staleness itself)
             this.loadPackAssets(packId, seq);
-            
+
             // Setup music
             this.audio.setupMusic(packId);
+
+            return true;
         } catch (error) {
             handleApiError(error, 'load pack details');
             throw error;
@@ -74,7 +90,11 @@ export class PackManager {
     }
 
     /**
-     * Load pack-specific CSS theme
+     * Load pack-specific CSS theme.
+     * custom.css is optional: when it is missing the link removes itself,
+     * which is the only record of that sub-state - "pack themed" then means
+     * theme.css alone. A pack is allowed to ship no custom.css, so this is
+     * not an error and no UI reports it.
      * @param {string} packId - Pack identifier
      */
     loadPackTheme(packId) {
@@ -95,7 +115,7 @@ export class PackManager {
         customLink.href = `/quests/${packId}/custom.css`;
         customLink.setAttribute('data-quest-theme', 'custom');
         customLink.onerror = () => {
-            // Custom CSS is optional, silently ignore if not found
+            // An absent custom.css is recorded here, by the link going away
             customLink.remove();
         };
         document.head.appendChild(customLink);
@@ -181,9 +201,14 @@ export class PackManager {
     }
 
     /**
-     * Start an adventure (new or resume)
+     * Start an adventure (new or resume).
      * @param {string} packId - Pack identifier
-     * @throws {Error} If the pack details fail to load
+     * @returns {Promise<boolean>} false when the entry was superseded by a
+     *   newer one, in which case the caller must not continue into the pack;
+     *   true when the pack is loaded and on screen
+     * @throws {Error} If the pack details fail to load. The pack entry is
+     *   rolled back before the error propagates: no pack pointer and no
+     *   pack-scoped state survive a failed entry.
      */
     async startAdventure(packId) {
         this.ui.hidePerfectScoreButton();
@@ -194,7 +219,14 @@ export class PackManager {
         const isResuming = loaded !== null;
 
         // Load pack details (errors are shown via handleApiError in loadPack)
-        await this.loadPack(packId);
+        let applied;
+        try {
+            applied = await this.loadPack(packId);
+        } catch (error) {
+            this.state.rollbackPackEntry();
+            throw error;
+        }
+        if (!applied) return false;
 
         // Show game interface
         this.ui.showScreen('game');
@@ -206,6 +238,8 @@ export class PackManager {
                 tutorial.showTutorialPrompt();
             }, TIMING.TUTORIAL_SHOW_DELAY);
         }
+
+        return true;
     }
 
     /**
