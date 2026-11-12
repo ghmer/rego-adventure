@@ -143,7 +143,7 @@ describe('PackManager', () => {
             // A second entry now has a saved position to resume, so the
             // prompt is not offered again
             tutorialMock.showTutorialPrompt.mockClear();
-            state.setCurrentQuest(1);
+            state.enterQuest(1);
             await pack.startAdventure('alpha');
             vi.advanceTimersByTime(TIMING.TUTORIAL_SHOW_DELAY);
             expect(tutorialMock.showTutorialPrompt).not.toHaveBeenCalled();

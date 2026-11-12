@@ -101,11 +101,16 @@ export class GameState {
             try {
                 const state = JSON.parse(packedState);
                 this.currentQuestId = state.questId || 0;
-                this.totalScore = state.totalScore || 0;
                 this.questScores = state.questScores || {};
                 this.questHints = state.questHints || {};
                 this.grimoires = state.grimoires || {};
                 this.activeQuestId = state.activeQuestId || this.currentQuestId;
+
+                // totalScore is derived from the quest records, so a stored
+                // total that drifted from them is corrected on load. The
+                // field is still written on save for readers that predate the
+                // derivation.
+                this.totalScore = this.sumQuestScores();
                 return state;
             } catch (e) {
                 console.warn(`Ignoring corrupt saved state for pack "${packId}":`, e);
@@ -226,13 +231,83 @@ export class GameState {
         return this.uiLabels[keys.ui] || DEFAULT_TEXT[keys.fallback];
     }
     
+    // Progression. The cursor (currentQuestId), the frontier (activeQuestId)
+    // and the per-quest records (questScores) are written only by the
+    // operations of this section and by completeQuest. The history mode is
+    // never stored: it follows the cursor.
+
     /**
-     * Set the current quest
-     * @param {number} questId - The quest identifier
+     * Move the cursor onto a quest or narrative screen and derive its mode
+     * @param {number} questId - Quest identifier, 0 for the prologue
      */
-    setCurrentQuest(questId) {
+    enterQuest(questId) {
         this.currentQuestId = questId;
+        this.deriveHistoryMode();
         this.savePackState();
+    }
+
+    /**
+     * Move one quest forward in the linear flow: from the prologue onto the
+     * first quest, or from a quest onto its successor. The frontier only ever
+     * grows, and it stops at the last quest - the epilogue sentinel belongs
+     * to visitEpilogue.
+     *
+     * Whether a move is allowed is the caller's decision: the arrow actions
+     * consult canNavigateForward, while the flow action (begin adventure, the
+     * result dialog's next quest) may step past a completed frontier quest.
+     * @returns {boolean} false when the cursor already sits on the epilogue
+     */
+    advanceQuest() {
+        const target = this.currentQuestId === 0 ? 1 : this.currentQuestId + 1;
+        if (target > this.quests.length + 1) return false;
+
+        this.currentQuestId = target;
+        if (target <= this.quests.length && target > this.activeQuestId) {
+            this.activeQuestId = target;
+        }
+
+        this.deriveHistoryMode();
+        this.savePackState();
+        return true;
+    }
+
+    /**
+     * Move one screen back, under the back rule. Navigating never lowers the
+     * frontier. Unlike advancing, rewinding has no action that may legitimately
+     * step against the guard, so the transition asks it directly.
+     * @returns {boolean} false when the back rule refuses the step
+     */
+    rewindQuest() {
+        if (!this.canNavigateBack()) return false;
+
+        this.currentQuestId -= 1;
+        this.deriveHistoryMode();
+        this.savePackState();
+        return true;
+    }
+
+    /**
+     * Take the transition onto the epilogue: cursor and frontier both land
+     * past the last quest, which makes the epilogue the resume target of the
+     * pack. Render paths do not write this; loadQuest performs the transition
+     * before it renders the epilogue.
+     */
+    visitEpilogue() {
+        this.currentQuestId = this.quests.length + 1;
+        this.activeQuestId = this.currentQuestId;
+        this.deriveHistoryMode();
+        this.savePackState();
+    }
+
+    /**
+     * Derive the mode of the quest the cursor stands on: a completed quest
+     * behind the frontier is history and read-only, everything else is
+     * playable - including a completed frontier quest, which is the only
+     * legitimate way to play a quest twice.
+     */
+    deriveHistoryMode() {
+        const isCompleted = this.questScores[this.currentQuestId] !== undefined;
+        this.isHistoryMode = isCompleted && this.currentQuestId !== this.activeQuestId;
     }
     
     /**
@@ -326,37 +401,51 @@ export class GameState {
     }
     
     /**
-     * Record quest completion and update scores. Replays can never lower
-     * a quest's recorded score: the better of the previous and the new
-     * result is kept, so replaying a completed quest in history mode is
-     * always safe.
+     * Sum the recorded per-quest scores. totalScore is derived from this so
+     * the total cannot drift away from the records that produce it.
+     * @returns {number} The summed points of all recorded quests
+     */
+    sumQuestScores() {
+        return Object.values(this.questScores)
+            .reduce((sum, score) => sum + (score.pointsEarned || 0), 0);
+    }
+
+    /**
+     * Record quest completion and update scores. Replays can never lower a
+     * quest's recorded score: the better of the previous and the new result
+     * stands, together with the reveal counters of the run that produced it.
      * @param {number} questId - The quest identifier
+     * @returns {number} The recorded points for the quest
      */
     completeQuest(questId) {
-        const previousScore = this.questScores[questId]?.pointsEarned || 0;
-        const pointsEarned = Math.max(previousScore, this.calculateQuestScore());
-
-        // Update total score
-        this.totalScore = this.totalScore - previousScore + pointsEarned;
-        
-        // Save quest score details
-        this.questScores[questId] = {
+        const attempt = {
             hintsUsed: this.currentQuestHintsUsed,
             solutionViewed: this.currentQuestSolutionViewed,
-            pointsEarned: pointsEarned
+            pointsEarned: this.calculateQuestScore()
         };
+        const recorded = this.questScores[questId];
+
+        // Score and reveals describe the same run: a replay that does not beat
+        // the recorded score leaves that record, and its reveal accounting,
+        // untouched.
+        const best = recorded && recorded.pointsEarned >= attempt.pointsEarned
+            ? recorded
+            : attempt;
+        this.questScores[questId] = best;
+        this.totalScore = this.sumQuestScores();
 
         // The transient hint entry is superseded by the quest score
         delete this.questHints[questId];
-        
-        // Update active quest to next quest
-        if (questId < this.quests.length) {
+
+        // The frontier only ever grows: completing a quest behind it cannot
+        // lock the quests it had already unlocked
+        if (questId < this.quests.length && questId + 1 > this.activeQuestId) {
             this.activeQuestId = questId + 1;
         }
-        
+
         this.savePackState();
-        
-        return pointsEarned;
+
+        return best.pointsEarned;
     }
     
     /**
@@ -369,37 +458,52 @@ export class GameState {
     }
     
     /**
-     * Check if can navigate to previous quest
-     * @returns {boolean} True if previous quest exists
+     * True when a cursor lies past the last quest, which is where the
+     * epilogue sits.
+     * @param {number} [questId] - Cursor to test, the current one by default
+     * @returns {boolean} True for a cursor past the last quest
+     */
+    isEpilogueCursor(questId = this.currentQuestId) {
+        return this.quests.length > 0 && questId > this.quests.length;
+    }
+
+    /**
+     * The back rule, used by the arrow's disabled state and by the arrow
+     * action alike: one implementation decides both, so a disabled control is
+     * never the only thing keeping a navigation step from happening.
+     * @returns {boolean} True if a quest exists before the current one
      */
     canNavigateBack() {
         return this.currentQuestId > 1;
     }
-    
+
     /**
-     * Check if can navigate to next quest
-     * @returns {boolean} True if next quest is available
+     * The forward rule, used by the arrow's disabled state and by the arrow
+     * action alike. A step forward needs the next quest to be completed, or
+     * history view below the frontier. It deliberately bounds the arrows at
+     * the last quest: the epilogue is reached by the flow action, not here.
+     * @returns {boolean} True if the next quest may be opened
      */
     canNavigateForward() {
-        return this.currentQuestId < this.quests.length && (
-            this.questScores[this.currentQuestId + 1] ||
-            (this.isHistoryMode && this.currentQuestId < this.activeQuestId)
-        );
+        if (this.currentQuestId >= this.quests.length) return false;
+
+        return this.questScores[this.currentQuestId + 1] !== undefined ||
+            (this.isHistoryMode && this.currentQuestId < this.activeQuestId);
     }
     
     /**
-     * Reset all progress for current pack
+     * Reset all progress for the current pack
      */
     resetProgress() {
-        this.currentQuestId = 0;
-        this.activeQuestId = 0;
-        this.totalScore = 0;
         this.questScores = {};
         this.questHints = {};
         this.grimoires = {};
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
-        this.isHistoryMode = false;
+        this.currentQuestId = 0;
+        this.activeQuestId = 0;
+        this.deriveHistoryMode();
+        this.totalScore = this.sumQuestScores();
 
         this.savePackState();
     }

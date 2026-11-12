@@ -121,17 +121,18 @@ export class QuestManager {
         // Handle Prologue
         if (questId === 0) {
             this.showPrologue();
-            this.state.setCurrentQuest(0);
+            this.state.enterQuest(0);
             return;
         }
 
         // Find quest using Map for O(1) lookup
         const questSummary = this.state.questsMap?.get(questId);
         if (!questSummary) {
-            if (this.state.quests.length > 0 && questId > this.state.quests.length) {
-                // Completed all quests - show epilogue
+            if (this.state.isEpilogueCursor(questId)) {
+                // Past the last quest: take the epilogue transition, which
+                // lands the cursor on the epilogue itself, then render it
+                this.state.visitEpilogue();
                 this.showEpilogue();
-                this.state.setCurrentQuest(questId);
                 return;
             }
             console.error(`Quest ${questId} not found`);
@@ -155,10 +156,8 @@ export class QuestManager {
         // Render lore
         this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
 
-        // Check if this quest is in history mode
-        const isCompleted = this.state.questScores[questId] !== undefined;
-        const isActiveQuest = (questId === this.state.activeQuestId);
-        this.state.isHistoryMode = isCompleted && !isActiveQuest;
+        // Move the cursor onto the quest, which derives its history mode
+        this.state.enterQuest(questId);
         
         // Load code
         this.loadQuestCode(questId);
@@ -168,8 +167,6 @@ export class QuestManager {
             this.ui.setEditorReadOnly(true);
         }
         
-        // Update navigation
-        this.state.setCurrentQuest(questId);
         this.updateQuestNavigationButtons();
     }
 
@@ -240,16 +237,13 @@ export class QuestManager {
     }
 
     /**
-     * Show epilogue (victory screen)
+     * Render the epilogue (victory screen). The transition onto it belongs to
+     * GameState.visitEpilogue, which loadQuest takes before calling this, so
+     * nothing here writes cursor or frontier state.
      */
     showEpilogue() {
         this.ui.elements.questCounter.textContent = DEFAULT_TEXT.EPILOGUE_LABEL;
         this.ui.elements.questTitle.textContent = DEFAULT_TEXT.EPILOGUE_TITLE;
-
-        // Set state
-        this.state.currentQuestId = this.state.quests.length + 1;
-        this.state.activeQuestId = this.state.currentQuestId;
-        this.state.isHistoryMode = false;
 
         this.prepareNarrativeStage(
             this.state.epilogue,
@@ -287,7 +281,7 @@ export class QuestManager {
         if (!this.ui.elements.questBackBtn || !this.ui.elements.questForwardBtn) return;
 
         // Hide navigation for prologue or epilogue
-        if (this.state.currentQuestId === 0 || this.state.currentQuestId > this.state.quests.length) {
+        if (this.state.currentQuestId === 0 || this.state.isEpilogueCursor()) {
             this.ui.elements.questBackBtn.classList.add('hidden');
             this.ui.elements.questForwardBtn.classList.add('hidden');
             return;
@@ -306,45 +300,29 @@ export class QuestManager {
      * Navigate to previous quest
      */
     navigateToPreviousQuest() {
-        if (this.state.currentQuestId > 1) {
-            if (!this.state.isHistoryMode) {
-                this.state.activeQuestId = this.state.currentQuestId;
-            }
-            this.state.currentQuestId--;
-            this.loadQuest(this.state.currentQuestId);
-        }
+        if (!this.state.rewindQuest()) return;
+
+        this.loadQuest(this.state.currentQuestId);
     }
 
     /**
-     * Navigate to next quest
+     * Navigate to next quest, under the same forward rule that enables the
+     * button
      */
     navigateToNextQuest() {
-        const maxForwardQuest = this.state.isHistoryMode ? this.state.activeQuestId : this.state.quests.length;
-        
-        if (this.state.currentQuestId < maxForwardQuest) {
-            this.state.currentQuestId++;
-            
-            if (this.state.currentQuestId === this.state.activeQuestId) {
-                this.state.isHistoryMode = false;
-            }
-            
-            this.loadQuest(this.state.currentQuestId);
-        }
+        if (!this.state.canNavigateForward()) return;
+
+        this.state.advanceQuest();
+        this.loadQuest(this.state.currentQuestId);
     }
 
     /**
-     * Proceed to next quest (after completion or from prologue)
+     * Proceed to the next quest of the linear flow: the prologue's begin
+     * button and the result dialog's next quest button. It may step past a
+     * completed frontier quest, which the arrow guard deliberately refuses.
      */
     proceedToNextQuest() {
-        this.state.isHistoryMode = false;
-        
-        if (this.state.currentQuestId === 0) {
-            this.state.currentQuestId = 1;
-        } else {
-            this.state.currentQuestId++;
-        }
-        
-        this.state.activeQuestId = this.state.currentQuestId;
+        if (!this.state.advanceQuest()) return;
 
         this.loadQuest(this.state.currentQuestId);
     }

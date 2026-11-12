@@ -69,12 +69,15 @@ function createUi() {
             editor: document.createElement('textarea'),
             editorPane: document.createElement('section'),
             questTask: document.createElement('p'),
+            questCounter: document.createElement('span'),
+            questTitle: document.createElement('h2'),
             startAdventureBtn: document.createElement('button')
         },
         renderQuest: vi.fn(),
         resetQuestUI: vi.fn(),
         updateQuestFooterVisibility: vi.fn(),
         updateHintButtonText: vi.fn(),
+        updateSupportModulesButton: vi.fn(),
         renderLore: vi.fn(),
         setEditorReadOnly: vi.fn(),
         setEditorValue: vi.fn()
@@ -370,6 +373,138 @@ describe('quest-manager', () => {
 
             expect(state.currentQuestId).toBe(2);
             expect(ui.renderQuest.mock.calls.length).toBe(callsBefore + 1);
+        });
+
+        it('holds the arrow at the frontier instead of skipping an uncompleted quest', () => {
+            const { state, ui, qm } = createFixture([{ id: 1 }, { id: 2 }, { id: 3 }]);
+            state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            state.activeQuestId = 2;
+            qm.loadQuest(2);
+            const callsBefore = ui.renderQuest.mock.calls.length;
+
+            qm.navigateToNextQuest();
+
+            // quest 3 is not completed and this is not history view, so the
+            // single forward rule refuses the step the button would take
+            expect(state.currentQuestId).toBe(2);
+            expect(ui.renderQuest.mock.calls.length).toBe(callsBefore);
+        });
+
+        it('takes the same forward decision as the guard that enables the button', () => {
+            const cases = [
+                { completed: [], frontier: 1, cursor: 1 },
+                { completed: [1], frontier: 2, cursor: 1 },
+                { completed: [1], frontier: 2, cursor: 2 },
+                { completed: [1, 2], frontier: 3, cursor: 1 },
+                { completed: [1, 2], frontier: 3, cursor: 2 },
+                { completed: [1, 2], frontier: 3, cursor: 3 },
+                { completed: [1, 2, 3], frontier: 4, cursor: 3 },
+                { completed: [1, 2, 3], frontier: 4, cursor: 4 }
+            ];
+
+            for (const testCase of cases) {
+                const { state, qm } = createFixture([{ id: 1 }, { id: 2 }, { id: 3 }]);
+                for (const id of testCase.completed) {
+                    state.questScores[id] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+                }
+                state.activeQuestId = testCase.frontier;
+                qm.loadQuest(testCase.cursor);
+
+                const guardAllows = state.canNavigateForward();
+                const cursorBefore = state.currentQuestId;
+                qm.navigateToNextQuest();
+
+                expect({
+                    case: testCase,
+                    moved: state.currentQuestId !== cursorBefore
+                }).toEqual({ case: testCase, moved: guardAllows });
+            }
+        });
+
+        it('keeps the unlocked frontier when the back arrow is followed by the flow action', () => {
+            const { state, qm } = createFixture([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }]);
+            for (const id of [1, 2, 3]) {
+                qm.loadQuest(id);
+                state.completeQuest(id);
+            }
+            expect(state.activeQuestId).toBe(4);
+
+            qm.navigateToPreviousQuest();
+            qm.proceedToNextQuest();
+
+            // the player stands on quest 3 with quest 4 still unlocked
+            expect(state.currentQuestId).toBe(3);
+            expect(state.activeQuestId).toBe(4);
+        });
+    });
+
+    describe('narrative screens', () => {
+        function createNarrativeFixture() {
+            const quests = [{ id: 1 }, { id: 2 }, { id: 3 }];
+            const fixture = createFixture(quests);
+            for (const id of [1, 2, 3]) {
+                fixture.state.questScores[id] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            }
+            fixture.state.activeQuestId = 4;
+            return fixture;
+        }
+
+        it('renders the epilogue without touching progression state', () => {
+            const { state, qm } = createNarrativeFixture();
+            state.enterQuest(4);
+
+            qm.showEpilogue();
+
+            expect(state.currentQuestId).toBe(4);
+            expect(state.activeQuestId).toBe(4);
+            expect(state.isHistoryMode).toBe(false);
+        });
+
+        it('takes the epilogue transition while loading it, and persists it', () => {
+            const { state, ui, qm } = createNarrativeFixture();
+
+            qm.loadQuest(4);
+
+            expect(state.currentQuestId).toBe(4);
+            expect(state.activeQuestId).toBe(4);
+            expect(state.isHistoryMode).toBe(false);
+            expect(ui.elements.questCounter.textContent).toBe('Epilogue');
+            expect(JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID))).questId).toBe(4);
+        });
+
+        it('resumes a saved epilogue cursor onto the epilogue', () => {
+            const quests = [{ id: 1 }, { id: 2 }, { id: 3 }];
+
+            // A page that finished the pack and stayed on the epilogue
+            const finished = createFixture(quests);
+            for (const id of [1, 2, 3]) {
+                finished.state.questScores[id] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            }
+            finished.state.visitEpilogue();
+
+            // The next page load resumes from storage, then loads the pack
+            const resumed = new GameState();
+            resumed.setCurrentPack(PACK_ID);
+            resumed.loadPackData({ quests, prologue: ['p'], epilogue: ['e'], meta: null, ui_labels: {} });
+            const ui = createUi();
+            const qm = new QuestManager(resumed, ui);
+
+            expect(resumed.currentQuestId).toBe(4);
+
+            qm.loadQuest(resumed.currentQuestId);
+
+            expect(resumed.currentQuestId).toBe(4);
+            expect(resumed.activeQuestId).toBe(4);
+            expect(ui.elements.questCounter.textContent).toBe('Epilogue');
+        });
+
+        it('normalizes a cursor past the last quest onto the epilogue', () => {
+            const { state, qm } = createNarrativeFixture();
+
+            qm.loadQuest(99);
+
+            expect(state.currentQuestId).toBe(4);
+            expect(state.activeQuestId).toBe(4);
         });
     });
 

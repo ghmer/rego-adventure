@@ -39,6 +39,14 @@ function createState(questCount) {
     return state;
 }
 
+/**
+ * Read the saved packed state of the test pack.
+ * @returns {Object} The stored state body
+ */
+function readBody() {
+    return JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID)));
+}
+
 describe('state-service', () => {
     beforeEach(() => {
         localStorage.clear();
@@ -76,7 +84,7 @@ describe('state-service', () => {
     describe('clearCurrentPack', () => {
         it('clears the active pack pointer and keeps the packed state', () => {
             const state = createState(3);
-            state.setCurrentQuest(2);
+            state.enterQuest(2);
             state.currentQuestHintsUsed = 1;
             state.completeQuest(2);
 
@@ -107,7 +115,7 @@ describe('state-service', () => {
     describe('rollbackPackEntry', () => {
         it('drops the pointer and every pack-scoped field without writing', () => {
             const loaded = createState(3);
-            loaded.setCurrentQuest(2);
+            loaded.enterQuest(2);
             loaded.completeQuest(1);
             const savedBefore = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID));
 
@@ -145,7 +153,7 @@ describe('state-service', () => {
 
         it('leaves the pack list ready to re-enter the loaded pack', () => {
             const state = createState(2);
-            state.setCurrentQuest(1);
+            state.enterQuest(1);
             state.completeQuest(1);
 
             state.rollbackPackEntry();
@@ -159,7 +167,7 @@ describe('state-service', () => {
 
         it('leaves the same field shape as an instance that never entered a pack', () => {
             const state = createState(2);
-            state.setCurrentQuest(2);
+            state.enterQuest(2);
             state.loadPackData({
                 quests: [{ id: 1 }, { id: 2 }],
                 prologue: [],
@@ -192,7 +200,7 @@ describe('state-service', () => {
     describe('savePackState / loadPackState roundtrip', () => {
         it('restores quest position, score, and quest scores', () => {
             const state = createState(3);
-            state.setCurrentQuest(2);
+            state.enterQuest(2);
             state.currentQuestHintsUsed = 1;
             state.completeQuest(2);
 
@@ -208,6 +216,25 @@ describe('state-service', () => {
             });
             expect(restored.activeQuestId).toBe(3);
         });
+
+        it('resumes a body written before the total score was derived', () => {
+            setLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID), JSON.stringify({
+                questId: 2,
+                totalScore: 18,
+                questScores: { 1: { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 } },
+                questHints: { 2: { hintsUsed: 1, solutionViewed: false } },
+                grimoires: { 1: 'package quest one' }
+            }));
+
+            const state = new GameState();
+            const loaded = state.setCurrentPack(PACK_ID);
+
+            expect(loaded.questId).toBe(2);
+            expect(state.currentQuestId).toBe(2);
+            expect(state.activeQuestId).toBe(2);
+            expect(state.totalScore).toBe(SCORING.POINTS_PER_QUEST);
+            expect(state.loadQuestHintState(2)).toEqual({ hintsUsed: 1, solutionViewed: false });
+            expect(state.loadGrimoire(1)).toBe('package quest one');
     });
 
     describe('calculateQuestScore', () => {
@@ -254,6 +281,200 @@ describe('state-service', () => {
 
             expect(state.questScores[2]).toBeDefined();
             expect(state.activeQuestId).not.toBe(3);
+        });
+    });
+    });
+    describe('progression transitions', () => {
+        it('derives history mode from the cursor and the frontier', () => {
+            const state = createState(4);
+            for (const id of [1, 2]) {
+                state.enterQuest(id);
+                state.completeQuest(id);
+            }
+
+            state.enterQuest(1);
+
+            expect(state.currentQuestId).toBe(1);
+            expect(state.isHistoryMode).toBe(true);
+
+            state.enterQuest(3);
+            expect(state.isHistoryMode).toBe(false);
+        });
+
+        it('persists the cursor the transition moved to', () => {
+            const state = createState(3);
+            state.enterQuest(2);
+
+            expect(readBody().questId).toBe(2);
+        });
+
+        it('keeps the frontier where a completed quest unlocked it', () => {
+            const state = createState(5);
+            for (const id of [1, 2, 3]) {
+                state.enterQuest(id);
+                state.completeQuest(id);
+            }
+            expect(state.activeQuestId).toBe(4);
+
+            state.rewindQuest();
+            state.advanceQuest();
+
+            expect(state.currentQuestId).toBe(3);
+            expect(state.activeQuestId).toBe(4);
+        });
+
+        it('does not lower the frontier when the frontier quest is left behind', () => {
+            const state = createState(4);
+            for (const id of [1, 2, 3]) {
+                state.enterQuest(id);
+                state.completeQuest(id);
+            }
+
+            state.enterQuest(4);
+            state.rewindQuest();
+
+            expect(state.currentQuestId).toBe(3);
+            expect(state.activeQuestId).toBe(4);
+        });
+
+        it('does not lower the frontier when the flow restarts at the prologue', () => {
+            const state = createState(4);
+            for (const id of [1, 2, 3]) {
+                state.enterQuest(id);
+                state.completeQuest(id);
+            }
+
+            state.enterQuest(0);
+            state.advanceQuest();
+
+            expect(state.currentQuestId).toBe(1);
+            expect(state.activeQuestId).toBe(4);
+        });
+
+        it('raises the frontier when a quest unlocks one', () => {
+            const state = createState(3);
+
+            state.enterQuest(0);
+            state.advanceQuest();
+            expect(state.currentQuestId).toBe(1);
+            expect(state.activeQuestId).toBe(1);
+
+            state.completeQuest(1);
+            expect(state.activeQuestId).toBe(2);
+        });
+
+        it('records the epilogue as the resume target when it is visited', () => {
+            const state = createState(2);
+            for (const id of [1, 2]) {
+                state.enterQuest(id);
+                state.completeQuest(id);
+            }
+
+            state.visitEpilogue();
+
+            expect(state.currentQuestId).toBe(3);
+            expect(state.activeQuestId).toBe(3);
+            expect(readBody().questId).toBe(3);
+
+            const resumed = new GameState();
+            resumed.setCurrentPack(PACK_ID);
+            expect(resumed.currentQuestId).toBe(3);
+            expect(resumed.activeQuestId).toBe(3);
+        });
+
+        it('stops at the end of the quest list', () => {
+            const state = createState(1);
+
+            state.advanceQuest();
+            state.advanceQuest();
+
+            expect(state.currentQuestId).toBe(2);
+            expect(state.advanceQuest()).toBe(false);
+            expect(state.currentQuestId).toBe(2);
+
+            // the frontier sentinel belongs to the epilogue transition
+            expect(state.activeQuestId).toBe(1);
+        });
+
+        it('refuses to rewind before the first quest', () => {
+            const state = createState(3);
+            state.enterQuest(1);
+
+            expect(state.rewindQuest()).toBe(false);
+            expect(state.currentQuestId).toBe(1);
+        });
+    });
+
+    describe('completeQuest replay accounting', () => {
+        it('keeps the reveal record of the run that produced the recorded score', () => {
+            const state = createState(3);
+            state.enterQuest(2);
+            state.completeQuest(2);
+
+            state.currentQuestHintsUsed = 2;
+            state.currentQuestSolutionViewed = true;
+            const pointsEarned = state.completeQuest(2);
+
+            expect(pointsEarned).toBe(SCORING.POINTS_PER_QUEST);
+            expect(state.questScores[2].pointsEarned).toBe(SCORING.POINTS_PER_QUEST);
+            expect(state.questScores[2].hintsUsed).toBe(0);
+            expect(state.questScores[2].solutionViewed).toBe(false);
+            expect(state.loadQuestHintState(2)).toEqual({ hintsUsed: 0, solutionViewed: false });
+        });
+
+        it('records a better replay together with its reveals', () => {
+            const state = createState(3);
+            state.enterQuest(2);
+
+            state.currentQuestHintsUsed = 3;
+            state.completeQuest(2);
+            expect(state.questScores[2].pointsEarned).toBe(SCORING.POINTS_PER_QUEST - SCORING.MAX_HINT_PENALTY);
+
+            state.currentQuestHintsUsed = 1;
+            state.completeQuest(2);
+
+            expect(state.questScores[2].pointsEarned).toBe(SCORING.POINTS_PER_QUEST - SCORING.POINTS_PER_HINT);
+            expect(state.questScores[2].hintsUsed).toBe(1);
+        });
+    });
+
+    describe('totalScore', () => {
+        it('stays equal to the sum of the recorded quests', () => {
+            const state = createState(3);
+            state.enterQuest(1);
+            state.completeQuest(1);
+            state.enterQuest(2);
+            state.currentQuestHintsUsed = 1;
+            state.completeQuest(2);
+            state.enterQuest(2);
+            state.completeQuest(2);
+
+            expect(state.totalScore).toBe(2 * SCORING.POINTS_PER_QUEST - SCORING.POINTS_PER_HINT);
+            expect(state.totalScore).toBe(state.sumQuestScores());
+        });
+
+        it('is derived from the recorded quests on load', () => {
+            setLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID), JSON.stringify({
+                questId: 3,
+                totalScore: 999,
+                questScores: {
+                    1: { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 },
+                    2: { hintsUsed: 1, solutionViewed: false, pointsEarned: 8 }
+                }
+            }));
+
+            const state = new GameState();
+            state.setCurrentPack(PACK_ID);
+
+            expect(state.totalScore).toBe(18);
+        });
+
+        it('is written for readers that predate the derivation', () => {
+            const state = createState(2);
+            state.enterQuest(1);
+            state.completeQuest(1);
+
+            expect(readBody().totalScore).toBe(SCORING.POINTS_PER_QUEST);
         });
     });
 
@@ -335,7 +556,7 @@ describe('state-service', () => {
     describe('persistQuestHintState / loadQuestHintState', () => {
         it('round-trips the revealed hint state of the current quest', () => {
             const state = createState(3);
-            state.setCurrentQuest(2);
+            state.enterQuest(2);
             state.currentQuestHintsUsed = 2;
             state.persistQuestHintState();
 
@@ -351,7 +572,7 @@ describe('state-service', () => {
 
         it('keeps hint state inside the packed state', () => {
             const state = createState(3);
-            state.setCurrentQuest(2);
+            state.enterQuest(2);
             state.currentQuestHintsUsed = 1;
             state.persistQuestHintState();
 
@@ -376,7 +597,7 @@ describe('state-service', () => {
 
         it('drops the transient hint entry on completion', () => {
             const state = createState(3);
-            state.setCurrentQuest(1);
+            state.enterQuest(1);
             state.currentQuestHintsUsed = 1;
             state.persistQuestHintState();
 
@@ -401,7 +622,7 @@ describe('state-service', () => {
     describe('saveGrimoire / loadGrimoire', () => {
         it('round-trips the editor content of a quest', () => {
             const state = createState(3);
-            state.setCurrentQuest(1);
+            state.enterQuest(1);
             state.saveGrimoire(1, 'package saved');
 
             const restored = new GameState();
