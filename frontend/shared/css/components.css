@@ -1193,6 +1193,21 @@ dialog#result-modal[open] {
     }
 }
 
+/* The pulsing call-to-action buttons are decoration: they point at a control,
+   they carry no information of their own. Under a reduced-motion preference an
+   infinite animation has to stop. #perfect-score-btn gets its pulse from
+   base.css, so its id is repeated here rather than left to cascade luck. The
+   start screen's login button is silenced by its own rule,
+   "#start-screen .action-btn.login-btn" in frontend/adventure/styles/theme.css,
+   and is not repeated here. */
+@media (prefers-reduced-motion: reduce) {
+    .action-btn.success,
+    .perfect-score-btn,
+    #perfect-score-btn {
+        animation: none;
+    }
+}
+
 /* Tablet responsive styles */
 @media (min-width: 769px) and (max-width: 1024px) {
     .start-content {

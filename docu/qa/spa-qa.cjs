@@ -569,6 +569,53 @@ async function playingThePack(browser, report, binary) {
     await server.stop('SIGTERM');
 }
 
+// The pulsing call-to-action buttons are decoration, so a reduced-motion
+// preference stops them. Both halves matter: the pulse is there when motion is
+// welcome, and gone when it is not.
+async function decorativeMotion(browser, report, binary) {
+    console.log('\nreduced motion');
+    const server = new Server({ cwd: repoRoot, port: PORT, binary });
+    await server.start({ packs: [] });
+
+    const harness = await newPage(browser, PORT);
+    const { page } = harness;
+    const SELECTORS = ['#next-quest-btn', '#perfect-score-btn'];
+
+    const animationNames = async () => {
+        const reading = await page.evaluate((selectors) => selectors.map((selector) => {
+            const element = document.querySelector(selector);
+            return `${selector}=${element ? getComputedStyle(element).animationName : 'missing'}`;
+        }).join(' '), SELECTORS);
+        const names = {};
+        for (const entry of reading.split(' ')) {
+            const at = entry.indexOf('=');
+            names[entry.slice(0, at)] = entry.slice(at + 1);
+        }
+        return names;
+    };
+
+    await openStartScreen(harness);
+
+    const pulsing = await animationNames();
+    report.check(
+        'the call-to-action buttons pulse while motion is welcome',
+        Object.values(pulsing).every((name) => name === 'pulse'),
+        JSON.stringify(pulsing)
+    );
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const calmed = await animationNames();
+    report.check(
+        'a reduced-motion preference stops the pulse',
+        Object.values(calmed).every((name) => name === 'none'),
+        JSON.stringify(calmed)
+    );
+
+    await harness.context.close();
+    await server.stop('SIGTERM');
+}
+
 async function main() {
     // What the tree already looked like before this suite touched anything: the
     // run is judged on what it adds, not on what the developer had going.
@@ -607,6 +654,8 @@ async function main() {
             await emptyPackDirectory(browser, report, binary);
             phase = 'entering a pack, playing it, leaving it';
             await playingThePack(browser, report, binary);
+            phase = 'reduced motion';
+            await decorativeMotion(browser, report, binary);
         });
     } catch (error) {
         if (!error.reported) {
