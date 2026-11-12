@@ -1,0 +1,185 @@
+{
+    "id": "",
+    "meta": {
+        "title": "Quest Pack: qa-editor",
+        "description": "A new adventure awaits.",
+        "genre": "qa-editor",
+        "initial_objective": "Read the instructions to begin your journey.",
+        "final_objective": "Celebrate your mastery of Rego policies!"
+    },
+    "ui_labels": {
+        "grimoire_title": "Policy Grimoire",
+        "hint_button": "Ask Advisor",
+        "verify_button": "Apply Policy",
+        "verifying": "Verifying\u2026",
+        "message_success": "Quest Complete!",
+        "message_failure": "Quest Failed",
+        "perfect_score_message": "You have achieved perfection in mastering Rego policies!",
+        "perfect_score_button_text": "A Secret Awaits...",
+        "begin_adventure_button": "Begin Adventure"
+    },
+    "prologue": [
+        "Welcome to the new world.",
+        "Your journey begins here."
+    ],
+    "epilogue": [
+        "You have completed the journey.",
+        "Well done."
+    ],
+    "quests": [
+        {
+            "id": 9,
+            "title": "First Steps",
+            "description_lore": [
+                "You stand at the beginning of a new path.",
+                "The gatekeeper asks for the password."
+            ],
+            "description_task": "Allow access if the password is correct.",
+            "manual": {
+                "data_model": "| Field | Description |\n|-------|-------------|\n| `input.password` | The password provided by the user |",
+                "rego_snippet": "To check if a password matches:\n```rego\nallow if input.password == \"secret\"\n```",
+                "external_link": ""
+            },
+            "hints": [
+                "Use the `==` operator to compare the password.",
+                "Access the password from `input.password`.",
+                "The correct password is \"secret\"."
+            ],
+            "solution": "default allow := false\nallow if input.password == \"secret\"",
+            "tests": [
+                {
+                    "id": 101,
+                    "payload": {
+                        "input": {
+                            "password": "wrong"
+                        }
+                    },
+                    "expected_value": false
+                },
+                {
+                    "id": 102,
+                    "payload": {
+                        "input": {
+                            "password": "secret"
+                        }
+                    },
+                    "expected_value": true
+                }
+            ],
+            "apply_template": true,
+            "template": "package play\n\ndefault allow := false\n\n",
+            "query": "data.play.allow"
+        },
+        {
+            "id": 4,
+            "title": "Inventory Check",
+            "description_lore": [
+                "The guard checks your bag.",
+                "You need a pass to enter."
+            ],
+            "description_task": "Allow access if user has a 'pass' in inventory.",
+            "manual": {
+                "data_model": "| Field | Description |\n|-------|-------------|\n| `input.user.inventory` | A list of items the user is carrying |",
+                "rego_snippet": "To check if an item is in a list:\n```rego\nallow if \"item\" in input.list\n```\nOr using array iteration:\n```rego\nallow if input.list[_] == \"item\"\n```",
+                "external_link": ""
+            },
+            "hints": [
+                "Use array iteration with `[_]` to check each item in the inventory.",
+                "Access the inventory at `input.user.inventory`.",
+                "Check if any item equals \"pass\"."
+            ],
+            "solution": "default allow := false\nallow if input.user.inventory[_] == \"pass\"",
+            "tests": [
+                {
+                    "id": 201,
+                    "payload": {
+                        "input": {
+                            "user": {
+                                "inventory": [
+                                    "apple"
+                                ]
+                            }
+                        }
+                    },
+                    "expected_value": false
+                },
+                {
+                    "id": 202,
+                    "payload": {
+                        "input": {
+                            "user": {
+                                "inventory": [
+                                    "apple",
+                                    "pass"
+                                ]
+                            }
+                        }
+                    },
+                    "expected_value": true
+                }
+            ],
+            "apply_template": true,
+            "template": "package play\n\ndefault allow := false\n\n",
+            "query": "data.play.allow"
+        },
+        {
+            "id": 7,
+            "title": "Data Lookup",
+            "description_lore": [
+                "You need to check the registry.",
+                "Only registered users can pass."
+            ],
+            "description_task": "Allow access if user is in the registry.",
+            "manual": {
+                "data_model": "| Field | Description |\n|-------|-------------|\n| `input.user.name` | The name of the user |\n| `data.registry` | A list of registered users |",
+                "rego_snippet": "To check if a value exists in a data list:\n```rego\nallow if input.value == data.list[_]\n```",
+                "external_link": ""
+            },
+            "hints": [
+                "Compare the user's name against each entry in the registry.",
+                "Use `data.registry[_]` to iterate through the registry list.",
+                "The user name is at `input.user.name`."
+            ],
+            "solution": "default allow := false\nallow if input.user.name == data.registry[_]",
+            "tests": [
+                {
+                    "id": 301,
+                    "payload": {
+                        "input": {
+                            "user": {
+                                "name": "Stranger"
+                            }
+                        },
+                        "data": {
+                            "registry": [
+                                "Alice",
+                                "Bob"
+                            ]
+                        }
+                    },
+                    "expected_value": false
+                },
+                {
+                    "id": 302,
+                    "payload": {
+                        "input": {
+                            "user": {
+                                "name": "Alice"
+                            }
+                        },
+                        "data": {
+                            "registry": [
+                                "Alice",
+                                "Bob"
+                            ]
+                        }
+                    },
+                    "expected_value": true
+                }
+            ],
+            "apply_template": true,
+            "template": "package play\n\ndefault allow := false\n\n",
+            "query": "data.play.allow"
+        }
+    ]
+}

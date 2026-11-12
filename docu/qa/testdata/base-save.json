@@ -1,0 +1,9 @@
+{
+  "capturedFrom": "6ee2d94 (the refactor's base commit)",
+  "pack": "qasave",
+  "policy": "package play\n\ndefault allow = false\n\nallow if {\n    input.password = \"secret\"\n}\n",
+  "keys": {
+    "rego_pack_id": "qasave",
+    "rego_pack_state_qasave": "{\"questId\":1,\"totalScore\":10,\"questScores\":{\"1\":{\"hintsUsed\":0,\"solutionViewed\":false,\"pointsEarned\":10}},\"questHints\":{},\"grimoires\":{\"1\":\"package play\\n\\ndefault allow = false\\n\\nallow if {\\n    input.password = \\\"secret\\\"\\n}\\n\"},\"activeQuestId\":2}"
+  }
+}
