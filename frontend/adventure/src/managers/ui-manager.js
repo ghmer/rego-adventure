@@ -214,12 +214,23 @@ export class UIManager {
     }
 
     /**
-     * Render pack list on start screen
+     * Render pack list on start screen. The server answers an empty list when
+     * it runs with no pack directory; that condition is stated here rather than
+     * left as a blank selection.
      * @param {Array} packs - Array of pack objects
      * @param {Function} onPackClick - Callback when pack is clicked
      */
     renderPackList(packs, onPackClick) {
         this.elements.questPackList.innerHTML = '';
+
+        if (packs.length === 0) {
+            const notice = document.createElement('p');
+            notice.className = 'pack-list-empty';
+            notice.textContent = 'No adventure packs are loaded. Start the server with a pack directory.';
+            this.elements.questPackList.appendChild(notice);
+            return;
+        }
+
         const sortedPacks = [...packs].sort((a, b) => a.title.localeCompare(b.title));
         const template = document.getElementById('quest-pack-card-template');
         

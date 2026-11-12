@@ -54,6 +54,13 @@
     width: 100%;
 }
 
+/* The start screen states an empty pack list instead of showing nothing */
+.pack-list-empty {
+    color: var(--muted-color, #a8a29e);
+    font-style: italic;
+    padding: 1rem 0;
+}
+
 .quest-pack-card {
     background-color: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--accent-color);

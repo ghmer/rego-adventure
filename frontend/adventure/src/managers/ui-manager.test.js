@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UIManager } from './ui-manager.js';
 import { SaveStatus } from '../services/constants.js';
 
@@ -288,6 +288,50 @@ describe('ui-manager', () => {
 
             ui.resetInterfaceMinimized();
             expect(minimizeState(ui).minimized).toBe(false);
+        });
+    });
+
+    describe('renderPackList', () => {
+        /**
+         * Build a UIManager over the start screen's pack list.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createPackListUi() {
+            document.body.innerHTML = `
+                <template id="quest-pack-card-template">
+                    <div class="quest-pack-card">
+                        <h3 class="pack-title"></h3>
+                        <p class="pack-description"></p>
+                        <span class="genre-badge hidden"></span>
+                    </div>
+                </template>
+                <div id="quest-pack-list"></div>
+            `;
+            return new UIManager({ textarea: document.createElement('textarea') });
+        }
+
+        it('says so when the server loaded no packs', () => {
+            const ui = createPackListUi();
+
+            ui.renderPackList([], vi.fn());
+
+            const list = ui.elements.questPackList;
+            expect(list.querySelector('.quest-pack-card'), 'no cards').toBe(null);
+            expect(list.textContent).toContain('No adventure packs are loaded');
+        });
+
+        it('renders the cards, and no notice, when packs exist', () => {
+            const ui = createPackListUi();
+            const onPackClick = vi.fn();
+
+            ui.renderPackList([{ id: 'alpha', title: 'Alpha', description: 'first', genre: 'tech' }], onPackClick);
+
+            const list = ui.elements.questPackList;
+            expect(list.querySelectorAll('.quest-pack-card').length).toBe(1);
+            expect(list.textContent).not.toContain('No adventure packs are loaded');
+
+            list.querySelector('.quest-pack-card').click();
+            expect(onPackClick).toHaveBeenCalledWith('alpha');
         });
     });
 });

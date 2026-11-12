@@ -30,7 +30,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// verifyTimeout bounds a single solution verification. Well-formed quest
+// verifyTimeout bounds a single solution verification; it is the shortest
+// handler bound in the request clock table in shutdown.go. Well-formed quest
 // policies evaluate in milliseconds; the timeout only catches pathological
 // policies (unbounded loops, oversized comprehensions). It starts at the
 // shared quest package budget and is a var so tests can shrink it.
@@ -90,10 +91,17 @@ func (h *Handler) RegisterRoutes(r gin.IRouter) {
 	r.POST("/verify", h.VerifySolution)
 }
 
-// GetPacks returns an array of info objects. Used on the frontpage to list all available adventures
+// GetPacks returns an array of info objects. Used on the frontpage to list all available adventures.
+//
+// The response is always a JSON array. An empty repository answers [] rather
+// than null: running with no pack directory is a legal, machine-readable
+// condition, and the client renders it as such instead of presenting an empty
+// selection.
 func (h *Handler) GetPacks(c *gin.Context) {
 	packs := h.questRepo.GetAllPacks()
 	// Return simplified list for selection
+	// make, not nil: a nil slice would marshal to null, and the empty
+	// condition is defined as an empty array.
 	simplified := make([]gin.H, 0, len(packs))
 	for _, p := range packs {
 		simplified = append(simplified, gin.H{

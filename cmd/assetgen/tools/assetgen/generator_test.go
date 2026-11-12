@@ -100,3 +100,70 @@ func TestGenerateThemeRejectsNamesEscapingOutputDir(t *testing.T) {
 		}
 	}
 }
+
+// TestGenerateThemeRollsBackAFailedStep: a later step that cannot write must
+// not leave the earlier steps' output behind as a half-written pack, and must
+// not touch what was already in the pack directory.
+func TestGenerateThemeRollsBackAFailedStep(t *testing.T) {
+	out := t.TempDir()
+	theme := "rollbackpack"
+	pack := filepath.Join(out, theme)
+
+	// A directory where theme.css belongs: quests.json and the assets are
+	// generated first, then theme.css fails to open.
+	blocker := filepath.Join(pack, "theme.css")
+	if err := os.MkdirAll(blocker, 0750); err != nil {
+		t.Fatalf("failed to place the blocker: %v", err)
+	}
+
+	if err := GenerateTheme(theme, out); err == nil {
+		t.Fatal("GenerateTheme succeeded although theme.css cannot be written")
+	}
+
+	for _, name := range []string{
+		"quests.json",
+		filepath.Join("assets", "bg-adventure.jpg"),
+		filepath.Join("assets", "hero-avatar.png"),
+		filepath.Join("assets", "bg-music.m4a"),
+	} {
+		if _, err := os.Stat(filepath.Join(pack, name)); !os.IsNotExist(err) {
+			t.Errorf("%s survived the failed run (stat: %v)", name, err)
+		}
+	}
+
+	if _, err := os.Stat(blocker); err != nil {
+		t.Errorf("the pack directory that was there before the run is gone: %v", err)
+	}
+}
+
+// TestGenerateThemeLeavesPackContentsOnAnEarlyFailure: when the very first
+// step fails, the pack directory keeps exactly what it held before.
+func TestGenerateThemeLeavesPackContentsOnAnEarlyFailure(t *testing.T) {
+	out := t.TempDir()
+	theme := "earlyfailpack"
+	pack := filepath.Join(out, theme)
+
+	blocker := filepath.Join(pack, "assets")
+	if err := os.MkdirAll(pack, 0750); err != nil {
+		t.Fatalf("failed to create pack directory: %v", err)
+	}
+	if err := os.WriteFile(blocker, []byte("not a directory"), 0600); err != nil { // #nosec G304 -- path under t.TempDir()
+		t.Fatalf("failed to place the blocker: %v", err)
+	}
+
+	if err := GenerateTheme(theme, out); err == nil {
+		t.Fatal("GenerateTheme succeeded although the assets directory cannot be created")
+	}
+
+	entries, err := os.ReadDir(pack)
+	if err != nil {
+		t.Fatalf("failed to read the pack directory: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "assets" {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("pack directory holds %v, want only the pre-existing assets file", names)
+	}
+}

@@ -313,7 +313,7 @@ Mount a PersistentVolume containing your custom impressum.html file to `/app/fro
 
 ## Quest Packs
 
-Quest packs are defined in JSON format in a dedicated folder under [`frontend/quests/`](frontend/quests/) (for example: `frontend/quests/my-quest-pack`). Each pack contains:
+Quest packs are defined in JSON format in a dedicated folder under [`frontend/quests/`](frontend/quests/) (for example: `frontend/quests/my-quest-pack`). If that folder holds no pack, the application still starts: `/api/packs` answers an empty list and the start screen says that no adventure packs are loaded instead of showing an empty selection. Each pack contains:
 
 - Metadata (title, description, genre)
 - Prologue and epilogue narratives
@@ -322,7 +322,7 @@ Quest packs are defined in JSON format in a dedicated folder under [`frontend/qu
 
 ### Asset Generator
 
-The asset generator tool creates new quest pack scaffolding with placeholder assets and configuration files.
+The asset generator tool creates new quest pack scaffolding with placeholder assets and configuration files. A run that fails part way through leaves no partial pack: everything it had already written below the pack directory is removed again, and content that was already there is left alone.
 
 **Location:** [`cmd/assetgen/`](cmd/assetgen/)
 

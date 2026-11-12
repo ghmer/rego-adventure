@@ -148,6 +148,13 @@ func TestGetPacks_EmptyRepository(t *testing.T) {
 		t.Errorf("expected status 200, got %d", w.Code)
 	}
 
+	// The empty condition is an empty array, not null: the client tells
+	// "no packs are loaded" apart from a malformed response only if the
+	// contract holds at the byte level.
+	if body := strings.TrimSpace(w.Body.String()); body != "[]" {
+		t.Fatalf("expected an empty JSON array, got %s", body)
+	}
+
 	var result []map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)

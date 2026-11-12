@@ -33,11 +33,28 @@ const DefaultShutdownTimeout = 10 * time.Second
 // cannot hold connections and handlers indefinitely; IdleTimeout reaps
 // keep-alive connections between requests.
 //
-// The verify endpoint's own evaluation budget is 3s (handlers.go), so
-// ReadTimeout must cover reading a body within the 1 MiB limit and the
-// handler running to completion; WriteTimeout must cover writing the
-// response after that. Both leave headroom above DefaultShutdownTimeout
-// only via separate dimensions: they apply per request, not to the drain.
+// The clocks of one request and of one boot, and where each is set. They are
+// independent values; changing one means re-checking the others against it.
+//
+//	clock                                    value   set in
+//	------------------------------------------------------------------
+//	request, headers only                    5s      shutdown.go
+//	request, whole request including body    15s     shutdown.go
+//	response write                           15s     shutdown.go
+//	keep-alive connection between requests   120s    shutdown.go
+//	graceful shutdown drain                  10s     shutdown.go, main.go
+//	one solution verification                3s      quest.DefaultVerifyTimeout, used by Verify
+//	OIDC discovery at boot                   10s     config/config.go
+//	SPA request before it gives up           30s     services/api-service.js
+//
+// Interplay: the verify budget is the shortest handler bound and sits well
+// inside the read and write windows, so a verifying request is answered long
+// before the drain window matters. The drain bounds how long those per-request
+// windows may still be finishing when the process is asked to stop. The SPA
+// waits longer than any server-side window, so a request the server abandoned
+// is reported by the browser as a client timeout instead of an open spinner.
+// OIDC discovery runs before ListenAndServe and is not on a request path: its
+// failure stops the process rather than a response.
 const (
 	// ServerReadTimeout bounds reading an entire request, including the body.
 	ServerReadTimeout = 15 * time.Second
@@ -73,28 +90,57 @@ func GracefulShutdown(server *nethttp.Server, timeout time.Duration) error {
 	return server.Shutdown(ctx)
 }
 
+// RunOutcome says how a run of RunWithGracefulShutdown ended, so the process
+// can say what actually stopped the server instead of claiming a drain that
+// never happened.
+type RunOutcome int
+
+const (
+	// OutcomeDrained means the context ended the run and in-flight requests
+	// were given the drain window (a drain that timed out is an error).
+	OutcomeDrained RunOutcome = iota
+	// OutcomeServerEnded means ListenAndServe returned without any shutdown
+	// being requested, so the server stopped rather than being stopped.
+	OutcomeServerEnded
+)
+
+// String names the outcome for logging.
+func (o RunOutcome) String() string {
+	switch o {
+	case OutcomeDrained:
+		return "drained"
+	case OutcomeServerEnded:
+		return "server-ended"
+	default:
+		return "unknown"
+	}
+}
+
 // RunWithGracefulShutdown starts the server and blocks until ctx is cancelled
 // (e.g. by SIGTERM/SIGINT) or the server fails. On cancellation it drains
 // active requests for up to timeout before returning nil. A server failure
-// (including a listen error) is returned as-is.
-func RunWithGracefulShutdown(ctx context.Context, server *nethttp.Server, timeout time.Duration) error {
+// (including a listen error) is returned as-is. The outcome distinguishes the
+// drain it performed from a ListenAndServe that ended by itself: that case
+// reports no error, because ErrServerClosed is how the listener says it was
+// closed, but it was not this function that closed it.
+func RunWithGracefulShutdown(ctx context.Context, server *nethttp.Server, timeout time.Duration) (RunOutcome, error) {
 	errCh := make(chan error, 1)
 	go func() {
-		err := server.ListenAndServe()
-		if err != nil && !errors.Is(err, nethttp.ErrServerClosed) {
-			errCh <- err
-			return
-		}
-		errCh <- nil
+		// ErrServerClosed is reported as it comes; whether the stop was the
+		// shutdown requested here is decided by which branch below wakes up.
+		errCh <- server.ListenAndServe()
 	}()
 
 	select {
 	case err := <-errCh:
-		return err
+		if errors.Is(err, nethttp.ErrServerClosed) {
+			return OutcomeServerEnded, nil
+		}
+		return OutcomeServerEnded, err
 	case <-ctx.Done():
 		if err := GracefulShutdown(server, timeout); err != nil {
-			return fmt.Errorf("graceful shutdown failed: %w", err)
+			return OutcomeDrained, fmt.Errorf("graceful shutdown failed: %w", err)
 		}
-		return nil
+		return OutcomeDrained, nil
 	}
 }
