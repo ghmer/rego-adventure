@@ -133,12 +133,16 @@ jobs:
 
       # The QA suites resolve Playwright from the machine rather than as a
       # declared dependency (docu/qa/qa-lib.cjs), so a pinned install at the
-      # repository root puts it into their direct search path. The installed
-      # version must match PLAYWRIGHT_VERSION in qa-lib.cjs; updating one
-      # without the other fails every suite with a version mismatch.
+      # repository root puts it into their direct search path. The next step
+      # fails the job when the two pins drift, so a qa-lib change without
+      # the matching workflow update cannot pass.
       - name: Install pinned Playwright and Chromium
         run: |
           npm install --no-save --no-audit --no-fund playwright@1.65.0
+          grep -qx "const PLAYWRIGHT_VERSION = '1.65.0';" docu/qa/qa-lib.cjs || {
+            echo "::error::docu/qa/qa-lib.cjs no longer pins Playwright 1.65.0; update the browser-qa install step in the same change."
+            exit 1
+          }
           npx playwright install --with-deps chromium
 
       - name: Run QA suites
