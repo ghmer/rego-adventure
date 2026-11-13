@@ -758,44 +758,43 @@ func TestVerifySolution_ValidButFailing(t *testing.T) {
 	}
 }
 
-func TestVerifySolution_QuestNotFound(t *testing.T) {
-	repo := quest.NewQuestRepository()
-	loadHandlerTestPack(t, repo, "fantasy")
-	router := newTestRouter(repo)
-
-	reqBody, _ := json.Marshal(VerifyRequest{
-		PackID:   "fantasy",
-		QuestID:  999,
-		RegoCode: "package quest\ndefault allow = false",
-	})
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected status 404, got %d", w.Code)
+// TestVerifySolution_MissingResourcesReturn404 answers both a missing
+// quest and a missing pack with the same 404, so the table covers the two
+// setups that previously existed as one test each.
+func TestVerifySolution_MissingResourcesReturn404(t *testing.T) {
+	tests := []struct {
+		name     string
+		loadPack bool
+		packID   string
+		questID  int
+	}{
+		{name: "quest not found", loadPack: true, packID: "fantasy", questID: 999},
+		{name: "pack not found", loadPack: false, packID: "nonexistent", questID: 1},
 	}
-}
 
-func TestVerifySolution_PackNotFound(t *testing.T) {
-	repo := quest.NewQuestRepository()
-	router := newTestRouter(repo)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := quest.NewQuestRepository()
+			if tc.loadPack {
+				loadHandlerTestPack(t, repo, "fantasy")
+			}
+			router := newTestRouter(repo)
 
-	reqBody, _ := json.Marshal(VerifyRequest{
-		PackID:   "nonexistent",
-		QuestID:  1,
-		RegoCode: "package quest\ndefault allow = false",
-	})
+			reqBody, _ := json.Marshal(VerifyRequest{
+				PackID:   tc.packID,
+				QuestID:  tc.questID,
+				RegoCode: "package quest\ndefault allow = false",
+			})
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(w, req)
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected status 404, got %d", w.Code)
+			if w.Code != http.StatusNotFound {
+				t.Errorf("expected status 404, got %d", w.Code)
+			}
+		})
 	}
 }
 
@@ -869,6 +868,8 @@ func TestVerifySolution_UnderLimitBodyDoesNotReturn413(t *testing.T) {
 	}
 }
 
+// TestVerifySolution_CompilationError drives one request with broken rego
+// through /verify and checks both the pass flag and the error detail shape.
 func TestVerifySolution_CompilationError(t *testing.T) {
 	repo := quest.NewQuestRepository()
 	loadHandlerTestPack(t, repo, "fantasy")
@@ -889,63 +890,40 @@ func TestVerifySolution_CompilationError(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("expected status 200 (errors returned in body), got %d", w.Code)
+		t.Fatalf("expected status 200 (errors returned in body), got %d", w.Code)
 	}
 
 	var result map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
-	if result["passed"] != false {
-		t.Errorf("expected passed=false for compile error, got %v", result["passed"])
-	}
-}
 
-func TestVerifySolution_CompilationErrorDetails(t *testing.T) {
-	repo := quest.NewQuestRepository()
-	loadHandlerTestPack(t, repo, "fantasy")
-	router := newTestRouter(repo)
-
-	reqBody, _ := json.Marshal(VerifyRequest{
-		PackID:  "fantasy",
-		QuestID: 1,
-		RegoCode: `
-			package quest
-			default allow =
-		`,
+	t.Run("reports no pass", func(t *testing.T) {
+		if result["passed"] != false {
+			t.Errorf("expected passed=false for compile error, got %v", result["passed"])
+		}
 	})
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "/verify", bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(w, req)
+	t.Run("details the error", func(t *testing.T) {
+		if result["error"] != "Compilation error" {
+			t.Errorf("expected error='Compilation error', got %v", result["error"])
+		}
 
-	if w.Code != http.StatusOK {
-		t.Errorf("expected status 200 (errors returned in body), got %d", w.Code)
-	}
-
-	var result map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-	if result["error"] != "Compilation error" {
-		t.Errorf("expected error='Compilation error', got %v", result["error"])
-	}
-
-	details, ok := result["error_details"].([]any)
-	if !ok || len(details) == 0 {
-		t.Fatal("expected non-empty error_details for compile error")
-	}
-	detail, ok := details[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected error_details entries to be objects, got %T", details[0])
-	}
-	if detail["message"] == "" {
-		t.Error("expected non-empty message in error detail")
-	}
-	if line, ok := detail["line"].(float64); !ok || line < 1 {
-		t.Errorf("expected line >= 1 in error detail, got %v", detail["line"])
-	}
+		details, ok := result["error_details"].([]any)
+		if !ok || len(details) == 0 {
+			t.Fatal("expected non-empty error_details for compile error")
+		}
+		detail, ok := details[0].(map[string]any)
+		if !ok {
+			t.Fatalf("expected error_details entries to be objects, got %T", details[0])
+		}
+		if detail["message"] == "" {
+			t.Error("expected non-empty message in error detail")
+		}
+		if line, ok := detail["line"].(float64); !ok || line < 1 {
+			t.Errorf("expected line >= 1 in error detail, got %v", detail["line"])
+		}
+	})
 }
 
 func TestVerifySolution_UndefinedResultFlag(t *testing.T) {
@@ -1041,53 +1019,49 @@ func TestVerifySolution_TimeoutReturns408(t *testing.T) {
 
 // ==================== HealthCheck Tests ====================
 
-func TestHealthCheck_ReturnsOK(t *testing.T) {
-	repo := quest.NewQuestRepository()
-	router := newTestRouter(repo)
+// TestHealthCheck shares one request scaffold across the health endpoint
+// assertions; each subtest loads its own set of packs.
+func TestHealthCheck(t *testing.T) {
+	healthBody := func(t *testing.T, packs []string) map[string]any {
+		t.Helper()
+		repo := quest.NewQuestRepository()
+		for _, pack := range packs {
+			loadHandlerTestPack(t, repo, pack)
+		}
+		router := newTestRouter(repo)
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
-	router.ServeHTTP(w, req)
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", w.Code)
+		}
 
-	if w.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", w.Code)
+		var result map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		return result
 	}
 
-	var result map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-	if result["status"] != "ok" {
-		t.Errorf("expected status='ok', got %v", result["status"])
-	}
-}
+	t.Run("returns ok", func(t *testing.T) {
+		result := healthBody(t, nil)
+		if result["status"] != "ok" {
+			t.Errorf("expected status='ok', got %v", result["status"])
+		}
+	})
 
-func TestHealthCheck_ReportsQuestPackCount(t *testing.T) {
-	repo := quest.NewQuestRepository()
-	loadHandlerTestPack(t, repo, "fantasy")
-	loadHandlerTestPack(t, repo, "scifi")
-	router := newTestRouter(repo)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", w.Code)
-	}
-
-	var result map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-	// quest-packs is returned as a float64 when unmarshaled into map[string]any
-	count, ok := result["quest-packs"].(float64)
-	if !ok {
-		t.Fatalf("expected quest-packs to be a number, got %T", result["quest-packs"])
-	}
-	if int(count) != 2 {
-		t.Errorf("expected quest-packs=2, got %v", count)
-	}
+	t.Run("reports quest pack count", func(t *testing.T) {
+		result := healthBody(t, []string{"fantasy", "scifi"})
+		// quest-packs is a float64 when unmarshaled into map[string]any
+		count, ok := result["quest-packs"].(float64)
+		if !ok {
+			t.Fatalf("expected quest-packs to be a number, got %T", result["quest-packs"])
+		}
+		if int(count) != 2 {
+			t.Errorf("expected quest-packs=2, got %v", count)
+		}
+	})
 }
 
 func TestHealthCheck_HasTimestamp(t *testing.T) {

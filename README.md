@@ -179,14 +179,15 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 
 | Layer | Command | CI job |
 | ------- | --------- | -------- |
-| Backend unit, handler and loader tests | `go test -race -count=1 ./...` | `go-ci.yml` |
-| Backend lint | `golangci-lint run ./...` | `go-ci.yml` |
-| Backend static analysis | `gosec -quiet ./...` | run locally |
+| Backend unit, handler and loader tests | `go test -race -count=1 ./backend/... ./cmd/... .` | `go-ci.yml` |
+| Backend lint | `golangci-lint run ./backend/... ./cmd/... .` | `go-ci.yml` |
+| Backend static analysis | `gosec -quiet ./backend/... ./cmd/... .` | run locally |
 | Frontend unit tests | `npm test` in `frontend/adventure`, with the pinned toolchain installed ephemerally as CI does: `npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3` | `frontend-ci.yml` |
 | Frontend lint | `npx eslint src` in `frontend/adventure` after `npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0` | `frontend-ci.yml` |
 | Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
 | Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
-| Browser and command-line QA suites | `node docu/qa/<suite>.cjs` | none |
+| Browser and command-line QA suites | `node docu/qa/<suite>.cjs` | `frontend-ci.yml` (`browser-qa` job) |
+| Clone gate | `npx --yes jscpd@4.0.5 --min-tokens 60 --threshold 0 ... backend cmd main.go frontend/adventure/src docu/quest-editor` (tests and test fixtures excluded) | `go-ci.yml`, `frontend-ci.yml` (`clone-gate` job) |
 
 The QA suites in `docu/qa/` start their own server on a free port and drive a real browser through
 Playwright, which is resolved from the machine rather than declared as a dependency. Six suites:
@@ -194,7 +195,21 @@ Playwright, which is resolved from the machine rather than declared as a depende
 `save-compat` (saved-state compatibility), `cli-qa` (the command-line tools) and `session-qa` (a
 signed session token that expires during a quest, on the start screen and inside a quest). They run by
 hand against the change they test: each removes the quest packs it generates and reports any tree
-change it did not make itself.
+change it did not make itself. In CI the six suites run in the `browser-qa` job of `frontend-ci.yml`
+against pinned Playwright 1.65.0 and its matching Chromium.
+
+## Utilities
+
+The scripts in `docu/utilities/` are hand-run helpers, kept out of CI: the three pack conversion
+scripts operate on `frontend/quests/*/quests.json` files, which are local pack downloads that the
+repository only tracks as a placeholder.
+
+| Script | Purpose |
+| ------ | ------- |
+| `check_quest_text_length.py` | Reports text fields of pack `quests.json` files that exceed the limits parsed from `backend/quest/constants.go`; exits non-zero when a limit is violated |
+| `extract_lore.py` | Writes genre-specific lore markdown from the quest packs' JSON |
+| `extract_solutions.py` | Writes genre-specific solution markdown from the quest packs' JSON |
+| `update_lore.py` | Merges lore markdown back into the quest packs' JSON (`--dry-run` to preview) |
 
 ## Project Structure
 

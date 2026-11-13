@@ -31,8 +31,19 @@ export default [
             }
         },
         rules: {
-            'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
-            'no-console': 'off'
+            'no-unused-vars': ['error', { args: 'all', argsIgnorePattern: '^_', caughtErrors: 'all' }],
+            'no-console': 'off',
+            'max-lines-per-function': ['error', 85],
+            'complexity': ['error', 12],
+            'max-depth': ['error', 4]
+        }
+    },
+    {
+        files: ['**/*.test.js'],
+        rules: {
+            // A describe() callback is a suite container, not a unit of
+            // logic; the it() bodies inside it stay under the size gates.
+            'max-lines-per-function': 'off'
         }
     }
 ];

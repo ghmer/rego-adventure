@@ -1,0 +1,138 @@
+# {{.ThemeName}} Quest Pack
+
+This is a custom quest pack for the Rego Adventure game.
+
+## Files Overview
+
+- **quests.json** - Contains all quest definitions, lore, tasks, hints, and test cases
+- **theme.css** - Theme-specific CSS variables and minimal overrides
+- **custom.css** - Theme-specific visual effects (scanlines, rain, etc.)
+- **bg-music.m4a** - Background music (currently a placeholder - replace with your audio)
+- **assets/** - Directory containing all visual assets
+
+## CSS Architecture
+
+This theme uses a modular CSS structure:
+
+### Shared CSS (loaded automatically from frontend/shared/css/)
+- **base.css** - Reset, typography, global styles
+- **layout.css** - Layout structure, containers, responsive design
+- **components.css** - UI components (buttons, modals, cards, etc.)
+- **animations.css** - Keyframe animations and transitions
+- **toast.css** - Toast notification styling
+
+### Theme-Specific CSS (in this directory)
+- **theme.css** - CSS variables (colors, fonts) and minimal theme overrides
+- **custom.css** - Special effects unique to your theme
+
+### Shared Classes Inheriting Theme Colors
+
+Some shared component classes pick up theme colors via CSS variables and
+need no extra definitions in theme.css or custom.css. Compile errors shown
+in the result modal use %--error-color% automatically:
+
+- **.compile-error-item** - A single compile error (line/column and message)
+  in the result modal's error list. Styling it is optional; override it in
+  theme.css only for theme-specific effects, e.g.:
+
+%css
+.compile-error-item {
+    text-shadow: 0 0 5px var(--error-color);
+}
+%
+
+## Assets
+
+All assets are currently placeholder images. Replace them with theme-appropriate artwork:
+
+- **bg-adventure.jpg** (1920x1080) - Main background image
+- **hero-avatar.png** (128x128) - Player character avatar
+- **npc-questgiver.png** (128x128) - Quest giver NPC avatar
+- **icon-success.png** (128x128) - Success/completion icon
+- **icon-failure.png** (128x128) - Failure/error icon
+- **perfect_score.png** (512x512) - Perfect score celebration image
+
+## Customization Guide
+
+### 1. Update Quest Content (quests.json)
+
+The quest pack follows a progressive learning structure. Each quest should teach a specific Rego concept.
+
+For each quest, customize:
+- %description_lore% - Narrative flavor text (array of strings)
+- %description_task% - Clear task instruction
+- %manual% - Reference documentation with data model and Rego snippets
+- %hints% - Progressive hints to guide the player
+- %solution% - The correct Rego policy
+- %tests% - Test cases with payloads and expected outcomes
+
+### 2. Customize Theme Colors and Fonts (theme.css)
+
+Update CSS variables in the %:root% section of theme.css:
+
+**Colors:**
+- %--bg-color% - Main background color
+- %--surface-light% / %--surface-dark% - Panel backgrounds
+- %--text-color% - Primary text color
+- %--accent-color% - Theme accent (buttons, borders, highlights)
+- %--success-color% / %--error-color% - Feedback colors
+- %--accent-rgb% - RGB values for rgba() usage (e.g., "126, 87, 194")
+
+**Typography:**
+- %--font-heading% - Headings and titles
+- %--font-body% - Body text
+- %--font-code% - Code editor and monospace text
+
+**Background Image:**
+Set the background image in the body selector:
+%css
+body {
+    background-image: url('assets/bg-adventure.jpg');
+}
+%
+
+**Optional Overrides:**
+Add theme-specific overrides at the bottom of theme.css to customize specific components.
+
+### 3. Add Theme-Specific Effects (custom.css)
+
+Use custom.css for unique visual effects:
+
+### 4. Add Background Music
+
+Replace %bg-music.m4a% with your theme's background music. Recommended:
+- Format: M4A
+- Duration: 2-5 minutes (the player starts it per toggle; it does not loop)
+- Style: Atmospheric, non-intrusive
+
+### 5. Replace Visual Assets
+
+Create or source images matching your theme:
+- Use consistent art style across all assets
+- Ensure proper dimensions (see Assets section above)
+- Optimize file sizes for web delivery
+- Consider accessibility (sufficient contrast)
+
+## Testing Your Quest Pack
+
+1. Start the Rego Adventure application
+2. Select your quest pack from the start screen
+3. Play through each quest to verify:
+   - Lore text displays correctly
+   - Tasks are clear and achievable
+   - Hints provide appropriate guidance
+   - Test cases validate solutions properly
+   - Styling matches your theme vision
+   - Custom effects render correctly
+
+## CSS Best Practices
+
+- **Don't modify shared CSS files** - They're used by all themes
+- **Use CSS variables** - Define colors/fonts in :root for easy updates
+- **Keep theme.css minimal** - Only override what's necessary
+- **Use custom.css for effects** - Keep decorative effects separate
+- **Test responsiveness** - Verify your theme works on mobile devices
+
+## Need Help?
+
+Refer to the main project documentation or examine existing quest packs for detailed examples.

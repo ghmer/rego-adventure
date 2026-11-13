@@ -15,23 +15,25 @@
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { tourTargets, tourStepElements } from './tutorial.js';
 
 const driverMock = vi.hoisted(() => ({ driver: vi.fn() }));
 
 vi.mock('driver.js', () => ({ driver: driverMock.driver }));
 
-import { TutorialSystem } from './tutorial.js';
+/**
+ * A fresh tutorial instance: the module under test is re-imported, which
+ * rebuilds its exported singleton.
+ * @returns {Promise<Object>} TutorialSystem instance with empty state
+ */
+async function freshTutorial() {
+    vi.resetModules();
+    const { tutorial } = await import('./tutorial.js');
+    return tutorial;
+}
 
 // The elements the tour hides on the quest screens and unhides while it runs
-const TOUR_TARGETS = [
-    '#editor-pane',
-    '#rego-editor',
-    '#check-manual-btn',
-    '#check-test-payload-btn',
-    '#verify-btn',
-    '#quest-back-btn',
-    '#quest-forward-btn'
-];
+// come from tutorial.js (tourTargets); see the import above.
 
 /**
  * A quest screen with the tour targets hidden, as a quest screen really is.
@@ -94,32 +96,32 @@ describe('tutorial transaction', () => {
         driverMock.driver.mockReset();
     });
 
-    it('unhides the tour targets while a tour runs', () => {
+    it('unhides the tour targets while a tour runs', async () => {
         const tour = runningTour();
-        const system = new TutorialSystem();
+        const system = await freshTutorial();
 
         system.startTutorial();
 
         expect(driverMock.driver).toHaveBeenCalledTimes(1);
-        expect(visibleTargets(TOUR_TARGETS)).toEqual(TOUR_TARGETS);
+        expect(visibleTargets(tourTargets)).toEqual(tourTargets);
 
         // The tour's own destroy is the undo path of a tour that ran
         tour.getConfig().onDestroyed();
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
         expect(system.driverObj).toBe(null);
     });
 
-    it('restores the tour targets when the tour ends before a step settles', () => {
+    it('restores the tour targets when the tour ends before a step settles', async () => {
         const destroy = vi.fn();
         let config = null;
         driverMock.driver.mockImplementation((given) => {
             config = given;
             return { drive: vi.fn(), destroy };
         });
-        const system = new TutorialSystem();
+        const system = await freshTutorial();
 
         system.startTutorial();
-        expect(visibleTargets(TOUR_TARGETS)).toEqual(TOUR_TARGETS);
+        expect(visibleTargets(tourTargets)).toEqual(tourTargets);
 
         // driver.js calls onDestroyStarted on every exit, but reaches
         // onDestroyed only once a step transition has settled. An exit that
@@ -127,14 +129,14 @@ describe('tutorial transaction', () => {
         // and finishing the destroy is what lets the driver clean up after it.
         config.onDestroyStarted();
 
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
         expect(system.driverObj).toBe(null);
         expect(destroy).toHaveBeenCalledTimes(1);
     });
 
     it('hands focus to the primary call to action once the tour has ended', async () => {
         const tour = runningTour();
-        const system = new TutorialSystem();
+        const system = await freshTutorial();
 
         system.startTutorial();
         tour.getConfig().onDestroyed();
@@ -147,64 +149,60 @@ describe('tutorial transaction', () => {
         expect(system.driverObj).toBe(null);
     });
 
-    it('restores once when a tour is exited twice', () => {
+    it('restores once when a tour is exited twice', async () => {
         const destroy = vi.fn();
         let config = null;
         driverMock.driver.mockImplementation((given) => {
             config = given;
             return { drive: vi.fn(), destroy };
         });
-        const system = new TutorialSystem();
+        const system = await freshTutorial();
 
         system.startTutorial();
         config.onDestroyStarted();
         config.onDestroyed();
 
         expect(destroy).toHaveBeenCalledTimes(1);
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
     });
 
-    it('restores the tour targets when the tour fails to start', () => {
+    it('restores the tour targets when the tour fails to start', async () => {
         driverMock.driver.mockImplementation(() => ({
             drive: () => {
                 throw new Error('driver could not start');
             }
         }));
-        const system = new TutorialSystem();
+        const system = await freshTutorial();
 
         expect(() => system.startTutorial()).toThrow('driver could not start');
 
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
         expect(system.driverObj).toBe(null);
     });
 
-    it('restores the tour targets when the tour cannot be built', () => {
+    it('restores the tour targets when the tour cannot be built', async () => {
         driverMock.driver.mockImplementation(() => {
             throw new Error('no document');
         });
-        const system = new TutorialSystem();
+        const system = await freshTutorial();
 
         expect(() => system.startTutorial()).toThrow('no document');
 
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
         expect(system.driverObj).toBe(null);
     });
 
-    it('restores the tour targets when no step has an element to show', () => {
-        for (const selector of ['.quest-title', '#quest-title', '#start-adventure', '#minimize-btn',
-            '#music-btn', '#effects-btn', '#restart-btn', '#home-btn', '#experience-points',
-            '#quest-counter', '#editor-pane', '#rego-editor', '#check-manual-btn',
-            '#check-support-modules-btn', '#check-test-payload-btn', '#verify-btn',
-            '#quest-back-btn', '#quest-forward-btn']) {
+    it('restores the tour targets when no step has an element to show', async () => {
+        for (const selector of [...new Set([...tourTargets, ...tourStepElements])]) {
             const element = document.querySelector(selector);
             if (element) element.style.display = 'none';
         }
-        const system = new TutorialSystem();
+        const system = await freshTutorial();
 
         system.startTutorial();
 
         expect(driverMock.driver).not.toHaveBeenCalled();
         expect(system.driverObj).toBe(null);
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
     });
 });

@@ -55,10 +55,9 @@ function createFixture() {
 
 /**
  * The stored grimoire of quest 1, or null when none was written.
- * @param {Object} state - Game state under test
  * @returns {string|null} Stored code
  */
-function storedGrimoire(state) {
+function storedGrimoire() {
     const body = JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID)));
     return body?.grimoires?.['1'] ?? null;
 }
@@ -75,32 +74,32 @@ describe('grimoire-autosave', () => {
     });
 
     it('marks the editor dirty and writes after the debounce', () => {
-        const { state, ui, autosave } = createFixture();
+        const { ui, autosave } = createFixture();
 
         autosave.markDirty();
 
         expect(ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.DIRTY);
-        expect(storedGrimoire(state)).toBeNull();
+        expect(storedGrimoire()).toBeNull();
 
         vi.advanceTimersByTime(TIMING.GRIMOIRE_AUTOSAVE_DELAY);
 
-        expect(storedGrimoire(state)).toBe('package quest one');
+        expect(storedGrimoire()).toBe('package quest one');
         expect(ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.SAVED);
     });
 
     it('re-arms the timer while the player keeps typing', () => {
-        const { state, autosave } = createFixture();
+        const { autosave } = createFixture();
 
         autosave.markDirty();
         vi.advanceTimersByTime(TIMING.GRIMOIRE_AUTOSAVE_DELAY - 100);
         autosave.markDirty();
         vi.advanceTimersByTime(TIMING.GRIMOIRE_AUTOSAVE_DELAY - 100);
 
-        expect(storedGrimoire(state)).toBeNull();
+        expect(storedGrimoire()).toBeNull();
 
         vi.advanceTimersByTime(100);
 
-        expect(storedGrimoire(state)).toBe('package quest one');
+        expect(storedGrimoire()).toBe('package quest one');
     });
 
     it('shows a refused write instead of claiming it is saved', () => {
@@ -127,25 +126,25 @@ describe('grimoire-autosave', () => {
     });
 
     it('writes immediately when the editor loses focus or the page goes away', () => {
-        const { state, ui, autosave } = createFixture();
+        const { ui, autosave } = createFixture();
 
         autosave.markDirty();
         const written = autosave.flush();
 
         expect(written).toBe(true);
-        expect(storedGrimoire(state)).toBe('package quest one');
+        expect(storedGrimoire()).toBe('package quest one');
         expect(ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.SAVED);
     });
 
     it('drops a pending write and leaves the indicator alone', () => {
-        const { state, ui, autosave } = createFixture();
+        const { ui, autosave } = createFixture();
 
         autosave.markDirty();
         const dirtyRenders = ui.renderSaveStatus.mock.calls.length;
         autosave.cancel();
         vi.advanceTimersByTime(TIMING.GRIMOIRE_AUTOSAVE_DELAY * 2);
 
-        expect(storedGrimoire(state)).toBeNull();
+        expect(storedGrimoire()).toBeNull();
         expect(ui.renderSaveStatus.mock.calls.length).toBe(dirtyRenders);
     });
 

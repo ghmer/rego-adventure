@@ -15,11 +15,21 @@
 */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AudioManager, MusicState } from './audio-manager.js';
+import { AudioManager } from './audio-manager.js';
 import { AUDIO, TIMING } from '../services/constants.js';
 
 const RING_RADIUS = 20;
 const RING_CIRCUMFERENCE = 2 * RING_RADIUS * Math.PI;
+
+// Expected values of the manager's musicState property
+const MusicState = {
+    Unavailable: 'unavailable',
+    Silent: 'silent',
+    FadingIn: 'fading-in',
+    Playing: 'playing',
+    FadingOut: 'fading-out',
+    PlayRejected: 'play-rejected'
+};
 
 /**
  * UI double holding the elements the audio manager renders: a real music

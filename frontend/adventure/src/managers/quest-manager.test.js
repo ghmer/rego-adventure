@@ -112,7 +112,7 @@ describe('quest-manager', () => {
     beforeEach(() => {
         localStorage.clear();
         vi.clearAllMocks();
-        apiMock.fetchQuestHint.mockImplementation(async (packId, questId, hintId) => ({ hint: `h${hintId}` }));
+        apiMock.fetchQuestHint.mockImplementation(async (_packId, _questId, hintId) => ({ hint: `h${hintId}` }));
         apiMock.fetchQuestSolution.mockImplementation(async () => ({ solution: 'sol' }));
         // showHint/restoreQuestHints clone their items from these templates
         document.body.innerHTML = `
@@ -460,7 +460,7 @@ describe('quest-manager', () => {
             state.persistQuestHintState();
 
             let settle;
-            apiMock.fetchQuestHint.mockImplementationOnce((packId, questId, hintId) => new Promise(resolve => {
+            apiMock.fetchQuestHint.mockImplementationOnce((_packId, _questId, hintId) => new Promise(resolve => {
                 settle = () => resolve({ hint: `h${hintId}` });
             }));
 

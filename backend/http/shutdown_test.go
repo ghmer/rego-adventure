@@ -87,7 +87,7 @@ func TestRunWithGracefulShutdown_ListenerClosedWithoutAShutdownRequest(t *testin
 		t.Fatalf("a listener closed by itself is not a failure: %v", err)
 	}
 	if outcome != OutcomeServerEnded {
-		t.Errorf("outcome is %v, want %v", outcome, OutcomeServerEnded)
+		t.Errorf("outcome is %d, want %d", outcome, OutcomeServerEnded)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestRunWithGracefulShutdown_StopsOnContextCancel(t *testing.T) {
 		// The context ended this run, so it is the drain that stopped the
 		// server - not a listener that closed by itself.
 		if result.outcome != OutcomeDrained {
-			t.Errorf("outcome is %v, want %v", result.outcome, OutcomeDrained)
+			t.Errorf("outcome is %d, want %d", result.outcome, OutcomeDrained)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("RunWithGracefulShutdown did not return after context cancel")
@@ -172,7 +172,7 @@ func TestRunWithGracefulShutdown_ReturnsListenError(t *testing.T) {
 		t.Fatal("expected error when the port is already in use")
 	}
 	if outcome != OutcomeServerEnded {
-		t.Errorf("outcome is %v, want %v", outcome, OutcomeServerEnded)
+		t.Errorf("outcome is %d, want %d", outcome, OutcomeServerEnded)
 	}
 	if !strings.Contains(err.Error(), "address already in use") {
 		t.Fatalf("unexpected error: %v", err)
@@ -239,7 +239,7 @@ func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 			t.Fatalf("unexpected error: %v", result.err)
 		}
 		if result.outcome != OutcomeDrained {
-			t.Errorf("outcome is %v, want %v", result.outcome, OutcomeDrained)
+			t.Errorf("outcome is %d, want %d", result.outcome, OutcomeDrained)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("RunWithGracefulShutdown did not return after timeout")

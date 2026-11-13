@@ -45,18 +45,10 @@ body {
     overflow: hidden;
 }
 
-/* Shared CSS Variables - Spacing, Z-Index, Transitions */
+/* Shared CSS Variables */
 :root {
-    /* Spacing */
-    --spacing-xs: 0.25rem;
-    --spacing-sm: 0.5rem;
-    --spacing-md: 1rem;
-    --spacing-lg: 1.5rem;
-    --spacing-xl: 2rem;
-    
     /* Z-Index Layers */
     --z-background: -1;
-    --z-base: 1;
     --z-overlay: 100;
     --z-modal: 1000;
     --z-tutorial-prompt: 2000;
@@ -64,14 +56,11 @@ body {
     /* Transitions */
     --transition-fast: 0.1s;
     --transition-normal: 0.2s;
-    --transition-slow: 0.3s;
     --transition-very-slow: 0.5s;
     
     /* Border Radius */
-    --radius-sm: 2px;
     --radius-md: 4px;
     --radius-lg: 8px;
-    --radius-xl: 12px;
     --radius-round: 50%;
     
     /* Common Sizes */
@@ -103,14 +92,6 @@ body {
 /* Utility Classes */
 .hidden {
     display: none !important;
-}
-
-.text-center {
-    text-align: center;
-}
-
-.text-right {
-    text-align: right;
 }
 
 /* Login Container */
@@ -233,6 +214,18 @@ body {
     pointer-events: none;
     z-index: 999;
     transition: background-color var(--transition-very-slow) ease;
+}
+
+/* Confetti Effect Canvas — effects.js inserts it into the dialog the
+   celebration belongs to, because a showModal() dialog paints in the top
+   layer, above any canvas appended to the page. */
+.confetti-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
 }
 
 .dark-overlay.active {

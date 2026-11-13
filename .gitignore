@@ -5,5 +5,4 @@ node_modules/
 frontend/adventure/node_modules/
 frontend/quests/
 __pycache__/
-refactor-sprints.md
 FINDINGS.md

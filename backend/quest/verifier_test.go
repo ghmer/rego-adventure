@@ -14,22 +14,7 @@ func TestVerifier_Verify_Success(t *testing.T) {
 
 	quest := &Quest{
 		Query: "data.quest.allow",
-		Tests: []TestCase{
-			{
-				ID:              1,
-				ExpectedOutcome: true,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "admin"},
-				},
-			},
-			{
-				ID:              2,
-				ExpectedOutcome: false,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "guest"},
-				},
-			},
-		},
+		Tests: verificationTestCases(),
 	}
 
 	regoCode := `
@@ -67,15 +52,7 @@ func TestVerifier_Verify_Failure(t *testing.T) {
 
 	quest := &Quest{
 		Query: "data.quest.allow",
-		Tests: []TestCase{
-			{
-				ID:              1,
-				ExpectedOutcome: true,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "admin"},
-				},
-			},
-		},
+		Tests: verificationTestCases()[:1],
 	}
 
 	// Incorrect logic: always false
@@ -433,15 +410,7 @@ func TestVerifier_Verify_ContextCancelled(t *testing.T) {
 
 	quest := &Quest{
 		Query: "data.quest.allow",
-		Tests: []TestCase{
-			{
-				ID:              1,
-				ExpectedOutcome: true,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "admin"},
-				},
-			},
-		},
+		Tests: verificationTestCases()[:1],
 	}
 
 	regoCode := `
@@ -491,29 +460,13 @@ func TestVerifier_Verify_MixedResults(t *testing.T) {
 
 	quest := &Quest{
 		Query: "data.quest.allow",
-		Tests: []TestCase{
-			{
-				ID:              1,
-				ExpectedOutcome: true,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "admin"},
-				},
+		Tests: append(verificationTestCases(), TestCase{
+			ID:              3,
+			ExpectedOutcome: true,
+			Payload: TestPayload{
+				Input: map[string]any{"user": "superadmin"},
 			},
-			{
-				ID:              2,
-				ExpectedOutcome: false,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "guest"},
-				},
-			},
-			{
-				ID:              3,
-				ExpectedOutcome: true,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "superadmin"},
-				},
-			},
-		},
+		}),
 	}
 
 	// Policy only allows "admin", so test 3 (superadmin, expected true) will fail

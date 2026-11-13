@@ -145,6 +145,17 @@ func (s *Server) setupFrontendRoutes() {
 	s.router.NoRoute(createSPAHandler(subFS))
 }
 
+// rejectPackName logs one shared security line and answers one shared status
+// for an invalid pack name, so the asset handlers cannot diverge in how they
+// reject. The validity check stays in each handler, and the request path
+// parameters are read before that guard, as this serving flow has always
+// kept them: moving the reads or the check across a helper boundary changes
+// what the go/path-injection analysis sees for these handlers.
+func rejectPackName(c *gin.Context, pack string) {
+	slog.Warn("security: invalid pack name rejected", "pack", pack)
+	c.AbortWithStatus(http.StatusForbidden)
+}
+
 // serveQuestAssets handles serving quest asset files
 func (s *Server) serveQuestAssets(c *gin.Context) {
 	pack := c.Param("pack")
@@ -153,8 +164,7 @@ func (s *Server) serveQuestAssets(c *gin.Context) {
 
 	// Validate pack name
 	if !isValidPackName(pack) {
-		slog.Warn("security: invalid pack name rejected", "pack", pack)
-		c.AbortWithStatus(http.StatusForbidden)
+		rejectPackName(c, pack)
 		return
 	}
 
@@ -174,8 +184,7 @@ func (s *Server) serveQuestCSS(c *gin.Context) {
 
 	// Validate pack name
 	if !isValidPackName(pack) {
-		slog.Warn("security: invalid pack name rejected", "pack", pack)
-		c.AbortWithStatus(http.StatusForbidden)
+		rejectPackName(c, pack)
 		return
 	}
 

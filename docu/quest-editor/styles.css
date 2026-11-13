@@ -399,7 +399,9 @@ body {
     flex-basis: 100%;
 }
 
-.content-body {
+/* Shared surface for the content column and each tab page */
+.content-body,
+.tab-content {
     background: var(--bg-primary);
     border-radius: 12px;
     padding: var(--spacing-xl);
@@ -442,10 +444,6 @@ body {
 
 .tab-content {
     display: none;
-    background: var(--bg-primary);
-    border-radius: 12px;
-    padding: var(--spacing-xl);
-    box-shadow: var(--shadow-sm);
 }
 
 .tab-content.active {
@@ -549,15 +547,22 @@ textarea.form-control {
     gap: var(--spacing-md);
 }
 
-.list-item {
+/* Shared item row: one filled, bordered flex row per list entry; the
+   alignment differences between the plain list and the test list follow
+   in their own rules. */
+.list-item,
+.test-item {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: var(--spacing-md);
     display: flex;
     gap: var(--spacing-md);
-    align-items: flex-start;
     transition: var(--transition);
+}
+
+.list-item {
+    align-items: flex-start;
 }
 
 .list-item:hover {
@@ -576,11 +581,6 @@ textarea.form-control {
 }
 
 .test-item {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: var(--spacing-md);
-    display: flex;
     justify-content: space-between;
     align-items: center;
     gap: var(--spacing-md);

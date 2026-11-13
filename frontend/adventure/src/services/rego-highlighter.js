@@ -15,7 +15,7 @@
 */
 
 /**
- * Rego tokenizer and Yace highlighter.
+ * Rego Yace highlighter.
  *
  * Rule content is ported from the CNCF-hosted OPA grammars:
  *   - open-policy-agent/vscode-opa  syntaxes/Rego.tmLanguage
@@ -27,6 +27,8 @@
  * constructs such as expressions inside string interpolation are approximated,
  * which is standard for textarea-overlay editors.
  */
+
+import { tokenizeRego } from './rego-tokenizer.js';
 
 /**
  * Escape a raw text chunk for innerHTML use.
@@ -50,67 +52,6 @@ export function escapeHtml(text) {
  * identifiers.
  * @type {Array<[string, RegExp]>}
  */
-const TOKEN_RULES = [
-    ['comment', /#[^\n]*/y],
-    ['string', /\$"(?:\\.|[^"\\\n])*"?/y],
-    ['string', /`[^`\n]*`?/y],
-    ['string', /"(?:\\.|[^"\\\n])*"?/y],
-    ['number', /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y],
-    ['keyword', /\b(?:package|import|default|not|as|with|else|some|in|every|if|contains)\b/y],
-    ['constant', /\b(?:true|false|null)\b/y],
-    ['root', /(?<!\.)\b(?:input|data)\b/y],
-    ['operator', /:=|==|!=|>=|<=|>|<|\+|-|\*|%|\/|\||&/y],
-    ['call', /[A-Za-z_][A-Za-z0-9_]*(?=\()/y],
-    ['identifier', /[A-Za-z_][A-Za-z0-9_]*/y]
-];
-
-/**
- * Tokenize Rego source into a flat token stream.
- *
- * Pure function: no DOM, no imports, no Yace coupling, so it can be unit
- * tested and reused by other renderers.
- *
- * @param {string} source - Raw Rego source text
- * @returns {Array<{type: string, value: string}>} Tokens in source order;
- *   unmatched characters are emitted as `{type: 'text', value}` runs
- */
-export function tokenizeRego(source) {
-    const tokens = [];
-    let pos = 0;
-    let textStart = -1;
-
-    const flushText = () => {
-        if (textStart >= 0) {
-            tokens.push({ type: 'text', value: source.slice(textStart, pos) });
-            textStart = -1;
-        }
-    };
-
-    while (pos < source.length) {
-        let match = null;
-        for (const [type, rule] of TOKEN_RULES) {
-            rule.lastIndex = pos;
-            const found = rule.exec(source);
-            if (found && found[0]) {
-                match = { type, value: found[0] };
-                break;
-            }
-        }
-
-        if (match) {
-            flushText();
-            tokens.push(match);
-            pos += match.value.length;
-        } else {
-            if (textStart < 0) textStart = pos;
-            pos += 1;
-        }
-    }
-
-    flushText();
-    return tokens;
-}
-
 /**
  * Create a Yace-compatible highlighter for Rego.
  *

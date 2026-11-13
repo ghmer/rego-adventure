@@ -13,11 +13,13 @@ on:
     paths:
       - "frontend/adventure/**"
       - "docu/quest-editor/**"
+      - "docu/qa/**"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
     paths:
       - "frontend/adventure/**"
       - "docu/quest-editor/**"
+      - "docu/qa/**"
       - ".github/workflows/frontend-ci.yml"
 
 permissions:
@@ -116,3 +118,57 @@ jobs:
             git diff -- frontend/adventure/index.html
             exit 1
           fi
+
+  browser-qa:
+    runs-on: ubuntu-latest
+    name: Browser QA suites
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.13.0'
+
+      # The QA suites resolve Playwright from the machine rather than as a
+      # declared dependency (docu/qa/qa-lib.cjs), so a pinned install at the
+      # repository root puts it into their direct search path. The next step
+      # fails the job when the two pins drift, so a qa-lib change without
+      # the matching workflow update cannot pass.
+      - name: Install pinned Playwright and Chromium
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.65.0
+          grep -qx "const PLAYWRIGHT_VERSION = '1.65.0';" docu/qa/qa-lib.cjs || {
+            echo "::error::docu/qa/qa-lib.cjs no longer pins Playwright 1.65.0; update the browser-qa install step in the same change."
+            exit 1
+          }
+          npx playwright install --with-deps chromium
+
+      - name: Run QA suites
+        run: |
+          for suite in cli-qa dialog-qa editor-qa save-compat session-qa spa-qa; do
+            node "docu/qa/$suite.cjs"
+          done
+
+  clone-gate:
+    runs-on: ubuntu-latest
+    name: Clone gate
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.13.0'
+
+      # Production code only: Go and JavaScript test files are excluded
+      # (table-driven tests legitimately repeat request scaffolding), and
+      # the byte-golden fixtures under testdata are generated data, not
+      # code. Any clone at the 60-token threshold fails the job.
+      - name: Reject duplicated production code
+        run: |
+          npx --yes jscpd@4.0.5 --min-tokens 60 --threshold 0 --reporters console \
+            --ignore "**/*_test.go,**/*.test.js,**/*.test.go,**/testdata/**" \
+            backend cmd main.go frontend/adventure/src docu/quest-editor

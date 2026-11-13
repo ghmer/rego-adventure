@@ -199,11 +199,6 @@
     font-size: 0.8rem;
 }
 
-.action-btn.large {
-    padding: 1rem 2.5rem;
-    font-size: 1.5rem;
-}
-
 /* Login Button Styling */
 .action-btn.login-btn,
 button[onclick*="login"] {
@@ -1108,8 +1103,15 @@ dialog#result-modal[open] {
     transition: none !important;
 }
 
-/* Responsive tour popover */
+/* ============================================
+   MOBILE RESPONSIVE - SHARED COMPONENTS
+   ============================================ */
+
+/* The tour popover and the shared components respond at one breakpoint
+   in one block; the landing page owns its own responsive rules in
+   frontend/adventure/styles/theme.css. */
 @media (max-width: 768px) {
+    /* Responsive tour popover */
     .driver-popover.tutorial-driver-popover {
         max-width: 90%;
         padding: 1rem;
@@ -1126,13 +1128,7 @@ dialog#result-modal[open] {
     .tutorial-driver-popover .driver-popover-navigation-btns button {
         width: 100%;
     }
-}
 
-/* ============================================
-   MOBILE RESPONSIVE - COMPONENTS
-   ============================================ */
-
-@media (max-width: 768px) {
     /* Fix mobile scrolling - override fixed positioning */
     .start-screen {
         position: absolute;
@@ -1171,26 +1167,6 @@ dialog#result-modal[open] {
         width: 95%;
         padding: 1.5rem;
     }
-    
-    /* Adjust start screen */
-    .start-content {
-        padding: 2rem 1rem;
-        max-width: 95%;
-    }
-    
-    .main-title {
-        font-size: 2rem;
-    }
-    
-    .subtitle {
-        font-size: 1rem;
-    }
-    
-    /* Quest pack list - single column on mobile */
-    .quest-pack-list {
-        grid-template-columns: 1fr;
-        grid-auto-rows: auto;
-    }
 }
 
 /* The pulsing call-to-action buttons are decoration: they point at a control,
@@ -1205,26 +1181,5 @@ dialog#result-modal[open] {
     .perfect-score-btn,
     #perfect-score-btn {
         animation: none;
-    }
-}
-
-/* Tablet responsive styles */
-@media (min-width: 769px) and (max-width: 1024px) {
-    .start-content {
-        max-width: 900px;
-    }
-    
-    /* Quest pack list - 2 columns on tablet */
-    .quest-pack-list {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-/* Desktop responsive styles */
-@media (min-width: 1025px) {
-    /* Quest pack list - up to 3 columns on desktop */
-    .quest-pack-list {
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        max-width: 100%;
     }
 }

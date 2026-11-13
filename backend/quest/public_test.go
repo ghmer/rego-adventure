@@ -18,6 +18,8 @@ package quest
 
 import (
 	"encoding/json"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -166,4 +168,55 @@ func TestQuest_HintByID_NoHints(t *testing.T) {
 	if _, found := q.HintByID(1); found {
 		t.Error("expected HintByID(1) to report false for quest without hints")
 	}
+}
+
+// The projection's marshalled keys are an allowlist. A field copied from
+// Quest into PublicQuest without a projection decision fails here instead
+// of leaking silently alongside the negative-secret assertions above.
+func TestQuest_PublicView_KeysMatchAllowlist(t *testing.T) {
+	q := createValidQuest()
+	data, err := json.Marshal(q.PublicView())
+	if err != nil {
+		t.Fatalf("failed to marshal public view: %v", err)
+	}
+
+	want := []string{
+		"apply_template", "description_lore", "description_task",
+		"has_solution", "has_support_modules", "hints_count", "id",
+		"manual", "query", "template", "title",
+	}
+	got := sortedJSONKeys(t, data)
+	if !slices.Equal(got, want) {
+		t.Errorf("public quest key set drifted: got %v, want %v", got, want)
+	}
+}
+
+// PublicQuestPack's own keys are an allowlist for the same reason; quest
+// entries are covered by the quest allowlist through PublicQuest.
+func TestQuestPack_PublicView_KeysMatchAllowlist(t *testing.T) {
+	pack := createValidQuestPack()
+	data, err := json.Marshal(pack.PublicView())
+	if err != nil {
+		t.Fatalf("failed to marshal public pack view: %v", err)
+	}
+
+	want := []string{"epilogue", "id", "meta", "prologue", "quests", "ui_labels"}
+	got := sortedJSONKeys(t, data)
+	if !slices.Equal(got, want) {
+		t.Errorf("public pack key set drifted: got %v, want %v", got, want)
+	}
+}
+
+func sortedJSONKeys(t *testing.T, data []byte) []string {
+	t.Helper()
+	obj := map[string]json.RawMessage{}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		t.Fatalf("failed to decode %s: %v", data, err)
+	}
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

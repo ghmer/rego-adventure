@@ -19,14 +19,13 @@
  * Handles DOM element references and UI rendering operations
  */
 
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { nextReveal } from '../services/reveal-service.js';
-import { DEFAULT_TEXT, ErrorLevel, SaveStatus } from '../services/constants.js';
-import { showToast } from '../services/toast-service.js';
-import { regoHighlighter } from '../services/rego-highlighter.js';
+import { DEFAULT_TEXT, SaveStatus } from '../services/constants.js';
 import { show, hide, setHidden, isHidden } from '../services/visibility.js';
+import { parseMarkdown } from '../services/markdown.js';
+import { initializeUiElements } from './ui-elements.js';
+import * as uiRender from './ui-render.js';
 
 /**
  * Manages all DOM elements and UI rendering
@@ -39,119 +38,42 @@ export class UIManager {
      */
     constructor(editorService) {
         this.editorService = editorService;
-        this.elements = this.initializeElements();
+        this.elements = initializeUiElements(editorService.textarea);
         // Interface minimize state, rendered by renderInterfaceMinimized
         this.interfaceMinimized = false;
     }
-
     /**
-     * Initialize all DOM element references
-     * @returns {Object} Object containing all DOM element references
+     * Render pack list on start screen
+     * @param {Array} packs - Array of pack objects
+     * @param {Function} onPackClick - Callback when pack is clicked
      */
-    initializeElements() {
-        return {
-            // Quest elements
-            questCounter: document.getElementById('quest-counter'),
-            questTitle: document.getElementById('quest-title'),
-            questLore: document.getElementById('quest-lore'),
-            loreControls: document.getElementById('lore-controls'),
-            lorePrevBtn: document.getElementById('lore-prev-btn'),
-            loreNextBtn: document.getElementById('lore-next-btn'),
-            lorePageIndicator: document.getElementById('lore-page-indicator'),
-            questTask: document.getElementById('quest-task'),
-
-            // Hints
-            hintsList: document.getElementById('hints-list'),
-            hintBtn: document.getElementById('hint-btn'),
-
-            // Editor: the native textarea inside the Yace instance;
-            // listeners, value reads and read-only toggling work on it like
-            // on any plain textarea
-            editor: this.editorService.textarea,
-            verifyBtn: document.getElementById('verify-btn'),
-            verifyBtnLabel: document.querySelector('#verify-btn [data-label]'),
-            editorPane: document.getElementById('editor-pane'),
-            saveIndicator: document.getElementById('editor-save-indicator'),
-            
-            // Navigation buttons
-            startAdventureBtn: document.getElementById('start-adventure'),
-            questFooter: document.querySelector('.quest-footer'),
-            restartBtn: document.getElementById('restart-btn'),
-            minimizeBtn: document.getElementById('minimize-btn'),
-            homeBtn: document.getElementById('home-btn'),
-            questBackBtn: document.getElementById('quest-back-btn'),
-            questForwardBtn: document.getElementById('quest-forward-btn'),
-            
-            // Audio controls
-            musicBtn: document.getElementById('music-btn'),
-            effectsBtn: document.getElementById('effects-btn'),
-            musicProgressRing: document.querySelector('.progress-ring__circle'),
-            bgMusic: document.getElementById('bg-music'),
-            
-            // Modals
-            restartModal: document.getElementById('restart-modal'),
-            confirmRestartBtn: document.getElementById('confirm-restart-btn'),
-            cancelRestartBtn: document.getElementById('cancel-restart-btn'),
-            hintModal: document.getElementById('hint-modal'),
-            hintConfirmText: document.getElementById('hint-confirm-text'),
-            confirmHintBtn: document.getElementById('confirm-hint-btn'),
-            cancelHintBtn: document.getElementById('cancel-hint-btn'),
-            manualModal: document.getElementById('manual-modal'),
-            closeManualBtn: document.getElementById('close-manual-btn'),
-            manualContent: document.getElementById('manual-content'),
-            checkManualBtn: document.getElementById('check-manual-btn'),
-            testPayloadModal: document.getElementById('test-payload-modal'),
-            closeTestPayloadBtn: document.getElementById('close-test-payload-btn'),
-            testPayloadData: document.getElementById('test-payload-data'),
-            checkTestPayloadBtn: document.getElementById('check-test-payload-btn'),
-            supportModulesModal: document.getElementById('support-modules-modal'),
-            closeSupportModulesBtn: document.getElementById('close-support-modules-btn'),
-            supportModulesContent: document.getElementById('support-modules-content'),
-            checkSupportModulesBtn: document.getElementById('check-support-modules-btn'),
-            resultModal: document.getElementById('result-modal'),
-            resultIcon: document.getElementById('result-icon'),
-            resultTitle: document.getElementById('result-title'),
-            resultMessage: document.getElementById('result-message'),
-            resultTestList: document.getElementById('result-test-list'),
-            closeResultBtn: document.getElementById('close-result-btn'),
-            nextQuestBtn: document.getElementById('next-quest-btn'),
-            perfectScoreModal: document.getElementById('perfect-score-modal'),
-            perfectScoreMessage: document.getElementById('perfect-score-message'),
-            perfectScoreImage: document.getElementById('perfect-score-image'),
-            closePerfectScoreBtn: document.getElementById('close-perfect-score-btn'),
-            perfectScoreBtn: document.getElementById('perfect-score-btn'),
-            
-            // Screens
-            startScreen: document.getElementById('start-screen'),
-            gameInterface: document.getElementById('game-interface'),
-            questPackList: document.getElementById('quest-pack-list'),
-            
-            // Score
-            experiencePoints: document.getElementById('experience-points'),
-            scoreSummary: document.getElementById('score-summary'),
-            pointsEarned: document.getElementById('points-earned'),
-            pointsPossible: document.getElementById('points-possible'),
-            
-            // Auth
-            loginBtn: document.getElementById('login-btn'),
-            loginContainer: document.getElementById('login-container'),
-            logoutBtn: document.getElementById('logout-btn'),
-            logoutBtnStart: document.getElementById('logout-btn-start'),
-            logoutContainerStart: document.getElementById('logout-container-start')
-        };
+    renderPackList(packs, onPackClick) {
+        uiRender.renderPackList(this.elements, packs, onPackClick);
     }
 
     /**
-     * Parse markdown text to sanitized HTML
-     * @param {string} text - Markdown text to parse
-     * @returns {string} Sanitized HTML
+     * Render manual content in modal
+     * @param {Object} manual - Manual object with data_model, rego_snippet, external_link
      */
-    parseMarkdown(text) {
-        if (!text) return '';
-        const rawHtml = marked.parse(text);
-        return DOMPurify.sanitize(rawHtml);
+    renderManual(manual) {
+        uiRender.renderManual(this.elements, manual);
     }
 
+    /**
+     * Render test payload data in modal
+     * @param {Array} testPayloads - Array of test case objects
+     */
+    renderTestPayload(testPayloads) {
+        uiRender.renderTestPayload(this.elements, testPayloads);
+    }
+
+    /**
+     * Render support modules in the modal
+     * @param {Array<string>} modules - Rego module sources
+     */
+    renderSupportModules(modules) {
+        uiRender.renderSupportModules(this.elements, modules);
+    }
     /**
      * Render quest lore with pagination support
      * @param {Object} quest - Quest object containing lore
@@ -163,18 +85,18 @@ export class UIManager {
         if (Array.isArray(lore)) {
             if (lore.length > 1) {
                 show(this.elements.loreControls);
-                this.elements.questLore.innerHTML = this.parseMarkdown(lore[currentLoreIndex]);
+                this.elements.questLore.innerHTML = parseMarkdown(lore[currentLoreIndex]);
                 this.elements.lorePageIndicator.textContent = `${currentLoreIndex + 1}/${lore.length}`;
                 
                 this.elements.lorePrevBtn.disabled = currentLoreIndex === 0;
                 this.elements.loreNextBtn.disabled = currentLoreIndex === lore.length - 1;
             } else {
                 hide(this.elements.loreControls);
-                this.elements.questLore.innerHTML = this.parseMarkdown(lore[0]);
+                this.elements.questLore.innerHTML = parseMarkdown(lore[0]);
             }
         } else {
             hide(this.elements.loreControls);
-            this.elements.questLore.innerHTML = this.parseMarkdown(lore);
+            this.elements.questLore.innerHTML = parseMarkdown(lore);
         }
         
         // Trigger attention animation
@@ -212,261 +134,6 @@ export class UIManager {
             ? 'View the support modules attached to this quest'
             : 'No support modules for this quest';
         button.setAttribute('aria-disabled', String(!hasModules));
-    }
-
-    /**
-     * Render pack list on start screen. The server answers an empty list when
-     * it runs with no pack directory; that condition is stated here rather than
-     * left as a blank selection.
-     * @param {Array} packs - Array of pack objects
-     * @param {Function} onPackClick - Callback when pack is clicked
-     */
-    renderPackList(packs, onPackClick) {
-        this.elements.questPackList.innerHTML = '';
-
-        if (packs.length === 0) {
-            const notice = document.createElement('p');
-            notice.className = 'pack-list-empty';
-            notice.textContent = 'No adventure packs are loaded. Start the server with a pack directory.';
-            this.elements.questPackList.appendChild(notice);
-            return;
-        }
-
-        const sortedPacks = [...packs].sort((a, b) => a.title.localeCompare(b.title));
-        const template = document.getElementById('quest-pack-card-template');
-        
-        sortedPacks.forEach(pack => {
-            const card = template.content.cloneNode(true);
-            const cardElement = card.querySelector('.quest-pack-card');
-            
-            cardElement.querySelector('.pack-title').textContent = pack.title;
-            cardElement.querySelector('.pack-description').textContent = pack.description;
-            
-            if (pack.genre) {
-                const genreBadge = cardElement.querySelector('.genre-badge');
-                genreBadge.textContent = pack.genre;
-                show(genreBadge);
-            }
-            
-            // Accessibility
-            cardElement.setAttribute('role', 'button');
-            cardElement.setAttribute('tabindex', '0');
-            cardElement.setAttribute('aria-label', `Start ${pack.title} adventure: ${pack.description}`);
-            
-            // Event handlers
-            cardElement.addEventListener('click', () => onPackClick(pack.id));
-            cardElement.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onPackClick(pack.id);
-                }
-            });
-            
-            this.elements.questPackList.appendChild(card);
-        });
-    }
-
-    /**
-     * Render manual content in modal
-     * @param {Object} manual - Manual object with data_model, rego_snippet, external_link
-     */
-    renderManual(manual) {
-        this.elements.manualContent.innerHTML = '';
-        const template = document.getElementById('manual-template');
-        const clone = template.content.cloneNode(true);
-        
-        if (!manual) {
-            const noManualSection = clone.querySelector('[data-section="no-manual"]');
-            this.elements.manualContent.appendChild(noManualSection);
-            return;
-        }
-        
-        if (manual.data_model) {
-            const dataModelSection = clone.querySelector('[data-section="data-model"]');
-            const content = dataModelSection.querySelector('.manual-section-content');
-            content.innerHTML = this.parseMarkdown(manual.data_model);
-            this.enhanceDataModelFields(content);
-            this.elements.manualContent.appendChild(dataModelSection);
-        }
-        
-        if (manual.rego_snippet) {
-            const regoSection = clone.querySelector('[data-section="rego-snippet"]');
-            const content = regoSection.querySelector('.manual-section-content');
-            content.innerHTML = this.parseMarkdown(manual.rego_snippet);
-            this.elements.manualContent.appendChild(regoSection);
-        }
-        
-        if (manual.external_link && manual.external_link.trim() !== '') {
-            const safeUrl = this.getSafeExternalUrl(manual.external_link);
-            if (safeUrl) {
-                const linkSection = clone.querySelector('[data-section="external-link"]');
-                const link = linkSection.querySelector('a');
-                link.href = safeUrl;
-                this.elements.manualContent.appendChild(linkSection);
-            }
-        }
-    }
-
-    /**
-     * Make Field entries of the Data Model table copyable.
-     * Wraps the field code in the first table column with a button that
-     * copies the field path to the clipboard when clicked.
-     * @param {HTMLElement} content - Rendered Data Model section content
-     */
-    enhanceDataModelFields(content) {
-        const fieldCells = content.querySelectorAll('tbody tr td:first-child');
-        fieldCells.forEach(cell => {
-            const code = cell.querySelector('code');
-            if (!code) return;
-            
-            const fieldPath = code.textContent.trim();
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'copy-field-btn';
-            button.setAttribute('aria-label', `Copy ${fieldPath} to clipboard`);
-            button.title = `Copy ${fieldPath} to clipboard`;
-            
-            const icon = document.createElement('i');
-            icon.className = 'fa-regular fa-copy';
-            icon.setAttribute('aria-hidden', 'true');
-            
-            button.appendChild(code);
-            button.appendChild(icon);
-            
-            button.addEventListener('click', () => this.copyToClipboard(fieldPath, button));
-            cell.appendChild(button);
-        });
-    }
-
-    /**
-     * Copy text to the clipboard and give visual feedback on the trigger button
-     * @param {string} text - Text to copy
-     * @param {HTMLButtonElement} button - Button that triggered the copy
-     */
-    async copyToClipboard(text, button) {
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(text);
-            } else {
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                textarea.setAttribute('readonly', '');
-                textarea.style.position = 'fixed';
-                textarea.style.opacity = '0';
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                textarea.remove();
-            }
-            
-            this.showCopyFeedback(button);
-            showToast(`Copied ${text} to clipboard`, ErrorLevel.INFO);
-        } catch (err) {
-            console.error('Failed to copy field to clipboard:', err);
-            showToast(`Could not copy ${text}`, ErrorLevel.ERROR);
-        }
-    }
-
-    /**
-     * Briefly show a success state on the copy button
-     * @param {HTMLButtonElement} button - Copy button to give feedback on
-     */
-    showCopyFeedback(button) {
-        if (button.dataset.copyFeedback === 'true') return;
-        
-        const icon = button.querySelector('i');
-        if (!icon) return;
-        
-        const originalIconClass = icon.className;
-        button.dataset.copyFeedback = 'true';
-        icon.className = 'fa-solid fa-check';
-        button.classList.add('copy-success');
-        
-        setTimeout(() => {
-            icon.className = originalIconClass;
-            button.classList.remove('copy-success');
-            delete button.dataset.copyFeedback;
-        }, 1500);
-    }
-
-    /**
-     * Validate an external link and return a safe URL, or null if the
-     * value is not an absolute http(s) URL (blocks javascript:/data: and
-     * relative values, matching the backend pack validation)
-     * @param {string} value - Raw external link from quest pack data
-     * @returns {string|null} Absolute http(s) URL or null
-     */
-    getSafeExternalUrl(value) {
-        try {
-            const url = new URL(value);
-            if (url.protocol === 'https:' || url.protocol === 'http:') {
-                return url.href;
-            }
-        } catch (e) {
-            // fall through
-        }
-        console.warn('Rejected unsafe manual external link:', value);
-        return null;
-    }
-
-    /**
-     * Render test payload data in modal
-     * @param {Array} testPayloads - Array of test case objects
-     */
-    renderTestPayload(testPayloads) {
-        this.elements.testPayloadData.innerHTML = '';
-        const template = document.getElementById('test-case-template');
-        
-        testPayloads.forEach((test, index) => {
-            const testCase = template.content.cloneNode(true);
-            
-            testCase.querySelector('.test-case-title').textContent = `Test Case ${index + 1}`;
-            
-            const expectedSpan = testCase.querySelector('.test-case-expected');
-            const expectedValue = test.expected_value;
-            expectedSpan.textContent = `Expected: ${expectedValue}`;
-            expectedSpan.classList.add(expectedValue ? 'expected-true' : 'expected-false');
-            
-            testCase.querySelector('.test-case-input-data').textContent =
-                JSON.stringify(test.payload.input, null, 2);
-            
-            if (test.payload.data) {
-                const dataSection = testCase.querySelector('.test-case-data');
-                show(dataSection);
-                testCase.querySelector('.test-case-data-content').textContent =
-                    JSON.stringify(test.payload.data, null, 2);
-            }
-            
-            this.elements.testPayloadData.appendChild(testCase);
-        });
-    }
-
-    /**
-     * Render support modules in the modal. Each module is shown with its
-     * package path in the heading and its Rego source highlighted with the
-     * same tokenizer the editor uses.
-     * @param {Array<string>} modules - Rego module sources
-     */
-    renderSupportModules(modules) {
-        this.elements.supportModulesContent.innerHTML = '';
-        const template = document.getElementById('support-module-template');
-        const highlight = regoHighlighter();
-
-        modules.forEach((module, index) => {
-            if (typeof module !== 'string' || module.trim() === '') return;
-
-            const packageMatch = module.match(/package\s+([A-Za-z0-9_.]+)/);
-            const packagePath = packageMatch ? packageMatch[1] : 'unknown';
-            const title = modules.length > 1
-                ? `Module ${index + 1} — data.${packagePath}`
-                : `Policy under test — data.${packagePath}`;
-
-            const card = template.content.cloneNode(true);
-            card.querySelector('.support-module-title').textContent = title;
-            card.querySelector('.support-module-code code').innerHTML = highlight(module);
-
-            this.elements.supportModulesContent.appendChild(card);
-        });
     }
 
     /**

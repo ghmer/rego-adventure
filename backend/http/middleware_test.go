@@ -41,9 +41,13 @@ import (
 
 // ==================== SecurityHeaders Tests ====================
 
-func TestSecurityHeaders_AreSet(t *testing.T) {
+// securityHeadersResponse drives a request against /test through the
+// security headers middleware and returns the recorder, so header
+// assertions share one scaffold.
+func securityHeadersResponse(t *testing.T, cfg *config.Config, nonce string) *httptest.ResponseRecorder {
+	t.Helper()
 	router := gin.New()
-	router.Use(SecurityHeaders(nil, ""))
+	router.Use(SecurityHeaders(cfg, nonce))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -51,6 +55,11 @@ func TestSecurityHeaders_AreSet(t *testing.T) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	router.ServeHTTP(w, req)
+	return w
+}
+
+func TestSecurityHeaders_AreSet(t *testing.T) {
+	w := securityHeadersResponse(t, nil, "")
 
 	expectedHeaders := map[string]string{
 		"X-Frame-Options":        "DENY",
@@ -67,15 +76,7 @@ func TestSecurityHeaders_AreSet(t *testing.T) {
 }
 
 func TestSecurityHeaders_CSPIsPresent(t *testing.T) {
-	router := gin.New()
-	router.Use(SecurityHeaders(nil, ""))
-	router.GET("/test", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
-	router.ServeHTTP(w, req)
+	w := securityHeadersResponse(t, nil, "")
 
 	csp := w.Header().Get("Content-Security-Policy")
 	if csp == "" {
@@ -91,17 +92,7 @@ func TestSecurityHeaders_CSPIsPresent(t *testing.T) {
 }
 
 func TestSecurityHeaders_CSPFrameAncestorsNone(t *testing.T) {
-	router := gin.New()
-	router.Use(SecurityHeaders(nil, ""))
-	router.GET("/test", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
-	router.ServeHTTP(w, req)
-
-	csp := w.Header().Get("Content-Security-Policy")
+	csp := securityHeadersResponse(t, nil, "").Header().Get("Content-Security-Policy")
 	if !strings.Contains(csp, "frame-ancestors 'none'") {
 		t.Errorf("CSP should contain \"frame-ancestors 'none'\", got: %s", csp)
 	}
@@ -116,17 +107,7 @@ func TestSecurityHeaders_CSPAddsIssuerOriginWhenAuthEnabled(t *testing.T) {
 		},
 	}
 
-	router := gin.New()
-	router.Use(SecurityHeaders(cfg, ""))
-	router.GET("/test", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
-	router.ServeHTTP(w, req)
-
-	csp := w.Header().Get("Content-Security-Policy")
+	csp := securityHeadersResponse(t, cfg, "").Header().Get("Content-Security-Policy")
 	if !strings.Contains(csp, "connect-src 'self' https://esm.sh https://id.example.com") {
 		t.Errorf("CSP should allow the configured OIDC issuer origin in connect-src, got: %s", csp)
 	}
@@ -140,17 +121,7 @@ func TestSecurityHeaders_CSPSkipsInvalidIssuer(t *testing.T) {
 		},
 	}
 
-	router := gin.New()
-	router.Use(SecurityHeaders(cfg, ""))
-	router.GET("/test", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
-	router.ServeHTTP(w, req)
-
-	csp := w.Header().Get("Content-Security-Policy")
+	csp := securityHeadersResponse(t, cfg, "").Header().Get("Content-Security-Policy")
 	if strings.Contains(csp, "javascript:") {
 		t.Errorf("CSP must not include non-http(s) issuer origins, got: %s", csp)
 	}
@@ -412,16 +383,7 @@ func TestAuth_AcceptsLowercaseBearerScheme(t *testing.T) {
 // ==================== CSP hardening ====================
 
 func TestSecurityHeaders_ScriptSrcDisallowsInline(t *testing.T) {
-	cfg := &config.Config{}
-	w := httptest.NewRecorder()
-	_, router := gin.CreateTestContext(w)
-	router.Use(SecurityHeaders(cfg, ""))
-	router.GET("/csp", func(c *gin.Context) { c.Status(http.StatusOK) })
-
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/csp", nil)
-	router.ServeHTTP(w, req)
-
-	csp := w.Header().Get("Content-Security-Policy")
+	csp := securityHeadersResponse(t, &config.Config{}, "").Header().Get("Content-Security-Policy")
 	if !strings.Contains(csp, "script-src 'self' https://esm.sh;") {
 		t.Errorf("expected script-src without 'unsafe-inline', got CSP: %s", csp)
 	}
@@ -431,16 +393,8 @@ func TestSecurityHeaders_ScriptSrcDisallowsInline(t *testing.T) {
 }
 
 func TestSecurityHeaders_ScriptSrcCarriesImportMapHash(t *testing.T) {
-	cfg := &config.Config{}
-	w := httptest.NewRecorder()
-	_, router := gin.CreateTestContext(w)
-	router.Use(SecurityHeaders(cfg, "sha256-t6ZbYD7G4ISBEhUHIsZ0DPR9Sq0le85EeQmLLcmy4Wg="))
-	router.GET("/csp", func(c *gin.Context) { c.Status(http.StatusOK) })
-
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/csp", nil)
-	router.ServeHTTP(w, req)
-
-	csp := w.Header().Get("Content-Security-Policy")
+	csp := securityHeadersResponse(t, &config.Config{},
+		"sha256-t6ZbYD7G4ISBEhUHIsZ0DPR9Sq0le85EeQmLLcmy4Wg=").Header().Get("Content-Security-Policy")
 	if !strings.Contains(csp, "script-src 'self' https://esm.sh 'sha256-t6ZbYD7G4ISBEhUHIsZ0DPR9Sq0le85EeQmLLcmy4Wg=';") {
 		t.Errorf("expected script-src to carry the import map hash, got CSP: %s", csp)
 	}

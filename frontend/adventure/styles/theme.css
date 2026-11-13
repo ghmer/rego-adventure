@@ -233,6 +233,21 @@ body.effects-disabled {
     #start-screen .quest-pack-list {
         grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
     }
+
+    .quest-pack-list {
+        max-width: 100%;
+    }
+}
+
+/* Two columns on tablet, single decision point for the pack list grid */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .start-content {
+        max-width: 900px;
+    }
+
+    .quest-pack-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 /* Loading placeholder while packs are fetched */
@@ -426,6 +441,17 @@ body.effects-disabled .quest-pack-card {
 
     .start-screen .start-content {
         padding: 2.5rem 1.25rem 1.5rem;
+    }
+
+    /* Narrow reading width on mobile, previously restated in components.css */
+    .start-content {
+        max-width: 95%;
+    }
+
+    /* Single-column pack list on mobile, owned by the landing page */
+    .quest-pack-list {
+        grid-template-columns: 1fr;
+        grid-auto-rows: auto;
     }
 
     #start-screen .login-btn {
