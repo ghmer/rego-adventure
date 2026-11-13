@@ -145,23 +145,21 @@ func (s *Server) setupFrontendRoutes() {
 	s.router.NoRoute(createSPAHandler(subFS))
 }
 
-// packParamOrAbort validates the pack URL parameter. Rejections share one
-// log line and one status so the handlers cannot diverge; the bool carries
-// whether the handler may continue.
-func packParamOrAbort(c *gin.Context) (string, bool) {
-	pack := c.Param("pack")
-	if isValidPackName(pack) {
-		return pack, true
-	}
+// rejectPackName writes the shared security log line and answers one shared
+// status so the handlers cannot diverge in how they reject an invalid pack
+// name. The validity check itself stays in the handlers: a check-then-abort
+// guard at the point where the URL parameter flows on is what the path
+// handling review relies on, and it must remain visible at the call site.
+func rejectPackName(c *gin.Context, pack string) {
 	slog.Warn("security: invalid pack name rejected", "pack", pack)
 	c.AbortWithStatus(http.StatusForbidden)
-	return "", false
 }
 
 // serveQuestAssets handles serving quest asset files
 func (s *Server) serveQuestAssets(c *gin.Context) {
-	pack, ok := packParamOrAbort(c)
-	if !ok {
+	pack := c.Param("pack")
+	if !isValidPackName(pack) {
+		rejectPackName(c, pack)
 		return
 	}
 	// Gin wildcard params include a leading slash; strip it.
@@ -177,8 +175,9 @@ func (s *Server) serveQuestAssets(c *gin.Context) {
 
 // serveQuestCSS handles serving quest CSS files (theme.css, custom.css, styles.css)
 func (s *Server) serveQuestCSS(c *gin.Context) {
-	pack, ok := packParamOrAbort(c)
-	if !ok {
+	pack := c.Param("pack")
+	if !isValidPackName(pack) {
+		rejectPackName(c, pack)
 		return
 	}
 	requestedPath := c.Param("csspath")
