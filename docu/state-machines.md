@@ -97,34 +97,34 @@ The full index, in machine order:
 | M# | Machine | Where | State carrier | Part |
 | ---- | --------- | ------- | --------------- | ---- |
 | 1 | Application boot | `frontend/adventure/src/app.js:70` | control flow + `beginQuestInFlight` | A |
-| 2 | Authentication / session (client) | `services/auth-service.js`, `managers/ui-manager.js:765` | `userManager`, `ConfigService.config`, `renewalInFlight`, `renewalRefused` | A |
-| 3 | Screen + pack/theme context | `managers/pack-manager.js`, `managers/ui-manager.js:605` | `hidden` classes, `loadSeq` | C |
+| 2 | Authentication / session (client) | `services/auth-service.js`, `managers/ui-manager.js:766` | `userManager`, `ConfigService.config`, `renewalInFlight`, `renewalRefused` | A |
+| 3 | Screen + pack/theme context | `managers/pack-manager.js`, `managers/ui-manager.js:606` | `hidden` classes, `loadSeq` | C |
 | 4 | Adventure progression | `services/state-service.js`, `managers/quest-manager.js` | `currentQuestId`, `activeQuestId` | B |
 | 5 | History mode (derived) | `services/state-service.js:316` | `isHistoryMode` | B |
-| 6 | Interaction gating (editor/verify/hint) | `services/state-service.js:499`, `managers/ui-manager.js:666` | one gate: `readOnly` + two `disabled` flags + pane `hidden` | B |
+| 6 | Interaction gating (editor/verify/hint) | `services/state-service.js:499`, `managers/ui-manager.js:667` | one gate: `readOnly` + two `disabled` flags + pane `hidden` | B |
 | 7 | Hint/solution reveal | `services/reveal-service.js:39`, `managers/quest-manager.js:525` | `hintsUsed`, `solutionViewed` | B |
 | 8 | Async reveal overlay (race control) | `managers/quest-manager.js:51` | `revealPhase`, `revealQuestId`, `revealPromise` | B |
 | 9 | Quest scoring / replay | `services/state-service.js:404` | `questScores`, `totalScore` | B |
-| 10 | Editor persistence (autosave) | `managers/grimoire-autosave.js`, `managers/ui-manager.js:622` | autosave timer, `save-indicator` class | D |
+| 10 | Editor persistence (autosave) | `managers/grimoire-autosave.js`, `managers/ui-manager.js:623` | autosave timer, `save-indicator` class | D |
 | 11 | Verify request (client) | `managers/event-manager.js:292` | `verifying`, button label | D |
 | 12 | Verify pipeline (server) | `backend/http/handlers.go:221`, `backend/quest/verifier.go:334` | `context` + error shape | E |
 | 13 | Verification outcome shape | `backend/quest/verifier.go` | `Error` / `Results` / `Undefined` | E |
-| 14 | Dialogs | `managers/modal-manager.js:130` | `<dialog open>` | C |
-| 15 | Result modal | `managers/modal-manager.js:305` | `open` + `nextQuestBtn` visibility | C |
-| 16 | Perfect score reveal | `managers/quest-manager.js:337`, `managers/modal-manager.js:400` | `perfectScoreBtn` `hidden` | C |
-| 17 | Quest footer visibility | `managers/ui-manager.js:510` | footer `hidden` class | C |
+| 14 | Dialogs | `managers/modal-manager.js:82` | `<dialog open>` | C |
+| 15 | Result modal | `managers/modal-manager.js:257` | `open` + `nextQuestBtn` visibility | C |
+| 16 | Perfect score reveal | `managers/quest-manager.js:337`, `managers/modal-manager.js:352` | `perfectScoreBtn` `hidden` | C |
+| 17 | Quest footer visibility | `managers/ui-manager.js:511` | footer `hidden` class | C |
 | 18 | Lore pagination | `managers/quest-manager.js:252` | `currentLoreIndex` | C |
 | 19 | Background music | `managers/audio-manager.js:44` | `musicState`, `pauseTimer` | C |
 | 20 | Web Audio graph lifecycle | `managers/audio-manager.js:113` | `audioCtx`, `gainNode`, `audioGraphFallback` | C |
-| 21 | Visual effects toggle | `managers/ui-manager.js:753` | `body.effects-disabled` | C |
+| 21 | Visual effects toggle | `managers/ui-manager.js:754` | `body.effects-disabled` | C |
 | 22 | Result effects (confetti / dark overlay) | `src/effects.js` | `confettiInterval`, `#dark-overlay.active` | C |
 | 23 | Tutorial | `src/tutorial.js` | `driverObj`, `hiddenElementsState`, storage flag | C |
 | 24 | Toast notifications | `services/toast-service.js` | `toast-show` / `toast-hide` classes | C |
-| 25 | Copy-to-clipboard feedback | `managers/ui-manager.js:346` | `dataset.copyFeedback` | C |
-| 26 | Interface minimize | `managers/ui-manager.js:562` | `interfaceMinimized`, `game-interface.minimized` | C |
+| 25 | Copy-to-clipboard feedback | `managers/ui-manager.js:347` | `dataset.copyFeedback` | C |
+| 26 | Interface minimize | `managers/ui-manager.js:563` | `interfaceMinimized`, `game-interface.minimized` | C |
 | 27 | localStorage persistence / resume | `services/state-service.js:103`, `services/storage-service.js` | `PACK_ID` pointer × `PACK_STATE` | D |
 | 28 | API request + token renewal | `services/api-service.js:93`, `services/auth-service.js:24` | `ApiError.status`, `ApiError.authFailure` | D |
-| 29 | Lazy reveal caches | `managers/quest-manager.js:43`, `managers/modal-manager.js:108` | `Map` keys | D |
+| 29 | Lazy reveal caches | `managers/quest-manager.js:43`, `managers/modal-manager.js:60` | `Map` keys | D |
 | 30 | Backend process lifecycle | `backend/http/shutdown.go:80`, `main.go` | `context` + `errCh` | E |
 | 31 | Backend config / auth boot gate | `backend/config/config.go` | `Auth.Enabled`, `JWKS` | E |
 | 32 | Quest pack load pipeline | `backend/quest/loader.go`, `backend/quest/repository.go:61` | repo map membership | E |
@@ -193,7 +193,7 @@ Notes:
 
 ### M#2 · Authentication / session (client)
 
-**Carrier:** `ConfigService.config`, the module-level `userManager` closure, `renewalInFlight`, `renewalRefused` · **Owner:** `auth-service.js`; rendered by `ui-manager.js:765` · **Persisted:** the OIDC session, in issuer-managed storage
+**Carrier:** `ConfigService.config`, the module-level `userManager` closure, `renewalInFlight`, `renewalRefused` · **Owner:** `auth-service.js`; rendered by `ui-manager.js:766` · **Persisted:** the OIDC session, in issuer-managed storage
 
 States are spread over `ConfigService.config`, the module-level `userManager` closure variable and the DOM.
 
@@ -237,7 +237,7 @@ Three details the diagram leaves out:
 
 * `Callback` is entered from the URL alone, with no variable involved. The code param is removed in *all* cases, so a failing callback cannot loop (`auth-service.js:63-71`).
 * One attempt serves every caller: `getToken` and the 401 path await the same `renewalInFlight`, so concurrent 401s cannot start a second `signinSilent()` over the same OIDC storage keys.
-* A refusal is held for the life of the page. `announceSessionLost` runs the handler at `app.js:113-116`, which calls `PackManager.returnHome()` (progress flushed and kept, pack pointer cleared) and `updateAuthUI(false, true)`. The message is the `renewal_failed` branch of `apiErrorHint` (`error-service.js:51`), the one the failed request shows as a toast. Login and logout clear the refusal by leaving the page.
+* A refusal is held for the life of the page. `announceSessionLost` runs the handler at `app.js:113-116`, which calls `PackManager.returnHome()` (progress flushed and kept, pack pointer cleared) and `updateAuthUI(false, true)`. The message is the `renewal_failed` branch of `apiErrorHint` (`error-service.js:33`), the one the failed request shows as a toast. Login and logout clear the refusal by leaving the page.
 
 ### M#42 · Page-ready gate (whole-document reveal)
 
@@ -345,7 +345,7 @@ Details:
 * Reaching the epilogue is a transition. `visitEpilogue` lands cursor and frontier on `N+1` (`state-service.js:303-305`); `showEpilogue` (`quest-manager.js:322`) renders and writes nothing, and `loadQuest` performs the transition before it renders. That is what makes the epilogue the resume target of a pack, and `isEpilogueCursor` (`state-service.js:486`) is the single definition of where it begins; the interaction gate reads the same predicate (M#6).
 * Within a session the epilogue is reached by a passing verification of quest `N`: `canNavigateForward` bounds the forward arrow at the last quest. Once the epilogue has been visited, the `N+1` cursor is persisted, so a reload resumes straight onto it.
 * `isHistoryMode` is not persisted (`savePackState`, `state-service.js:190`); every transition recomputes it, so derived state never sits in storage (M#5).
-* The tour's first popover names its own controls: "Move through the tour with its Next and Previous buttons, the Left and Right arrow keys, or Enter; press Esc to leave the tour at any point" (`tutorial.js:123`). driver.js binds those keys and the popover focuses the Next button, so Enter advances the tour. Quest movement has no key binding: the arrows are buttons, and the only global shortcuts are Ctrl/Cmd+Enter and Ctrl/Cmd+S (`event-manager.js:170-184`).
+* The tour's first popover names its own controls: "Move through the tour with its Next and Previous buttons, the Left and Right arrow keys, or Enter; press Esc to leave the tour at any point" (`tutorial.js:124`). driver.js binds those keys and the popover focuses the Next button, so Enter advances the tour. Quest movement has no key binding: the arrows are buttons, and the only global shortcuts are Ctrl/Cmd+Enter and Ctrl/Cmd+S (`event-manager.js:170-184`).
 
 ### M#5 · History mode (pure derived state)
 
@@ -365,7 +365,7 @@ The frontier quest *can* be completed and still be editable, because `questId ==
 
 ### M#6 · Interaction gating
 
-**Carrier:** one derived gate, rendered as `readOnly` + two `disabled` flags + pane `hidden` · **Owner:** `GameState.getInteractionGate()` derives (`state-service.js:499`); `UIManager.renderInteractionGate(gate)` writes (`ui-manager.js:666`) · **Persisted:** derived
+**Carrier:** one derived gate, rendered as `readOnly` + two `disabled` flags + pane `hidden` · **Owner:** `GameState.getInteractionGate()` derives (`state-service.js:499`); `UIManager.renderInteractionGate(gate)` writes (`ui-manager.js:667`) · **Persisted:** derived
 
 One concept, one derived value, one writer. `GameState.getInteractionGate()` derives the four controls from the cursor, the derived history mode and whether the cursor stands on a playable quest. `UIManager.renderInteractionGate(gate)` is the only code that assigns `readOnly`, the two `disabled` attributes and the editor pane's `hidden` class.
 
@@ -393,7 +393,7 @@ The keyboard path enters through the document-level `Ctrl/Cmd+Enter` handler (`e
 
 **Carrier:** `hintsUsed`, `solutionViewed` · **Owner:** the progression is defined once in `nextReveal` (`reveal-service.js:39`); `state-service.js` persists the accounting · **Persisted:** yes (part of the pack body, M#27)
 
-The progression is defined once, in `nextReveal` (`reveal-service.js:39`), and rendered by three consumers: the button label (`ui-manager.js:490`), the confirmation text of the confirm dialog (`modal-manager.js:68`) and the reveal itself (`quest-manager.js:525`). Only the reveal path passes the real `solutionViewed` flag; the label and the confirmation text pass `false`, which is sound because a quest whose solution has been viewed has its hint button hidden (`quest-manager.js:546`) and no confirm dialog to open.
+The progression is defined once, in `nextReveal` (`reveal-service.js:39`), and rendered by three consumers: the button label (`ui-manager.js:491`), the confirmation text of the confirm dialog (`managers/dialog-text.js:57`) and the reveal itself (`quest-manager.js:525`). Only the reveal path passes the real `solutionViewed` flag; the label and the confirmation text pass `false`, which is sound because a quest whose solution has been viewed has its hint button hidden (`quest-manager.js:546`) and no confirm dialog to open.
 
 ```mermaid
 stateDiagram-v2
@@ -484,7 +484,7 @@ Presentation, all fourteen machines of it: screens and themes, dialogs and their
 
 ### M#3 · Screen + pack/theme context
 
-**Carrier:** `hidden` classes on the two screens, `loadSeq` generation token · **Owner:** `showScreen` (`ui-manager.js:605`); `pack-manager.js` owns `loadSeq` · **Persisted:** no
+**Carrier:** `hidden` classes on the two screens, `loadSeq` generation token · **Owner:** `showScreen` (`ui-manager.js:606`); `pack-manager.js` owns `loadSeq` · **Persisted:** no
 
 `start-screen` and `game-interface` are mutually exclusive by class. The *theme* is a separate, independently-varying axis: which `<link data-quest-theme>` nodes exist, which `backgroundImage` is painted, which avatars are loaded. `PackManager.loadSeq` is a monotonically increasing generation token guarding stale async writes.
 
@@ -517,7 +517,7 @@ When `loadPack` fails, `rollbackPackEntry` clears the pack pointer and every pac
 
 ### M#14 · Dialogs
 
-**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` / `closeDialog` (`modal-manager.js:130`, `:140`) · **Persisted:** no
+**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` / `closeDialog` (`modal-manager.js:82`, `:140`) · **Persisted:** no
 
 Seven `<dialog>` elements, each with its own micro-machine, and one open mode.
 
@@ -544,9 +544,9 @@ stateDiagram-v2
     Blocked --> Closed : explicit confirm or cancel
 ```
 
-`openDialog` (`modal-manager.js:130`) and `closeDialog` (`modal-manager.js:140`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:79-99`) and matches the table above.
+`openDialog` (`modal-manager.js:82`) and `closeDialog` (`modal-manager.js:92`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:31-51`) and matches the table above.
 
-Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:172-182`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:185-189`): leaving it takes an explicit click.
+Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:124-134`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:137-141`): leaving it takes an explicit click.
 
 An eighth dialog sits outside the table. The tutorial prompt is created dynamically and follows the same explicit policy: ESC is prevented and forwarded to Decline (`tutorial.js:104-108`; see M#23).
 
@@ -554,7 +554,7 @@ Focus targets differ per dialog and encode an intent: cancel for the destructive
 
 ### M#15 · Result modal
 
-**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:305`); the caller passes points in · **Persisted:** no
+**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:257`); the caller passes points in · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -570,11 +570,11 @@ stateDiagram-v2
     Closed --> [*]
 ```
 
-`pointsEarned` is passed *into* the modal by the caller that owns the state transition, so the machine that renders never mutates game state (`event-manager.js:321`, `modal-manager.js:305`). While the modal is open the page behind it is unreachable, which is what keeps a verify, a reveal or a navigation step from changing the quest the modal describes (M#14).
+`pointsEarned` is passed *into* the modal by the caller that owns the state transition, so the machine that renders never mutates game state (`event-manager.js:321`, `modal-manager.js:257`). While the modal is open the page behind it is unreachable, which is what keeps a verify, a reveal or a navigation step from changing the quest the modal describes (M#14).
 
 ### M#16 · Perfect score reveal
 
-**Carrier:** `perfectScoreBtn` `hidden` · **Owner:** `renderPerfectScoreButton` (`ui-manager.js:546`), the only writer of the visibility · **Persisted:** no
+**Carrier:** `perfectScoreBtn` `hidden` · **Owner:** `renderPerfectScoreButton` (`ui-manager.js:547`), the only writer of the visibility · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -592,7 +592,7 @@ Showing happens at exactly one place: the epilogue, when `hasPerfectScore()` is 
 
 ### M#17 · Quest footer visibility
 
-**Carrier:** footer `hidden` class · **Owner:** `renderQuestFooter` (`ui-manager.js:510`), which folds button visibility after each render · **Persisted:** derived
+**Carrier:** footer `hidden` class · **Owner:** `renderQuestFooter` (`ui-manager.js:511`), which folds button visibility after each render · **Persisted:** derived
 
 A purely derived machine: the footer is hidden exactly when no descendant button is un-hidden. Its input set is closed and small. Exactly two buttons ever live in `.quest-footer` (`index.html:181-188`), namely `#perfect-score-btn` (`index.html:182`) and `#start-adventure` (`index.html:186`), and quest packs cannot add DOM nodes, only restyle existing ones (`routes.go:38-42`).
 
@@ -611,11 +611,11 @@ stateDiagram-v2
 
 The rule is derived, and it is recomputed by the render pipeline rather than at the sites that change visibility: a screen first renders its offers (`renderQuestButtonVisibility`, `renderPerfectScoreButton`), and `renderQuestFooter` then folds the result.
 
-Two ways a footer button becomes visible: the prologue offers the adventure (`renderQuestButtonVisibility(true, ...)` at `quest-manager.js:314`), and a perfect-score epilogue offers its button (`quest-manager.js:337`). `#start-adventure` has one DOM home, `.quest-footer`; no code reparents it. The quest arrows live in `.editor-footer` inside the **editor** pane (`index.html:216-229`), and the hint button sits above the editor (`index.html:168`), so neither touches this machine. `resetQuestUI` (`ui-manager.js:654`) re-shows the hint button and clears its `disabled` flag; the interaction gate itself is derived (M#6), not restored by a layout function.
+Two ways a footer button becomes visible: the prologue offers the adventure (`renderQuestButtonVisibility(true, ...)` at `quest-manager.js:314`), and a perfect-score epilogue offers its button (`quest-manager.js:337`). `#start-adventure` has one DOM home, `.quest-footer`; no code reparents it. The quest arrows live in `.editor-footer` inside the **editor** pane (`index.html:216-229`), and the hint button sits above the editor (`index.html:168`), so neither touches this machine. `resetQuestUI` (`ui-manager.js:655`) re-shows the hint button and clears its `disabled` flag; the interaction gate itself is derived (M#6), not restored by a layout function.
 
 ### M#18 · Lore pagination
 
-**Carrier:** `currentLoreIndex` · **Owner:** `navigateLore` (`quest-manager.js:252`); rendered by `ui-manager.js:163` · **Persisted:** no, and never restored per quest
+**Carrier:** `currentLoreIndex` · **Owner:** `navigateLore` (`quest-manager.js:252`); rendered by `ui-manager.js:164` · **Persisted:** no, and never restored per quest
 
 ```mermaid
 stateDiagram-v2
@@ -692,9 +692,9 @@ The graph outlives pack switches. `setupMusic` changes the element `src` but nev
 
 ### M#21 · Visual effects toggle
 
-**Carrier:** `body.effects-disabled` · **Owner:** toggle at `ui-manager.js:753` · **Persisted:** yes, `localStorage` under `EFFECTS_ENABLED`
+**Carrier:** `body.effects-disabled` · **Owner:** toggle at `ui-manager.js:754` · **Persisted:** yes, `localStorage` under `EFFECTS_ENABLED`
 
-Off by default (`getLocalStorage(EFFECTS_ENABLED, 'false')`, `ui-manager.js:627`).
+Off by default (`getLocalStorage(EFFECTS_ENABLED, 'false')`, `ui-manager.js:628`).
 
 ```mermaid
 stateDiagram-v2
@@ -721,13 +721,13 @@ stateDiagram-v2
 
 The opt-out is consulted once per effect, at the effect's own edge. `showConfetti` (`effects.js:39`) and `showDarkOverlay` (`effects.js:97`) return immediately while the body carries `effects-disabled`, so `triggerResultEffect` (`effects.js:132`) stays unconditional and its `hideDarkOverlay()` runs effect or not. A result cannot leave an overlay behind, and `showPerfectScore` may call `showConfetti` directly for the same reason: the guard belongs to the effect, not to the caller (M#21).
 
-Both dialogs that can start an effect close through a `close` listener running `cleanupEffects` (`modal-manager.js:172-182`), so confetti and overlay end with the dialog instead of outliving it (M#14).
+Both dialogs that can start an effect close through a `close` listener running `cleanupEffects` (`modal-manager.js:124-134`), so confetti and overlay end with the dialog instead of outliving it (M#14).
 
 The overlay is a **sticky** element: once a failure has happened, `#dark-overlay` stays in the DOM and only its `active` class toggles (`effects.js:97-125`), which makes "never shown" and "currently hidden" the same DOM state. `cleanupEffects` (`effects.js:144`) hides it and clears the interval.
 
 ### M#23 · Tutorial
 
-**Carrier:** `driverObj`, `hiddenElementsState`, plus the `TUTORIAL_COMPLETED` storage flag · **Owner:** `tutorial.js` (`startTutorial` at `tutorial.js:370`) · **Persisted:** the completion flag, yes
+**Carrier:** `driverObj`, `hiddenElementsState`, plus the `TUTORIAL_COMPLETED` storage flag · **Owner:** `tutorial.js` (`startTutorial` at `tutorial.js:371`) · **Persisted:** the completion flag, yes
 
 ```mermaid
 stateDiagram-v2
@@ -744,9 +744,9 @@ stateDiagram-v2
     Restoring --> [*] : focus handed to Start Adventure one frame later
 ```
 
-`startTutorial` (`tutorial.js:370`) is a transaction. `temporarilyUnhideElements` (`tutorial.js:332`) records the selectors it un-hid in `hiddenElementsState`, and a `finally` block restores them unless a driver is running, so a driver that fails to build or start leaves the screen as it was found. `undoTour()` is the undo of a tour that ran, and both destroy hooks call it: `onDestroyStarted` (`tutorial.js:433`) and `onDestroyed` (`tutorial.js:438`). It returns immediately when nothing was hidden and no driver is held, so a destroy arriving twice, or an exit from a tour that never started, are both safe.
+`startTutorial` (`tutorial.js:371`) is a transaction. `temporarilyUnhideElements` (`tutorial.js:333`) records the selectors it un-hid in `hiddenElementsState`, and a `finally` block restores them unless a driver is running, so a driver that fails to build or start leaves the screen as it was found. `undoTour()` is the undo of a tour that ran, and both destroy hooks call it: `onDestroyStarted` (`tutorial.js:434`) and `onDestroyed` (`tutorial.js:439`). It returns immediately when nothing was hidden and no driver is held, so a destroy arriving twice, or an exit from a tour that never started, are both safe.
 
-`onDestroyStarted` exists because driver.js restores its own focus after running the destroy hooks. The hand-off of focus to `#start-adventure` is deferred by one frame (`requestAnimationFrame`, `tutorial.js:465`) so the tour's teardown cannot win the race.
+`onDestroyStarted` exists because driver.js restores its own focus after running the destroy hooks. The hand-off of focus to `#start-adventure` is deferred by one frame (`requestAnimationFrame`, `tutorial.js:466`) so the tour's teardown cannot win the race.
 
 Re-entry is asymmetric. Accepting the tour without ticking "Don't show this again" runs the tour and leaves the player eligible; a resumed adventure never shows the prompt (`pack-manager.js:249-253`), because a player who came back mid-policy should not be interrupted.
 
@@ -764,13 +764,13 @@ stateDiagram-v2
     Removed --> [*]
 ```
 
-Durations encode the severity machine (`info` 3 s … `critical` 6 s, `toast-service.js:25-30`), and `aria-live` switches from `polite` to `assertive` only at `critical` (`toast-service.js:59`). The `ErrorLevel` machine also gates `showError`: only `error`/`critical` reach a toast, `info`/`warning` are console-only (`error-service.js:32-40`).
+Durations encode the severity machine (`info` 3 s … `critical` 6 s, `toast-service.js:25-30`), and `aria-live` switches from `polite` to `assertive` only at `critical` (`toast-service.js:59`). The `ErrorLevel` machine also gates `showError`: only `error`/`critical` reach a toast, `info`/`warning` are console-only (`services/error-display.js:26-34`).
 
 The toast container is a lazily created singleton (`toast-service.js:37-45`), so "no container yet" is a pre-state of every toast machine.
 
 ### M#25 · Copy-to-clipboard feedback
 
-**Carrier:** `dataset.copyFeedback` · **Owner:** copy handler at `ui-manager.js:346` · **Persisted:** no
+**Carrier:** `dataset.copyFeedback` · **Owner:** copy handler at `ui-manager.js:347` · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -782,11 +782,11 @@ stateDiagram-v2
     Feedback --> Feedback : re-entry blocked by dataset.copyFeedback
 ```
 
-The `dataset.copyFeedback` flag is the mutex. The fallback path (`execCommand`) is an implicit sub-state chosen by `navigator.clipboard && window.isSecureContext` (`ui-manager.js:338`).
+The `dataset.copyFeedback` flag is the mutex. The fallback path (`execCommand`) is an implicit sub-state chosen by `navigator.clipboard && window.isSecureContext` (`ui-manager.js:339`).
 
 ### M#26 · Interface minimize
 
-**Carrier:** `interfaceMinimized` (`ui-manager.js:44`), rendered as `game-interface.minimized` · **Owner:** `toggleInterfaceMinimized` (`ui-manager.js:588`), reset by `resetInterfaceMinimized` (`ui-manager.js:596`) · **Persisted:** no
+**Carrier:** `interfaceMinimized` (`ui-manager.js:44`), rendered as `game-interface.minimized` · **Owner:** `toggleInterfaceMinimized` (`ui-manager.js:589`), reset by `resetInterfaceMinimized` (`ui-manager.js:597`) · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -795,7 +795,7 @@ stateDiagram-v2
     Minimized --> Normal : second click, or pack entry, pack exit, restart
 ```
 
-`renderInterfaceMinimized` (`ui-manager.js:562`) writes the layout class, the icon (`fa-minus` ⇄ `fa-expand`) and `aria-pressed` in one call, so the three renderings cannot fall out of step. `resetInterfaceMinimized` is called at pack entry, on the way back to the start screen and at restart. The state is not persisted, so a reload returns to `Normal` as well.
+`renderInterfaceMinimized` (`ui-manager.js:563`) writes the layout class, the icon (`fa-minus` ⇄ `fa-expand`) and `aria-pressed` in one call, so the three renderings cannot fall out of step. `resetInterfaceMinimized` is called at pack entry, on the way back to the start screen and at restart. The state is not persisted, so a reload returns to `Normal` as well.
 
 ---
 
@@ -805,7 +805,7 @@ State that outlives a click or crosses the network. Five machines: what the brow
 
 ### M#10 · Editor persistence (autosave)
 
-**Carrier:** the debounce timer plus the `save-indicator` class · **Owner:** `GrimoireAutosave` (`src/managers/grimoire-autosave.js`) holds the timer, performs the write and reports the result; `renderSaveStatus` (`ui-manager.js:622`) is the only writer of the indicator class · **Persisted:** the written draft, yes (in the pack body, M#27)
+**Carrier:** the debounce timer plus the `save-indicator` class · **Owner:** `GrimoireAutosave` (`src/managers/grimoire-autosave.js`) holds the timer, performs the write and reports the result; `renderSaveStatus` (`ui-manager.js:623`) is the only writer of the indicator class · **Persisted:** the written draft, yes (in the pack body, M#27)
 
 | State | Carried by |
 | ------- | ----------- |
@@ -831,7 +831,7 @@ stateDiagram-v2
 
 `markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`index.html:196`).
 
-`saveGrimoire(questId, code)` (`state-service.js:384`) returns the status rather than a boolean: `IDLE` when `isGrimoireScreen(questId)` is false (`state-service.js:372`), `SAVED` only when the storage write succeeded, `FAILED` when storage refused it (quota full, `localStorage` switched off, or a private-mode rejection). A screen without a grimoire reports `IDLE` through `QuestManager.loadQuest` as well, so the prologue and the epilogue show grey instead of the colour the last typed quest left behind. The tour describes exactly these four colours (`tutorial.js:186`).
+`saveGrimoire(questId, code)` (`state-service.js:384`) returns the status rather than a boolean: `IDLE` when `isGrimoireScreen(questId)` is false (`state-service.js:372`), `SAVED` only when the storage write succeeded, `FAILED` when storage refused it (quota full, `localStorage` switched off, or a private-mode rejection). A screen without a grimoire reports `IDLE` through `QuestManager.loadQuest` as well, so the prologue and the epilogue show grey instead of the colour the last typed quest left behind. The tour describes exactly these four colours (`tutorial.js:187`).
 
 The draft store is `state.grimoires[questId]`, read back through `loadQuestCode` in a three-way choice: saved code, quest template, then `DEFAULT_REGO_CODE` (`quest-manager.js:263`).
 
@@ -909,7 +909,7 @@ stateDiagram-v2
     Failure --> [*] : apiErrorHint maps status and authFailure to a sentence
 ```
 
-`status` on `ApiError` is the machine's observable state, and on a 401 `authFailure` says which session path it came from. The UI branches on those rather than on message text (`error-service.js:51-72`): `401` with `renewal_failed` → the session could not be renewed, `401` otherwise → session expired, `0` → server down, `408` → policy timeout, `>=500` → server error. The same sentence is what the start screen writes when the failure happens during `init()`.
+`status` on `ApiError` is the machine's observable state, and on a 401 `authFailure` says which session path it came from. The UI branches on those rather than on message text (`error-service.js:33-54`): `401` with `renewal_failed` → the session could not be renewed, `401` otherwise → session expired, `0` → server down, `408` → policy timeout, `>=500` → server error. The same sentence is what the start screen writes when the failure happens during `init()`.
 
 Two boundaries of this machine matter. `/config` sits outside it: a `fetch` with `AbortSignal.timeout(API.CONFIG_TIMEOUT_MS)`, no token and no `ApiError` (`config-service.js:31-47`). The answer is bounded, and a timeout or an error status leaves `get()` returning null, which is what the start screen's "configuration could not be loaded" message keys on. The client's own 30 s `AbortSignal.timeout` (`api-service.js:69`, `:94`) is longer than every server clock on the same request (section 12.2), so a stalled verify is always decided server-side first.
 
@@ -919,13 +919,13 @@ Two boundaries of this machine matter. `/config` sits outside it: a `fetch` with
 
 ### M#29 · Lazy reveal caches
 
-**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:108`; dropped by `clearPackCaches` (`pack-manager.js:264`) · **Persisted:** no, exactly one pack visit
+**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:60`; dropped by `clearPackCaches` (`pack-manager.js:264`) · **Persisted:** no, exactly one pack visit
 
 | Cache | Owner | Fetched artifact | Backend `Cache-Control` |
 | ------- | ------- | ------------------ | ------------------------- |
 | `revealCache` | `quest-manager.js:43`, cleared at `quest-manager.js:61` | hint texts, solution | `no-store` |
-| `testPayloadCache` | `modal-manager.js:108`, cleared at `modal-manager.js:118` | test payloads | `private, max-age=300` |
-| `supportModulesCache` | `modal-manager.js:109`, cleared at `modal-manager.js:118` | support module sources | `no-store` |
+| `testPayloadCache` | `modal-manager.js:60`, cleared at `modal-manager.js:70` | test payloads | `private, max-age=300` |
+| `supportModulesCache` | `modal-manager.js:61`, cleared at `modal-manager.js:70` | support module sources | `no-store` |
 
 ```mermaid
 stateDiagram-v2
@@ -1013,7 +1013,7 @@ stateDiagram-v2
     Reported --> [*]
 ```
 
-`undefined` versus `null` is a state distinction with consequences (`verifier.go:182`, `modal-manager.js:54`). The modal must not print `null` for "no rule produced a value", and an undefined query fails even a test that expects `null`.
+`undefined` versus `null` is a state distinction with consequences (`verifier.go:182`, `managers/dialog-text.js:40`). The modal must not print `null` for "no rule produced a value", and an undefined query fails even a test that expects `null`.
 
 ### M#30 · Backend process lifecycle
 
@@ -1364,7 +1364,7 @@ Every operation worth bounding here is bounded twice or three times, from differ
 | Autosave debounce | 1.5 s | `services/constants.js` (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`) | the editor's Dirty state (M#10) |
 | Toast auto-dismiss | 3 to 6 s by level | `services/toast-service.js:25-30` | toast lifetime (M#24) |
 | Confetti run | 3 s | `src/effects.js:39` | the confetti interval (M#22) |
-| Copy feedback | 1.5 s | `ui-manager.js:346` | the Feedback state (M#25) |
+| Copy feedback | 1.5 s | `ui-manager.js:347` | the Feedback state (M#25) |
 
 Two relationships in that table are load-bearing:
 
