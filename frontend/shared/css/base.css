@@ -216,6 +216,18 @@ body {
     transition: background-color var(--transition-very-slow) ease;
 }
 
+/* Confetti Effect Canvas — effects.js inserts it into the dialog the
+   celebration belongs to, because a showModal() dialog paints in the top
+   layer, above any canvas appended to the page. */
+.confetti-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
 .dark-overlay.active {
     background-color: rgba(0, 0, 0, 0.85);
 }

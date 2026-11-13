@@ -326,8 +326,9 @@ export class ModalManager {
         // Show/hide next quest button
         setHidden(this.ui.elements.nextQuestBtn, !isSuccess);
         
-        // Trigger visual effects
-        triggerResultEffect(isSuccess);
+        // Trigger visual effects; the success celebration renders inside the
+        // result dialog, which showModal() carries in the top layer.
+        triggerResultEffect(isSuccess, this.ui.elements.resultModal);
         
         // Open modally: nothing behind the result is reachable while it shows
         this.openDialog(this.ui.elements.resultModal);
@@ -359,8 +360,7 @@ export class ModalManager {
         this.ui.elements.perfectScoreMessage.innerHTML = parseMarkdown(this.state.label('perfectScoreMessage'));
         this.openDialog(this.ui.elements.perfectScoreModal);
         this.ui.elements.closePerfectScoreBtn.focus();
-        
-        showConfetti();
+        showConfetti(this.ui.elements.perfectScoreModal);
     }
 
     /**

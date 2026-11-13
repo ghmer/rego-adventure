@@ -38,11 +38,11 @@ vi.mock('../effects.js', () => ({
 }));
 
 import { ModalManager } from './modal-manager.js';
+import { cleanupEffects, showConfetti, triggerResultEffect } from '../effects.js';
 import { formatActualValue, formatPolicyError, buildHintConfirmationText } from './dialog-text.js';
 import { ApiError } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
-import { cleanupEffects } from '../effects.js';
 
 describe('modal-manager pure helpers', () => {
     describe('formatPolicyError', () => {
@@ -360,6 +360,12 @@ describe('modal-manager', () => {
             expect(show).not.toHaveBeenCalled();
         });
 
+        it('the success celebration targets the result dialog it decorates', () => {
+            modal.showResult({ passed: true, results: [] }, 10);
+
+            expect(triggerResultEffect).toHaveBeenCalledWith(true, ui.elements.resultModal);
+        });
+
         it('opens the perfect-score dialog modally', () => {
             const showModal = vi.spyOn(ui.elements.perfectScoreModal, 'showModal');
             const show = vi.spyOn(ui.elements.perfectScoreModal, 'show');
@@ -368,6 +374,12 @@ describe('modal-manager', () => {
 
             expect(showModal).toHaveBeenCalledTimes(1);
             expect(show).not.toHaveBeenCalled();
+        });
+
+        it('the perfect-score celebration targets the perfect-score dialog', () => {
+            modal.showPerfectScore();
+
+            expect(showConfetti).toHaveBeenCalledWith(ui.elements.perfectScoreModal);
         });
 
         it('stops the effects when the result dialog closes', () => {

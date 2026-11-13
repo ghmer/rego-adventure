@@ -22,6 +22,13 @@ import { TIMING, CONFETTI } from './services/constants.js';
 // Store confetti interval reference to prevent memory leaks
 let confettiInterval = null;
 
+// The confetti canvas lives inside the dialog a celebration belongs to:
+// showModal() puts a dialog in the top layer, which paints above every page
+// element regardless of z-index, so a body-hosted canvas could never show
+// through it. The burst function is created for that canvas by the library.
+let confettiCanvas = null;
+let confettiBurst = null;
+
 /**
  * The player's visual-effects opt-out, read from the body class the settings
  * toggle maintains. Every effect this module produces consults it once, at
@@ -33,10 +40,30 @@ function effectsEnabled() {
 }
 
 /**
- * Creates a confetti effect across the entire screen. Does nothing while the
- * player has effects off.
+ * Insert the confetti canvas into `target` (the dialog showing the
+ * celebration) and bind a burst function to it, unless a canvas from a
+ * still-running celebration survives in that dialog.
+ * @param {HTMLElement} target - element the canvas is appended to
  */
-export function showConfetti() {
+function ensureConfettiIn(target) {
+    if (confettiCanvas) {
+        return;
+    }
+
+    confettiCanvas = document.createElement('canvas');
+    confettiCanvas.className = 'confetti-canvas';
+    confettiCanvas.style.zIndex = CONFETTI.Z_INDEX;
+    target.appendChild(confettiCanvas);
+    confettiBurst = confetti.create(confettiCanvas, { resize: true });
+}
+
+/**
+ * Creates a confetti effect across the entire screen. Does nothing while the
+ * player has effects off. The particles render inside `target` — the dialog
+ * the celebration belongs to — so the dialog's top layer cannot cover them.
+ * @param {HTMLElement} target - the open dialog the confetti belongs to
+ */
+export function showConfetti(target) {
     if (!effectsEnabled()) {
         return;
     }
@@ -45,6 +72,8 @@ export function showConfetti() {
     if (confettiInterval) {
         clearInterval(confettiInterval);
     }
+
+    ensureConfettiIn(target || document.body);
     
     const duration = TIMING.CONFETTI_DURATION;
     const animationEnd = Date.now() + duration;
@@ -71,7 +100,7 @@ export function showConfetti() {
         const particleCount = 50 * (timeLeft / duration);
 
         // Create confetti from two points
-        confetti({
+        confettiBurst({
             ...defaults,
             particleCount,
             origin: {
@@ -79,7 +108,7 @@ export function showConfetti() {
                 y: Math.random() + CONFETTI.ORIGIN_Y_OFFSET
             }
         });
-        confetti({
+        confettiBurst({
             ...defaults,
             particleCount,
             origin: {
@@ -126,20 +155,22 @@ function hideDarkOverlay() {
 /**
  * Trigger the effect for a verification result. Removing a leftover overlay
  * is unconditional, so a result cannot leave one behind even when effects are
- * off.
+ * off. `dialog` is the result modal the success celebration belongs to.
  * @param {boolean} isSuccess - Whether the result was successful
+ * @param {HTMLElement} dialog - the open result dialog
  */
-export function triggerResultEffect(isSuccess) {
+export function triggerResultEffect(isSuccess, dialog) {
     if (isSuccess) {
         hideDarkOverlay();
-        showConfetti();
+        showConfetti(dialog);
     } else {
         showDarkOverlay();
     }
 }
 
 /**
- * Clean up all effects
+ * Clean up all effects, including the confetti canvas a dialog hosts: the
+ * burst function is reset first so an in-flight animation releases itself.
  */
 export function cleanupEffects() {
     hideDarkOverlay();
@@ -147,5 +178,13 @@ export function cleanupEffects() {
     if (confettiInterval) {
         clearInterval(confettiInterval);
         confettiInterval = null;
+    }
+    if (confettiBurst) {
+        confettiBurst.reset();
+        confettiBurst = null;
+    }
+    if (confettiCanvas) {
+        confettiCanvas.remove();
+        confettiCanvas = null;
     }
 }

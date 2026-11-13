@@ -707,7 +707,7 @@ stateDiagram-v2
 
 ### M#22 · Result effects (confetti / dark overlay)
 
-**Carrier:** `confettiInterval` (`effects.js:23`, the module's only state) + `#dark-overlay.active` · **Owner:** `effects.js` · **Persisted:** no
+**Carrier:** `confettiInterval` (`effects.js:23`), the confetti canvas and burst pair `confettiCanvas` / `confettiBurst` (`effects.js:29-30`), and `#dark-overlay.active` · **Owner:** `effects.js` · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -719,11 +719,13 @@ stateDiagram-v2
     Confetti --> Confetti : showConfetti replaces a running interval
 ```
 
-The opt-out is consulted once per effect, at the effect's own edge. `showConfetti` (`effects.js:39`) and `showDarkOverlay` (`effects.js:97`) return immediately while the body carries `effects-disabled`, so `triggerResultEffect` (`effects.js:132`) stays unconditional and its `hideDarkOverlay()` runs effect or not. A result cannot leave an overlay behind, and `showPerfectScore` may call `showConfetti` directly for the same reason: the guard belongs to the effect, not to the caller (M#21).
+The confetti canvas is hosted by the dialog the celebration belongs to: `showModal()` places a dialog in the top layer, which paints above every page element regardless of z-index, so a canvas appended to the page body could never show through it. `ensureConfettiIn` (`effects.js:48`) appends a `canvas.confetti-canvas` (`base.css` carries the fixed, pointer-transparent styles) into the open dialog and binds the burst function with `confetti.create` (`effects.js:57`); both `showConfetti` (`effects.js:66`) call sites pass their dialog — the result modal through `triggerResultEffect` (`effects.js:162`) and the perfect-score modal directly. A surviving canvas from a still-running celebration is reused, so a celebration restarted in the same dialog never stacks a second canvas.
+
+The opt-out is consulted once per effect, at the effect's own edge. `showConfetti` (`effects.js:66`) and `showDarkOverlay` (`effects.js:126`) return immediately while the body carries `effects-disabled`, so `triggerResultEffect` (`effects.js:162`) stays unconditional and its `hideDarkOverlay()` runs effect or not. A result cannot leave an overlay behind, and `showPerfectScore` may call `showConfetti` directly for the same reason: the guard belongs to the effect, not to the caller (M#21).
 
 Both dialogs that can start an effect close through a `close` listener running `cleanupEffects` (`modal-manager.js:125-135`), so confetti and overlay end with the dialog instead of outliving it (M#14).
 
-The overlay is a **sticky** element: once a failure has happened, `#dark-overlay` stays in the DOM and only its `active` class toggles (`effects.js:97-125`), which makes "never shown" and "currently hidden" the same DOM state. `cleanupEffects` (`effects.js:144`) hides it and clears the interval.
+The overlay is a **sticky** element: once a failure has happened, `#dark-overlay` stays in the DOM and only its `active` class toggles (`effects.js:126-153`), which makes "never shown" and "currently hidden" the same DOM state. `cleanupEffects` (`effects.js:175`) hides it, clears the interval, resets the burst and removes the dialog-hosted canvas, so a closed dialog cannot keep a celebration running.
 
 ### M#23 · Tutorial
 
