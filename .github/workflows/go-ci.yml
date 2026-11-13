@@ -9,8 +9,10 @@ on:
       - "go.sum"
       - ".golangci.yml"
       # backend/quest/rules_parity_test.go compares the server's validation
-      # against the quest editor's rule list and fixture packs.
-      - "docu/quest-editor/**"
+      # against the quest editor's rule list and fixture packs, and
+      # cmd/doccite checks the file:line citations in state-machines.md
+      # against the sources.
+      - "docu/**"
       - ".github/workflows/go-ci.yml"
   pull_request:
     paths:
@@ -18,7 +20,7 @@ on:
       - "go.mod"
       - "go.sum"
       - ".golangci.yml"
-      - "docu/quest-editor/**"
+      - "docu/**"
       - ".github/workflows/go-ci.yml"
 
 permissions:

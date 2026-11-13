@@ -4,7 +4,7 @@
 | ---- | ---- |
 | Document | `docu/state-machines.md` |
 | What it describes | The 42 implicit state machines that run the Rego Adventure platform |
-| Status | Living reference, kept alongside the code; see git history for the last full audit pass |
+| Status | Living reference, kept alongside the code; see git history for the last full audit pass. CI checks every `file:line` citation below against the sources (`cmd/doccite`) |
 | Audience | Maintainers, reviewers, contributors; planning documents that point at machines |
 | Related | [`README.md`](../README.md) (system overview), [`docu/quests.md`](quests.md) (pack format), [`docu/deploy/`](deploy/) (deployment) |
 
@@ -147,9 +147,9 @@ Everything from a blank page to a signed-in player. Three machines take part, an
 
 ### M#1 · Application boot
 
-**Carrier:** control flow plus `beginQuestInFlight` (`app.js:70`) · **Owner:** `app.js` (`init()`) · **Persisted:** no
+**Carrier:** control flow plus `beginQuestInFlight` (`frontend/adventure/src/app.js:70`) · **Owner:** `app.js` (`init()`) · **Persisted:** no
 
-`init()` runs as a straight-line script with four exits, and each exit leaves the UI in a different persistent condition. `beginQuestInFlight` (`app.js:70`) is a mutex over pack entry: the pack cards are clickable while the resume path is still running.
+`init()` runs as a straight-line script with four exits, and each exit leaves the UI in a different persistent condition. `beginQuestInFlight` (`frontend/adventure/src/app.js:70`) is a mutex over pack entry: the pack cards are clickable while the resume path is still running.
 
 | State | Carried by |
 | ------- | ----------- |
@@ -187,7 +187,7 @@ stateDiagram-v2
 Notes:
 
 * A pack-card click during `Resuming` is dropped without a word (`if (beginQuestInFlight) return`). No feedback, no queueing.
-* `ConfigUnavailable` is the only state in which authentication is *unknown* rather than disabled. The code says so deliberately (`app.js:89-91`).
+* `ConfigUnavailable` is the only state in which authentication is *unknown* rather than disabled. The code says so deliberately (`frontend/adventure/src/app.js:89-91`).
 * `ResumeFailed` keeps the pack's `PACK_STATE` and drops the pointer, so the next load starts on the pack list with progress still resumable.
 * None of this is observable until the page-ready gate fires (M#42). The document stays hidden until `html.loaded` is added (`frontend/adventure/src/app.js:19-25`), and the `readyState` branch means that can happen before or after `init()` begins.
 
@@ -231,19 +231,19 @@ stateDiagram-v2
     SignedOut --> [*] : page leaves to issuer
 ```
 
-`ConfigNotLoaded` behaves like `OpenMode` for `isEnabled()`: a missing config is indistinguishable from auth-disabled except inside `init()`. A request made in that window would go out without `Authorization` (`api-service.js:61-64`). None is made there: `ConfigService.load()` is awaited before auth setup, before the listeners that could trigger a request and before `fetchPacks()` (`app.js:98-139`). `/config` is fetched with `API.CONFIG_TIMEOUT_MS` (`config-service.js:35`) and never carries a token.
+`ConfigNotLoaded` behaves like `OpenMode` for `isEnabled()`: a missing config is indistinguishable from auth-disabled except inside `init()`. A request made in that window would go out without `Authorization` (`api-service.js:61-64`). None is made there: `ConfigService.load()` is awaited before auth setup, before the listeners that could trigger a request and before `fetchPacks()` (`frontend/adventure/src/app.js:98-139`). `/config` is fetched with `API.CONFIG_TIMEOUT_MS` (`config-service.js:33`) and never carries a token.
 
 Three details the diagram leaves out:
 
 * `Callback` is entered from the URL alone, with no variable involved. The code param is removed in *all* cases, so a failing callback cannot loop (`auth-service.js:63-71`).
 * One attempt serves every caller: `getToken` and the 401 path await the same `renewalInFlight`, so concurrent 401s cannot start a second `signinSilent()` over the same OIDC storage keys.
-* A refusal is held for the life of the page. `announceSessionLost` runs the handler at `app.js:113-116`, which calls `PackManager.returnHome()` (progress flushed and kept, pack pointer cleared) and `updateAuthUI(false, true)`. The message is the `renewal_failed` branch of `apiErrorHint` (`error-service.js:33`), the one the failed request shows as a toast. Login and logout clear the refusal by leaving the page.
+* A refusal is held for the life of the page. `announceSessionLost` runs the handler at `frontend/adventure/src/app.js:113-116`, which calls `PackManager.returnHome()` (progress flushed and kept, pack pointer cleared) and `updateAuthUI(false, true)`. The message is the `renewal_failed` branch of `apiErrorHint` (`error-service.js:33`), the one the failed request shows as a toast. Login and logout clear the refusal by leaving the page.
 
 ### M#42 · Page-ready gate (whole-document reveal)
 
 **Carrier:** `html.loaded` class · **Owner:** inline `<style>` in `frontend/adventure/index.html` plus the reveal block at `src/app.js:17-25` · **Persisted:** no
 
-The document itself is a two-state machine that no code names: `html` ships invisible and is revealed by adding the `loaded` class (`frontend/adventure/index.html:42-53`, `app.js:17-25`). It sits *outside* every other machine's view, yet it decides whether any of them is observable.
+The document itself is a two-state machine that no code names: `html` ships invisible and is revealed by adding the `loaded` class (`frontend/adventure/index.html:42-53`, `frontend/adventure/src/app.js:17-25`). It sits *outside* every other machine's view, yet it decides whether any of them is observable.
 
 ```mermaid
 stateDiagram-v2
@@ -253,7 +253,7 @@ stateDiagram-v2
     Revealed --> Revealed : 0.3 s opacity fade, never removed afterwards
 ```
 
-Two mutually exclusive entry branches (`readyState` guard, `app.js:19-25`). The reveal can happen **before** `init()` starts or after it, so "booting but invisible" and "booting but visible" are both reachable. This is the machine that decides whether M#1's early exits are seen at all.
+Two mutually exclusive entry branches (`readyState` guard, `frontend/adventure/src/app.js:19-25`). The reveal can happen **before** `init()` starts or after it, so "booting but invisible" and "booting but visible" are both reachable. This is the machine that decides whether M#1's early exits are seen at all.
 
 Nothing ever removes `loaded`, and the reveal uses `visibility: hidden` rather than `display: none`. Every element of every other machine exists and occupies layout while invisible, so measurements such as `offsetWidth` still work during `Hidden`.
 
@@ -341,7 +341,7 @@ stateDiagram-v2
 
 Details:
 
-* `activeQuestId` has three writers and one restorer. `completeQuest` grows it at `state-service.js:462`, `advanceQuest` grows it at `state-service.js:273`, `visitEpilogue` sets it at `state-service.js:305`, and `loadPackState` (`state-service.js:115`) restores it from storage, falling back to `currentQuestId`. None of them lowers it, and navigating never touches it.
+* `activeQuestId` has three writers and one restorer. `completeQuest` grows it at `state-service.js:462`, `advanceQuest` grows it at `state-service.js:273`, `visitEpilogue` sets it at `state-service.js:305`, and `loadPackState` (`state-service.js:103`) restores it from storage, falling back to `currentQuestId`. None of them lowers it, and navigating never touches it.
 * Reaching the epilogue is a transition. `visitEpilogue` lands cursor and frontier on `N+1` (`state-service.js:303-305`); `showEpilogue` (`quest-manager.js:322`) renders and writes nothing, and `loadQuest` performs the transition before it renders. That is what makes the epilogue the resume target of a pack, and `isEpilogueCursor` (`state-service.js:486`) is the single definition of where it begins; the interaction gate reads the same predicate (M#6).
 * Within a session the epilogue is reached by a passing verification of quest `N`: `canNavigateForward` bounds the forward arrow at the last quest. Once the epilogue has been visited, the `N+1` cursor is persisted, so a reload resumes straight onto it.
 * `isHistoryMode` is not persisted (`savePackState`, `state-service.js:190`); every transition recomputes it, so derived state never sits in storage (M#5).
@@ -427,7 +427,7 @@ stateDiagram-v2
 
 ### M#8 · Async reveal overlay (race control)
 
-**Carrier:** one record: `revealPhase` (`idle`, `restoring`, `revealing`), `revealQuestId`, `revealPromise` (`quest-manager.js:51`) · **Owner:** `claimReveal` (`quest-manager.js:77`), the only writer of the phase · **Persisted:** no
+**Carrier:** one record: `revealPhase` (`idle`, `restoring`, `revealing`), `revealQuestId`, `revealPromise` (`quest-manager.js:53`) · **Owner:** `claimReveal` (`quest-manager.js:77`), the only writer of the phase · **Persisted:** no
 
 A second machine layered on M#7 to defuse races.
 
@@ -509,7 +509,7 @@ stateDiagram-v2
     end note
 ```
 
-Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:243`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:60`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:64`), before any write it governs. Those writes are quest data, labels, titles, theme `<link>` nodes, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:187`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
+Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:243`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:59`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:64`), before any write it governs. Those writes are quest data, labels, titles, theme `<link>` nodes, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:187`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
 
 A `custom.css` failure is an implicit "theme without effects" sub-state: silent, and no flag records it (M#34).
 
@@ -517,7 +517,7 @@ When `loadPack` fails, `rollbackPackEntry` clears the pack pointer and every pac
 
 ### M#14 · Dialogs
 
-**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` / `closeDialog` (`modal-manager.js:82`, `:140`) · **Persisted:** no
+**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:82`) / `closeDialog` (`modal-manager.js:92`) · **Persisted:** no
 
 Seven `<dialog>` elements, each with its own micro-machine, and one open mode.
 
@@ -594,7 +594,7 @@ Showing happens at exactly one place: the epilogue, when `hasPerfectScore()` is 
 
 **Carrier:** footer `hidden` class · **Owner:** `renderQuestFooter` (`ui-manager.js:511`), which folds button visibility after each render · **Persisted:** derived
 
-A purely derived machine: the footer is hidden exactly when no descendant button is un-hidden. Its input set is closed and small. Exactly two buttons ever live in `.quest-footer` (`index.html:181-188`), namely `#perfect-score-btn` (`index.html:182`) and `#start-adventure` (`index.html:186`), and quest packs cannot add DOM nodes, only restyle existing ones (`routes.go:38-42`).
+A purely derived machine: the footer is hidden exactly when no descendant button is un-hidden. Its input set is closed and small. Exactly two buttons ever live in `.quest-footer` (`frontend/adventure/index.html:181-188`), namely `#perfect-score-btn` (`frontend/adventure/index.html:182`) and `#start-adventure` (`frontend/adventure/index.html:186`), and quest packs cannot add DOM nodes, only restyle existing ones (`routes.go:38-42`).
 
 ```mermaid
 stateDiagram-v2
@@ -611,11 +611,11 @@ stateDiagram-v2
 
 The rule is derived, and it is recomputed by the render pipeline rather than at the sites that change visibility: a screen first renders its offers (`renderQuestButtonVisibility`, `renderPerfectScoreButton`), and `renderQuestFooter` then folds the result.
 
-Two ways a footer button becomes visible: the prologue offers the adventure (`renderQuestButtonVisibility(true, ...)` at `quest-manager.js:314`), and a perfect-score epilogue offers its button (`quest-manager.js:337`). `#start-adventure` has one DOM home, `.quest-footer`; no code reparents it. The quest arrows live in `.editor-footer` inside the **editor** pane (`index.html:216-229`), and the hint button sits above the editor (`index.html:168`), so neither touches this machine. `resetQuestUI` (`ui-manager.js:655`) re-shows the hint button and clears its `disabled` flag; the interaction gate itself is derived (M#6), not restored by a layout function.
+Two ways a footer button becomes visible: the prologue offers the adventure (`renderQuestButtonVisibility(true, ...)` at `quest-manager.js:314`), and a perfect-score epilogue offers its button (`quest-manager.js:337`). `#start-adventure` has one DOM home, `.quest-footer`; no code reparents it. The quest arrows live in `.editor-footer` inside the **editor** pane (`frontend/adventure/index.html:216-229`), and the hint button sits above the editor (`frontend/adventure/index.html:168`), so neither touches this machine. `resetQuestUI` (`ui-manager.js:655`) re-shows the hint button and clears its `disabled` flag; the interaction gate itself is derived (M#6), not restored by a layout function.
 
 ### M#18 · Lore pagination
 
-**Carrier:** `currentLoreIndex` · **Owner:** `navigateLore` (`quest-manager.js:252`); rendered by `ui-manager.js:164` · **Persisted:** no, and never restored per quest
+**Carrier:** `currentLoreIndex` · **Owner:** `navigateLore` (`quest-manager.js:415`); rendered at quest entry (`quest-manager.js:252`) and by `ui-manager.js:164` · **Persisted:** no, and never restored per quest
 
 ```mermaid
 stateDiagram-v2
@@ -636,7 +636,7 @@ Three controls, one machine: `lorePrevBtn.disabled`, `loreNextBtn.disabled` and 
 
 ### M#19 · Background music
 
-**Carrier:** one value, `MusicState` (`audio-manager.js:44`); `pauseTimer` is an implementation detail of the two fading states · **Owner:** `transitionTo` (`audio-manager.js:339`), the only writer after construction; `renderMusicButton` (`audio-manager.js:348`) renders from that value and from nothing else · **Persisted:** no
+**Carrier:** one value, `MusicState` (`audio-manager.js:43`); `pauseTimer` is an implementation detail of the two fading states · **Owner:** `transitionTo` (`audio-manager.js:339`), the only writer after construction; `renderMusicButton` (`audio-manager.js:348`) renders from that value and from nothing else · **Persisted:** no
 
 The track plays once per toggle.
 
@@ -786,7 +786,7 @@ The `dataset.copyFeedback` flag is the mutex. The fallback path (`execCommand`) 
 
 ### M#26 · Interface minimize
 
-**Carrier:** `interfaceMinimized` (`ui-manager.js:44`), rendered as `game-interface.minimized` · **Owner:** `toggleInterfaceMinimized` (`ui-manager.js:589`), reset by `resetInterfaceMinimized` (`ui-manager.js:597`) · **Persisted:** no
+**Carrier:** `interfaceMinimized` (`ui-manager.js:44`), rendered as `game-interface.minimized` · **Owner:** `toggleInterfaceMinimized` (`ui-manager.js:588`), reset by `resetInterfaceMinimized` (`ui-manager.js:596`) · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -829,11 +829,11 @@ stateDiagram-v2
     Saved --> Idle : loadQuest reaches a prologue or an epilogue
 ```
 
-`markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`index.html:196`).
+`markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`frontend/adventure/index.html:196`).
 
 `saveGrimoire(questId, code)` (`state-service.js:384`) returns the status rather than a boolean: `IDLE` when `isGrimoireScreen(questId)` is false (`state-service.js:372`), `SAVED` only when the storage write succeeded, `FAILED` when storage refused it (quota full, `localStorage` switched off, or a private-mode rejection). A screen without a grimoire reports `IDLE` through `QuestManager.loadQuest` as well, so the prologue and the epilogue show grey instead of the colour the last typed quest left behind. The tour describes exactly these four colours (`tutorial.js:187`).
 
-The draft store is `state.grimoires[questId]`, read back through `loadQuestCode` in a three-way choice: saved code, quest template, then `DEFAULT_REGO_CODE` (`quest-manager.js:263`).
+The draft store is `state.grimoires[questId]`, read back through `loadQuestCode` in a three-way choice: saved code, quest template, then `DEFAULT_REGO_CODE` (`quest-manager.js:263-271`).
 
 ### M#11 · Verify request (client)
 
@@ -887,7 +887,7 @@ stateDiagram-v2
 
 `loadPackState` (`state-service.js:103`) and `setCurrentPack` (`state-service.js:136`) return `{ resumed, corrupt }`, so reading a saved adventure reports what it found instead of signalling through a null body, and pack entry turns `corrupt` into a warning toast. An entry that then fails is rolled back by `rollbackPackEntry` (`state-service.js:178`), which clears the pointer and every pack-scoped in-memory field without writing anything (M#3). `clearCurrentPack` (`state-service.js:162`) leaves the loaded quests alone and only flushes the state of a pack that is being left.
 
-A third micro-machine runs before any of this. `migrateStorageKeys()` moves `adventureTutorialCompleted` → `rego_tutorial_completed` once at startup (`storage-service.js:112`), called before `init()` (`app.js:173`). That legacy-key state decides whether the tutorial machine (M#23) starts `Eligible` or `Skipped`.
+A third micro-machine runs before any of this. `migrateStorageKeys()` (`frontend/adventure/src/app.js:173`) moves `adventureTutorialCompleted` → `rego_tutorial_completed` once at startup (`storage-service.js:112`), before any manager reads persisted state and before `init()` runs. That legacy-key state decides whether the tutorial machine (M#23) starts `Eligible` or `Skipped`.
 
 A fourth wrinkle: the *body* is also read from the `GameState` constructor (`state-service.js:54`). On a reload with a pointer set, the state is already loaded before any pointer/body transition in the diagram above gets a chance to run.
 
@@ -911,11 +911,11 @@ stateDiagram-v2
 
 `status` on `ApiError` is the machine's observable state, and on a 401 `authFailure` says which session path it came from. The UI branches on those rather than on message text (`error-service.js:33-54`): `401` with `renewal_failed` → the session could not be renewed, `401` otherwise → session expired, `0` → server down, `408` → policy timeout, `>=500` → server error. The same sentence is what the start screen writes when the failure happens during `init()`.
 
-Two boundaries of this machine matter. `/config` sits outside it: a `fetch` with `AbortSignal.timeout(API.CONFIG_TIMEOUT_MS)`, no token and no `ApiError` (`config-service.js:31-47`). The answer is bounded, and a timeout or an error status leaves `get()` returning null, which is what the start screen's "configuration could not be loaded" message keys on. The client's own 30 s `AbortSignal.timeout` (`api-service.js:69`, `:94`) is longer than every server clock on the same request (section 12.2), so a stalled verify is always decided server-side first.
+Two boundaries of this machine matter. `/config` sits outside it: a `fetch` bounded by `AbortSignal.timeout(API.CONFIG_TIMEOUT_MS)` (`config-service.js:31-47`), carrying no token and throwing plain errors instead of `ApiError`s. The answer is bounded, and a timeout or an error status leaves `get()` returning null, which is what the start screen's "configuration could not be loaded" message keys on. The client's own 30 s `AbortSignal.timeout` (`api-service.js:69`, `:94`) is longer than every server clock on the same request (section 12.2), so a stalled verify is always decided server-side first.
 
 * Renewal is reached from two places, `getToken` before the request (`auth-service.js:124-135`) and the 401 path after it (`api-service.js:96-104`), and both wait on the one in-flight attempt (M#2). A refused renewal is remembered, so an expired token costs one silent renewal and one round trip.
 * A 401 whose renewal could not be attempted and a 401 that outlived a renewed token are different outcomes and carry different `authFailure` values, which is what the two sentences of `apiErrorHint` branch on.
-* `AuthService.init()` runs *after* the config gate (`app.js:98-105`), and a failed `signinCallback()` is only logged (`auth-service.js:64-70`). A broken callback leaves the app "unauthenticated but running" rather than in an error state (M#1, M#2).
+* `AuthService.init()` runs *after* the config gate (`frontend/adventure/src/app.js:98-105`), and a failed `signinCallback()` is only logged (`auth-service.js:64-70`). A broken callback leaves the app "unauthenticated but running" rather than in an error state (M#1, M#2).
 
 ### M#29 · Lazy reveal caches
 
@@ -1017,7 +1017,7 @@ stateDiagram-v2
 
 ### M#30 · Backend process lifecycle
 
-**Carrier:** `context` + `errCh` · **Owner:** `RunWithGracefulShutdown` (`shutdown.go:80`) driven from `main.go` · **Persisted:** no
+**Carrier:** `context` + `errCh` · **Owner:** `RunWithGracefulShutdown` (`shutdown.go:114`) driven from `main.go` · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -1295,15 +1295,15 @@ stateDiagram-v2
 
 `questData` is the whole state of the tool, and it is memory-only: a reload loses an unsaved draft, and the only output is a browser download.
 
-Validation is one shared rule set rather than a copy of the server's. `docu/quest-editor/rules.js` holds `PACK_RULES` (a JSON block with `limits` and the rule list) plus `validatePack` (`rules.js:339`), `PACK_LIMITS` (`rules.js:134`) and `PACK_GENRE_PATTERN` (`rules.js:140`). `saveJSON` (`app.js:189`) refuses the export while `validatePack` reports problems and writes all of them to `#validationReport` at once (`app.js:952`); the form fields cap typing at the same numbers through `maxLength` (`app.js:86`). The same `PACK_RULES` block is read by `TestEditorLimitsMatchBackendConstants` (`backend/quest/rules_parity_test.go`) against `backend/quest/constants.go`. The rules are exercised through `docu/quest-editor/testdata/pack-validation-fixtures.json`, one set of packs run by both halves of the comparison: the Go test sends each through the server's own load path (`backend/quest/rules_parity_test.go:572`), and `docu/quest-editor/rules.test.js` sends each through `validatePack`. A rule the server enforces at pack load therefore has a counterpart in the tool, and a divergence fails CI.
+Validation is one shared rule set rather than a copy of the server's. `docu/quest-editor/rules.js` holds `PACK_RULES` (a JSON block with `limits` and the rule list) plus `validatePack` (`rules.js:339`), `PACK_LIMITS` (`rules.js:134`) and `PACK_GENRE_PATTERN` (`rules.js:140`). `saveJSON` (`docu/quest-editor/app.js:189`) refuses the export while `validatePack` reports problems and writes all of them to `#validationReport` at once (`docu/quest-editor/app.js:952`); the form fields cap typing at the same numbers through `maxLength` (`docu/quest-editor/app.js:112`). The same `PACK_RULES` block is read by `TestEditorLimitsMatchBackendConstants` (`backend/quest/rules_parity_test.go`) against `backend/quest/constants.go`. The rules are exercised through `docu/quest-editor/testdata/pack-validation-fixtures.json`, one set of packs run by both halves of the comparison: the Go test sends each through the server's own load path (`backend/quest/rules_parity_test.go:572`), and `docu/quest-editor/rules.test.js` sends each through `validatePack`. A rule the server enforces at pack load therefore has a counterpart in the tool, and a divergence fails CI.
 
-Quest identity is positional. The quest-ID field is read-only, and `renumberQuests` (`rules.js:368`) gives every quest the ID of its position, on add, on delete and again at export. That is the contiguity the repository requires (`backend/quest/repository.go:82-86`; the other end of the contract in section 12.3). `addQuest` (`app.js:657`) seeds a new quest with a title, a query and empty lore, task text, hints, solution and tests, so an export is refused until the operator fills in what the server requires.
+Quest identity is positional. The quest-ID field is read-only, and `renumberQuests` (`rules.js:368`) gives every quest the ID of its position, on add, on delete and again at export. That is the contiguity the repository requires (`backend/quest/repository.go:82-86`; the other end of the contract in section 12.3). `addQuest` (`docu/quest-editor/app.js:657`) seeds a new quest with a title, a query and empty lore, task text, hints, solution and tests, so an export is refused until the operator fills in what the server requires.
 
-Views are cloned per quest and dropped on every structural change. `switchToQuest` (`app.js:237`) clones `#questTemplate` into `view-quest-N`, where N is the quest's position, and the cloned controls close over that position; `addQuest` and `deleteQuest` (`app.js:688`) call `destroyQuestViews` (`app.js:705`), so no view survives a change of position to show or edit the wrong quest. The template node itself stays.
+Views are cloned per quest and dropped on every structural change. `switchToQuest` (`docu/quest-editor/app.js:237`) clones `#questTemplate` into `view-quest-N`, where N is the quest's position, and the cloned controls close over that position; `addQuest` and `deleteQuest` (`docu/quest-editor/app.js:688`) call `destroyQuestViews` (`docu/quest-editor/app.js:705`), so no view survives a change of position to show or edit the wrong quest. The template node itself stays.
 
 ### M#41 · Quest editor test modal
 
-**Carrier:** `openTestCase = { mode, questIndex, testIndex }` (`docu/quest-editor/app.js:32`) · **Owner:** `saveModalTest` (`app.js:812`), which reads it once per save · **Persisted:** no
+**Carrier:** `openTestCase = { mode, questIndex, testIndex }` (`docu/quest-editor/app.js:32`) · **Owner:** `saveModalTest` (`docu/quest-editor/app.js:812`), which reads it once per save · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -1318,7 +1318,7 @@ stateDiagram-v2
     Editing --> Editing
 ```
 
-`openTestCase` names add versus edit instead of encoding it as a sentinel number. `parseTestId` (`rules.js:389`) rejects a blank or non-numeric ID, and `saveModalTest` rejects an ID another test of the same quest already uses; both write their sentence into `#modalError` (`app.js:799`) and leave the modal open. A new test starts at `nextFreeTestId` (`rules.js:380`). The cap on the number of test cases is applied before the modal opens, at `PACK_LIMITS.MaxQuestTests` (`app.js:748`), which is the cap the server applies to the pack.
+`openTestCase` names add versus edit instead of encoding it as a sentinel number. `parseTestId` (`rules.js:389`) rejects a blank or non-numeric ID, and `saveModalTest` rejects an ID another test of the same quest already uses; both write their sentence into `#modalError` (`docu/quest-editor/app.js:799`) and leave the modal open. A new test starts at `nextFreeTestId` (`rules.js:380`). The cap on the number of test cases is applied before the modal opens, at `PACK_LIMITS.MaxQuestTests` (`docu/quest-editor/app.js:749`), which is the cap the server applies to the pack.
 
 ---
 
