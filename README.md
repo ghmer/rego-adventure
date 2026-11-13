@@ -373,6 +373,12 @@ five minutes (`Cache-Control: private, max-age=300`). A pack's tests are readabl
 reach the server; the projection keeps the startup payload small, it does not hide the truth table
 the player is coding against.
 
+When authentication is enabled, every registered route requires a valid bearer token except the
+pre-login surface: `/config`, `/health`, `/callback`, the SPA files, and `/shared/css`. Pack media
+and pack stylesheets under `/quests/` are token-protected and answered with
+`Cache-Control: private, max-age=3600`, so shared caches never store them. With authentication
+disabled, all routes serve without a token.
+
 ### Asset Generator
 
 The asset generator tool creates new quest pack scaffolding with placeholder assets and configuration files. A run that fails part way through leaves no partial pack: everything it had already written below the pack directory is removed again, and content that was already there is left alone.

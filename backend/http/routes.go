@@ -28,6 +28,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/ghmer/rego-adventure/v2/backend/paths"
@@ -79,6 +80,35 @@ func inlineImportMapScriptHash(indexFile string) (string, error) {
 	return "sha256-" + base64.StdEncoding.EncodeToString(sum[:]), nil
 }
 
+// publicRoutePaths lists allowlisted route paths served without a bearer
+// token even when authentication is enabled. They are pre-login
+// infrastructure (SPA bootstrap config, container health checks, the OIDC
+// redirect landing) or styling loaded by the public SPA shell; none of
+// them carries game data. Every registered route outside this list
+// requires a valid bearer token (see servePublicly).
+var publicRoutePaths = []string{
+	"/config",
+	"/health",
+	"/callback",
+	"/shared/css/",
+}
+
+// servePublicly reports whether a request bypasses the auth middleware.
+// It returns true for requests that matched no registered route at all
+// (empty FullPath): those are handled by the NoRoute SPA fallback, which
+// serves the public shell, its bundled assets, and client-side deep links.
+// Matched requests are public only when their route path is allowlisted.
+func servePublicly(c *gin.Context) bool {
+	fullPath := c.FullPath()
+	if fullPath == "" {
+		return true
+	}
+	if slices.Contains(publicRoutePaths, fullPath) {
+		return true
+	}
+	return strings.HasPrefix(fullPath, "/shared/css/")
+}
+
 // SetupRoutes configures all routes and middleware.
 //
 // It returns an error when the inline import map CSP hash cannot be
@@ -93,22 +123,24 @@ func (s *Server) SetupRoutes() error {
 		return fmt.Errorf("security: cannot compute CSP hash for the inline import map: %w", err)
 	}
 
-	// Apply middleware
+	// Apply middleware. Auth is attached globally: every route registered
+	// below defaults to protected, and only publicRoutePaths opens an
+	// exception. Unmatched paths fall through to the public SPA handler
+	// (see servePublicly and createSPAHandler).
 	s.router.Use(SecurityHeaders(s.config, importMapHash))
 	s.router.Use(BodySizeLimit())
 	s.router.Use(setupCORS(s.config.AllowedOrigin))
+	s.router.Use(Auth(s.config))
 
-	// Config endpoint
+	// Public endpoints (allowlisted in publicRoutePaths)
 	s.router.GET("/config", func(c *gin.Context) {
 		c.JSON(http.StatusOK, s.config.Auth)
 	})
-
-	// Health check endpoint (public, no auth required)
 	s.router.GET("/health", s.handler.HealthCheck)
 
-	// API routes with auth middleware
+	// API routes; the global Auth middleware gates them when
+	// authentication is enabled.
 	apiGroup := s.router.Group("/api")
-	apiGroup.Use(Auth(s.config))
 	s.handler.RegisterRoutes(apiGroup)
 
 	// Quest assets routes
@@ -173,6 +205,8 @@ func (s *Server) serveQuestAssets(c *gin.Context) {
 		return isAllowedExtension(p) && !isSensitiveFile(p)
 	}
 
+	// Token-protected media must not be stored by shared caches.
+	c.Header("Cache-Control", mediaCacheControl)
 	s.serveSafeFile(c, baseDir, requestedPath, validate, "")
 }
 
@@ -191,6 +225,8 @@ func (s *Server) serveQuestCSS(c *gin.Context) {
 	baseDir := filepath.Join(paths.QuestsDir, pack)
 	validate := validateQuestCSSFile
 
+	// Token-protected content must not be stored by shared caches.
+	c.Header("Cache-Control", mediaCacheControl)
 	s.serveSafeFile(c, baseDir, filename, validate, "text/css; charset=utf-8")
 }
 

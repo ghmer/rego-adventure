@@ -151,7 +151,12 @@ var (
 	errMissingAuthHeader = errors.New("authorization header required")
 )
 
-// Auth creates an authentication middleware
+// Auth rejects requests without a valid bearer token when authentication
+// is enabled. Enforcement is decided by route composition: every
+// registered route requires a token unless it is allowlisted as public,
+// and requests handled by the NoRoute SPA fallback are always public
+// (see servePublicly in routes.go). With authentication disabled in
+// configuration, the middleware passes every request.
 func Auth(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !cfg.Auth.Enabled {
@@ -159,6 +164,10 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		if servePublicly(c) {
+			c.Next()
+			return
+		}
 		tokenString, err := bearerToken(c.GetHeader("Authorization"))
 		if err != nil {
 			abortUnauthorized(c, err)

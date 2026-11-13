@@ -227,3 +227,160 @@ func TestServeSafeFile_SymlinkedAssetRejected(t *testing.T) {
 		t.Fatalf("expected 403 for a symlinked asset path, got %d", w.Code)
 	}
 }
+
+// ==================== Route protection matrix ====================
+
+// probePackName is the pack directory the route protection tests
+// materialize under the gitignored frontend/quests directory.
+const probePackName = "probe-pack"
+
+// createProbePack writes the minimal pack media and stylesheet served by
+// the quest asset routes.
+func createProbePack(t *testing.T) {
+	t.Helper()
+	pack := filepath.Join("frontend", "quests", probePackName)
+	t.Cleanup(func() { _ = os.RemoveAll(pack) })
+	if err := os.MkdirAll(filepath.Join(pack, "assets"), 0o750); err != nil {
+		t.Fatalf("failed to create probe pack directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pack, "assets", "picture.png"), []byte("png"), 0o600); err != nil {
+		t.Fatalf("failed to write probe pack asset: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pack, "theme.css"), []byte("body{}"), 0o600); err != nil {
+		t.Fatalf("failed to write probe pack stylesheet: %v", err)
+	}
+}
+
+// newProtectedRoutesServer composes the real route setup with an auth
+// enabled configuration and a probe pack on disk.
+func newProtectedRoutesServer(t *testing.T) (*Server, string) {
+	t.Helper()
+	t.Chdir("../..")
+	createProbePack(t)
+
+	s := newAuthTestServer(t, []string{"RS256"})
+	s.cfg.AllowedOrigin = "https://adventure.example.com"
+	srv, err := New(s.cfg, NewHandler(quest.NewQuestRepository(), quest.NewVerifier()))
+	if err != nil {
+		t.Fatalf("New server: %v", err)
+	}
+	if err := srv.SetupRoutes(); err != nil {
+		t.Fatalf("SetupRoutes: %v", err)
+	}
+	return srv, s.signRS256(t)
+}
+
+// TestPublicRoutesReachableWithoutAuthentication: the pre-login surface
+// must answer without a bearer token. A want value of -1 asserts any
+// answer except 401: /callback's exact code comes from FileFromFS
+// redirect internals that this test does not pin.
+func TestPublicRoutesReachableWithoutAuthentication(t *testing.T) {
+	srv, _ := newProtectedRoutesServer(t)
+
+	cases := []struct {
+		path string
+		want int
+	}{
+		{"/config", nethttp.StatusOK},
+		{"/health", nethttp.StatusOK},
+		{"/callback", -1},
+		{"/", nethttp.StatusOK},
+		{"/impressum.html", nethttp.StatusOK},
+		{"/public/favicon.ico", nethttp.StatusOK},
+		{"/styles/theme.css", nethttp.StatusOK},
+		{"/shared/css/base.css", nethttp.StatusOK},
+		{"/api/does-not-exist", nethttp.StatusNotFound},
+	}
+
+	for _, tc := range cases {
+		w := httptest.NewRecorder()
+		req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, tc.path, nil)
+		srv.router.ServeHTTP(w, req)
+		if tc.want == -1 {
+			if w.Code == nethttp.StatusUnauthorized {
+				t.Errorf("%s: public route rejected with %d", tc.path, w.Code)
+			}
+			continue
+		}
+		if w.Code != tc.want {
+			t.Errorf("%s: expected %d, got %d", tc.path, tc.want, w.Code)
+		}
+	}
+}
+
+// TestProtectedRoutesRequireBearerToken: registered data routes answer
+// 401 without a token and 200 with a valid one.
+func TestProtectedRoutesRequireBearerToken(t *testing.T) {
+	srv, token := newProtectedRoutesServer(t)
+
+	for _, path := range []string{
+		"/api/packs",
+		"/quests/" + probePackName + "/assets/picture.png",
+		"/quests/" + probePackName + "/theme.css",
+	} {
+		w := httptest.NewRecorder()
+		req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, path, nil)
+		srv.router.ServeHTTP(w, req)
+		if w.Code != nethttp.StatusUnauthorized {
+			t.Errorf("%s: expected 401 without token, got %d", path, w.Code)
+		}
+
+		w = httptest.NewRecorder()
+		req, _ = nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		srv.router.ServeHTTP(w, req)
+		if w.Code != nethttp.StatusOK {
+			t.Errorf("%s: expected 200 with token, got %d", path, w.Code)
+		}
+	}
+}
+
+// TestProtectedMediaStaysOutOfSharedCaches: token-protected quest media
+// must carry a private cache directive.
+func TestProtectedMediaStaysOutOfSharedCaches(t *testing.T) {
+	srv, token := newProtectedRoutesServer(t)
+
+	w := httptest.NewRecorder()
+	req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, "/quests/"+probePackName+"/assets/picture.png", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != nethttp.StatusOK {
+		t.Fatalf("expected 200 for probe asset, got %d", w.Code)
+	}
+	if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "private") {
+		t.Errorf("expected a private Cache-Control on protected media, got %q", cc)
+	}
+}
+
+// TestOpenModeKeepsQuestMediaAccessible: with authentication disabled,
+// quest media and the API serve without a token.
+func TestOpenModeKeepsQuestMediaAccessible(t *testing.T) {
+	t.Chdir("../..")
+	createProbePack(t)
+
+	cfg := &config.Config{
+		AllowedOrigin: "https://adventure.example.com",
+		Auth:          config.AuthConfig{Enabled: false},
+	}
+	srv, err := New(cfg, NewHandler(quest.NewQuestRepository(), quest.NewVerifier()))
+	if err != nil {
+		t.Fatalf("New server: %v", err)
+	}
+	if err := srv.SetupRoutes(); err != nil {
+		t.Fatalf("SetupRoutes: %v", err)
+	}
+
+	for _, path := range []string{
+		"/quests/" + probePackName + "/assets/picture.png",
+		"/quests/" + probePackName + "/theme.css",
+		"/api/packs",
+	} {
+		w := httptest.NewRecorder()
+		req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, path, nil)
+		srv.router.ServeHTTP(w, req)
+		if w.Code != nethttp.StatusOK {
+			t.Errorf("%s: expected 200 in open mode, got %d", path, w.Code)
+		}
+	}
+}
