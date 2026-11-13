@@ -130,10 +130,13 @@ type Resolver interface {
 	Lines(path string) ([]string, error)
 }
 
-// NewRepoResolver builds a resolver over a repository root. A citation path
-// containing a slash is resolved relative to the root. A bare file name must
-// be unique in the repository, unless it names the root file itself, which
-// then wins (main.go is the conventional name for both).
+// NewRepoResolver builds a resolver over a repository root. A bare file
+// name must be unique in the repository, unless the repository's own root
+// file has that name, which then wins. A slash-carrying path is resolved
+// from the root when it hits exactly, and otherwise by its unique location
+// inside the repository, which covers the document's tree-relative
+// citation style (managers/ui-manager.js is cited without frontend/
+// adventure/src).
 func NewRepoResolver(root string) (Resolver, error) {
 	byName := map[string][]string{}
 	var all []string
@@ -293,9 +296,14 @@ func atoi(s string) int {
 func main() {
 	root := "."
 	doc := filepath.Join(root, "docu", "state-machines.md")
-	if len(os.Args) > 2 {
+	switch len(os.Args) {
+	case 1:
+	case 3:
 		root = os.Args[1]
 		doc = os.Args[2]
+	default:
+		fmt.Fprintln(os.Stderr, "usage: doccite [repository-root document]")
+		os.Exit(2)
 	}
 	if err := run(root, doc); err != nil {
 		fmt.Fprintln(os.Stderr, err)
