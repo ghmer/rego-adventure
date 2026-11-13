@@ -73,8 +73,9 @@ func TestEmittedCSSVariablesResolve(t *testing.T) {
 		}
 	}
 	if len(unresolved) > 0 {
-		t.Errorf("templates.go emits var(%s) that neither the generated pack nor "+
-			"frontend/shared/css/base.css defines", strings.Join(unresolved, ", var("))
+		t.Errorf("templates.go emits undefined var() references: %s (neither the "+
+			"generated pack nor frontend/shared/css/base.css defines them)",
+			strings.Join(unresolved, ", "))
 	}
 	if len(used) == 0 {
 		t.Error("no var() usage found in templates.go; the extraction no longer matches the template source")

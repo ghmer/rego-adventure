@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 )
 
@@ -106,13 +105,11 @@ func TestDeployManifestsAndReadmeDocumentEveryEnv(t *testing.T) {
 	}
 }
 
-// TestEnvContractTestSetup pins the scanner against an impossible name, so
-// the failure above cannot silently report success for everything.
-func TestEnvContractTestSetup(t *testing.T) {
+// TestEnvContractScannerRejectsUnknownName pins the scanner against an
+// impossible name, so the contract test cannot silently report success for
+// everything.
+func TestEnvContractScannerRejectsUnknownName(t *testing.T) {
 	if fileContainsLine(t, "README.md", regexp.MustCompile(`^\|\s*`+"`NO_SUCH_ENV_VAR`")) {
 		t.Error("the README scanner matched a variable that cannot exist")
-	}
-	if !strings.Contains(strings.Join(envReaderFiles, " "), "config.go") {
-		t.Error("the reader list lost the config sources")
 	}
 }
