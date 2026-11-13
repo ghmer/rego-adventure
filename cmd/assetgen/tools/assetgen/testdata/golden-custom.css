@@ -1,0 +1,78 @@
+/* 
+   ============================================
+   CUSTOM.CSS - Theme-Specific Custom Effects
+   ============================================
+   
+   Add theme-specific visual effects here:
+   - Scanlines, rain effects, textures
+   - Unique decorations and overlays
+   - Special animations
+   - Theme-specific pseudo-elements
+      
+   This file is intentionally minimal - add effects as needed
+   for your specific theme.
+   ============================================ 
+*/
+
+/* Example: Scanline effect (commented out by default)
+body::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(
+        rgba(var(--text-rgb), 0) 50%,
+        rgba(var(--text-rgb), 0.25) 50%
+    ),
+    linear-gradient(
+        90deg,
+        rgba(var(--accent-rgb), 0.06),
+        rgba(255, 0, 0, 0.02),
+        rgba(0, 255, 0, 0.06)
+    );
+    z-index: 2;
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+}
+*/
+
+/* Disable button glow pulse when effects are disabled
+body.effects-disabled .action-btn,
+body.effects-disabled {
+    animation: none;
+}
+*/
+
+/* Disable custom theme effects when effects are disabled
+body.effects-disabled .your-effect {
+    animation: none;
+    transform: none;
+}
+*/
+
+/* Respect reduced motion preference
+@media (prefers-reduced-motion: reduce) {
+    .action-btn {
+        animation: none;
+    }
+}
+*/
+
+/* Example: Advanced effect with @supports query
+@supports (backdrop-filter: blur(10px)) {
+    .glass-effect {
+        backdrop-filter: blur(10px);
+        background-color: rgba(var(--surface-light-rgb), 0.1);
+    }
+}
+
+Fallback for browsers without backdrop-filter support
+@supports not (backdrop-filter: blur(10px)) {
+    .glass-effect {
+        background-color: rgba(var(--surface-light-rgb), 0.9);
+    }
+}
+*/

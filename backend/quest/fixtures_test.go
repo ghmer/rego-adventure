@@ -20,6 +20,28 @@ package quest
 // should start from these builders and modify the returned value, so the
 // fixtures stay in one place.
 
+// verificationTestCases returns the admin/guest case pair shared by the
+// valid quest fixture and the verifier result tests; single-case fixtures
+// take the first entry.
+func verificationTestCases() []TestCase {
+	return []TestCase{
+		{
+			ID:              1,
+			ExpectedOutcome: true,
+			Payload: TestPayload{
+				Input: map[string]any{"user": "admin"},
+			},
+		},
+		{
+			ID:              2,
+			ExpectedOutcome: false,
+			Payload: TestPayload{
+				Input: map[string]any{"user": "guest"},
+			},
+		},
+	}
+}
+
 func createValidQuest() Quest {
 	return Quest{
 		ID:              1,
@@ -31,26 +53,11 @@ func createValidQuest() Quest {
 			RegoSnippet:  `package test`,
 			ExternalLink: "http://example.com/docs",
 		},
-		Hints:    []string{"Hint 1", "Hint 2"},
-		Solution: "solution code",
-		Template: "template code",
-		Query:    "data.test.allow",
-		Tests: []TestCase{
-			{
-				ID:              1,
-				ExpectedOutcome: true,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "admin"},
-				},
-			},
-			{
-				ID:              2,
-				ExpectedOutcome: false,
-				Payload: TestPayload{
-					Input: map[string]any{"user": "guest"},
-				},
-			},
-		},
+		Hints:         []string{"Hint 1", "Hint 2"},
+		Solution:      "solution code",
+		Template:      "template code",
+		Query:         "data.test.allow",
+		Tests:         verificationTestCases(),
 		ApplyTemplate: true,
 	}
 }

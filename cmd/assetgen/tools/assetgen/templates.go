@@ -18,6 +18,51 @@ package assetgen
 
 // Template constants for generated files
 
+// Shared fragments of the generated theme.css. Blocks the browser treats
+// as one pattern (button reset, circular icon geometry, hover emphasis and
+// the fieldset legend badges) are composed into themeCSSTemplate, so a
+// change edits one constant instead of its copies.
+const buttonResetTemplate = `    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none !important;
+`
+
+const iconButtonIconTemplate = `    width: 40px;
+    height: 40px;
+    line-height: 36px;
+    text-align: center;
+    font-size: 1.2rem;
+    border-radius: 50%;
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    display: block;
+`
+
+const iconButtonShellTemplate = buttonResetTemplate + `    cursor: pointer;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 44px;
+    height: 44px;
+`
+
+const iconButtonHoverTemplate = `    background-color: transparent;
+    transform: scale(1.1);
+`
+
+const legendBadgeTemplate = `    position: absolute;
+    top: -1px;
+    left: 10px;
+    background: var(--bg-color);
+    padding: 0 5px;
+    color: var(--accent-color);
+    font-size: 0.8rem;
+    font-family: var(--font-heading);
+    transform: translateY(-50%);
+`
+
 const themeCSSTemplate = `/* ============================================
    THEME.CSS - Theme-Specific Variables and Overrides
    ============================================
@@ -95,11 +140,9 @@ body {
 #minimize-btn,
 #home-btn,
 #logout-btn {
-    padding: 0;
-    border: none;
-    background: transparent;
-    box-shadow: none !important;
-}
+` +
+	buttonResetTemplate +
+	`}
 
 #restart-btn:hover,
 #minimize-btn:hover,
@@ -125,18 +168,9 @@ body {
 }
 
 #music-btn {
-    padding: 0;
-    border: none;
-    background: transparent;
-    box-shadow: none !important;
-    cursor: pointer;
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 44px;
-    height: 44px;
-}
+` +
+	iconButtonShellTemplate +
+	`}
 
 #music-btn.music-playing {
     animation: mute-pulse 2s ease-in-out infinite;
@@ -148,54 +182,31 @@ body.effects-disabled #music-btn.music-playing {
 }
 
 #music-btn:hover {
-    background-color: transparent;
-    transform: scale(1.1);
-}
+` +
+	iconButtonHoverTemplate +
+	`}
 
 #music-btn i {
-    width: 40px;
-    height: 40px;
-    line-height: 36px;
-    text-align: center;
-    font-size: 1.2rem;
-    border-radius: 50%;
-    border: 2px solid var(--accent-color);
-    color: var(--accent-color);
-    display: block;
-    z-index: 1;
+` +
+	iconButtonIconTemplate +
+	`    z-index: 1;
 }
 
 /* Effects Button */
 #effects-btn {
-    padding: 0;
-    border: none;
-    background: transparent;
-    box-shadow: none !important;
-    cursor: pointer;
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 44px;
-    height: 44px;
-}
+` +
+	iconButtonShellTemplate +
+	`}
 
 #effects-btn:hover {
-    background-color: transparent;
-    transform: scale(1.1);
-}
+` +
+	iconButtonHoverTemplate +
+	`}
 
 #effects-btn i {
-    width: 40px;
-    height: 40px;
-    line-height: 36px;
-    text-align: center;
-    font-size: 1.2rem;
-    border-radius: 50%;
-    border: 2px solid var(--accent-color);
-    color: var(--accent-color);
-    display: block;
-    transition: all 0.3s ease;
+` +
+	iconButtonIconTemplate +
+	`    transition: all 0.3s ease;
 }
 
 /* Effects Active State */
@@ -242,16 +253,9 @@ body.effects-disabled #music-btn.music-playing {
 
 .lore-container::before {
     content: "LORE";
-    position: absolute;
-    top: -1px;
-    left: 10px;
-    background: var(--bg-color);
-    padding: 0 5px;
-    color: var(--accent-color);
-    font-size: 0.8rem;
-    font-family: var(--font-heading);
-    transform: translateY(-50%);
-}
+` +
+	legendBadgeTemplate +
+	`}
 
 /* Lore Text */
 .lore-text {
@@ -276,16 +280,9 @@ body.effects-disabled #music-btn.music-playing {
 
 .task-box::before {
     content: "OBJECTIVE";
-    position: absolute;
-    top: -1px;
-    left: 10px;
-    background: var(--bg-color);
-    padding: 0 5px;
-    color: var(--accent-color);
-    font-size: 0.8rem;
-    font-family: var(--font-heading);
-    transform: translateY(-50%);
-}
+` +
+	legendBadgeTemplate +
+	`}
 
 .task-box h3 {
     display: none;
