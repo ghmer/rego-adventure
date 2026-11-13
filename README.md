@@ -175,6 +175,27 @@ kubectl apply -f docu/deploy/k8s/ingress.yaml
 
 Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8s/configmap.yaml) with your environment-specific values.
 
+## Testing
+
+| Layer | Command | CI job |
+| ------- | --------- | -------- |
+| Backend unit, handler and loader tests | `go test -race -count=1 ./...` | `go-ci.yml` |
+| Backend lint | `golangci-lint run ./...` | `go-ci.yml` |
+| Backend static analysis | `gosec -quiet ./...` | run locally |
+| Frontend unit tests | `npm test` in `frontend/adventure`, with the pinned toolchain installed ephemerally as CI does: `npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3` | `frontend-ci.yml` |
+| Frontend lint | `npx eslint src` in `frontend/adventure` after `npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0` | `frontend-ci.yml` |
+| Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
+| Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
+| Browser and command-line QA suites | `node docu/qa/<suite>.cjs` | none |
+
+The QA suites in `docu/qa/` start their own server on a free port and drive a real browser through
+Playwright, which is resolved from the machine rather than declared as a dependency. Six suites:
+`spa-qa` (the adventure interface), `dialog-qa` (the seven dialogs), `editor-qa` (the quest editor),
+`save-compat` (saved-state compatibility), `cli-qa` (the command-line tools) and `session-qa` (a
+signed session token that expires during a quest, on the start screen and inside a quest). They run by
+hand against the change they test: each removes the quest packs it generates and reports any tree
+change it did not make itself.
+
 ## Project Structure
 
 ```text
@@ -198,9 +219,11 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 │   │   ├── docker/        # Docker Compose
 │   │   └── k8s/           # Kubernetes manifests
 │   ├── images/            # Documentation images
+│   ├── qa/                # Browser and command-line QA suites
 │   ├── quest-editor/      # Browser-based quest editor
 │   ├── utilities/         # Documentation utilities
-│   └── quests.md          # Quest pack format documentation
+│   ├── quests.md          # Quest pack format documentation
+│   └── state-machines.md  # State machines the code implements
 ├── Dockerfile             # Multi-stage container build
 └── go.mod                 # Go dependencies
 ```

@@ -78,7 +78,7 @@ function initializeEventListeners() {
     // Validation report
     document.getElementById('validationReportClose').addEventListener('click', hideValidationReport);
     
-    // Form change listeners for auto-save
+    // Form change listeners write every edit straight into questData
     setupFormListeners();
 }
 
