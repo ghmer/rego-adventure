@@ -30,6 +30,12 @@ type PackLoadWarning struct {
 	Err    error
 }
 
+// Error makes the warning itself usable as an error value; together with
+// Unwrap it lets errors.Is/As reach the underlying cause.
+func (w PackLoadWarning) Error() string {
+	return fmt.Sprintf("pack %q: %v", w.PackID, w.Err)
+}
+
 // Unwrap returns the underlying error, so errors.Is/As work on warnings.
 func (w PackLoadWarning) Unwrap() error { return w.Err }
 

@@ -120,7 +120,7 @@ export class GameState {
             // derivation.
             this.totalScore = this.sumQuestScores();
             return { resumed: state, corrupt: false };
-        } catch (e) {
+        } catch {
             setLocalStorage(getCorruptPackKey(STORAGE_KEYS.PACK_STATE, packId), packedState);
             return { resumed: null, corrupt: true };
         }

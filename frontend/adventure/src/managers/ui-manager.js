@@ -48,6 +48,7 @@ export class UIManager {
      * Initialize all DOM element references
      * @returns {Object} Object containing all DOM element references
      */
+    // eslint-disable-next-line max-lines-per-function -- the element registry is one declarative table; splitting it would not make any single lookup clearer
     initializeElements() {
         return {
             // Quest elements
@@ -402,7 +403,7 @@ export class UIManager {
             if (url.protocol === 'https:' || url.protocol === 'http:') {
                 return url.href;
             }
-        } catch (e) {
+        } catch {
             // fall through
         }
         console.warn('Rejected unsafe manual external link:', value);

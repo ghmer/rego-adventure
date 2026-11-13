@@ -191,7 +191,7 @@ export class EventManager {
      */
     setupHintListeners() {
         this.ui.elements.hintBtn.addEventListener('click', () => {
-            this.modal.showHintConfirmation(this.quest);
+            this.modal.showHintConfirmation();
         });
 
         this.ui.elements.cancelHintBtn.addEventListener('click', () => {

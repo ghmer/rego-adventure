@@ -6,7 +6,6 @@
 | What it describes | The 42 implicit state machines that run the Rego Adventure platform |
 | Status | Living reference, kept alongside the code; see git history for the last full audit pass |
 | Audience | Maintainers, reviewers, contributors; planning documents that point at machines |
-| Derived documents | `docu/refactor-sprints.md` (references machines as `M#n`) |
 | Related | [`README.md`](../README.md) (system overview), [`docu/quests.md`](quests.md) (pack format), [`docu/deploy/`](deploy/) (deployment) |
 
 ---
@@ -38,7 +37,7 @@ Forty-two state machines run this codebase, and none of them is declared as a st
 
 The rest is emergent. State lives in scattered booleans, `hidden` CSS classes, `disabled` attributes, `localStorage` keys, timers, context cancellation and HTTP status codes. That is workable until two people, or two changes, touch the same scattered piece at once. Once a machine has a name and a number, precise questions get precise answers: who writes its state, which transitions are legal, what happens on the paths nobody planned.
 
-This document names and describes all of them. Each machine carries a stable identifier, `M#1` through `M#42`, so that discussions, refactor plans, tests and reviews can point at one machine instead of re-describing it. `docu/refactor-sprints.md` is derived from this document and depends on those identifiers.
+This document names and describes all of them. Each machine carries a stable identifier, `M#1` through `M#42`, so that discussions, refactor plans, tests and reviews can point at one machine instead of re-describing it.
 
 Three audiences:
 
@@ -68,7 +67,7 @@ Second, an entry is a claim, not a promise. Each one carries its evidence so it 
 
 ## 4. Reading conventions
 
-**Machine identifiers.** `M#n` identifiers are stable. They survive rewrites of this document, and other documents (`docu/refactor-sprints.md`) point at machines by them. New machines take the next free number.
+**Machine identifiers.** `M#n` identifiers are stable. They survive rewrites of this document, and discussions and planning documents point at machines by them. New machines take the next free number.
 
 **State carrier.** In the tables and per-machine cards, the *state carrier* is the variable or attribute that really holds the machine's state, as opposed to code that merely reads or renders it. Carriers come in four shapes: a variable, a DOM attribute or class, a timer or promise, and a value the server returns.
 
@@ -1400,7 +1399,7 @@ This is a register, not a list of suspicions. Each entry has a reachable path th
 
 The code is the ground truth; this document describes it. Four habits from the audit passes so far:
 
-* **Point at machines by `M#n`.** The identifiers are stable, unlike section numbering. `docu/refactor-sprints.md` depends on that, as do discussions and review comments.
+* **Point at machines by `M#n`.** The identifiers are stable, unlike section numbering — discussions, refactor plans, tests and review comments can rely on them.
 * **Cite symbols, not line numbers, when editing.** Line references in this document were accurate at the last pass but drift with every refactor. When you change code covered by a machine, locate it by symbol and update the entry; the quoted fragment usually survives when the line number does not.
 * **Let the boundary tests do the guarding.** The strongest ownership rules are pinned by tests: `architecture-boundaries.test.js` (visibility and modality ownership), the modal-manager suite (dismissal policy), `rules_parity_test.go` and the editor fixture set (validation rules), and the projection/handler tests for the progressive disclosure table. If you add a rule as strong as those, add a test for it alongside the entry.
 * **Treat section 13 as a register.** A fixed hazard is removed; a discovered one is added with the reachable path spelled out, in one sentence or two, with its machine references.

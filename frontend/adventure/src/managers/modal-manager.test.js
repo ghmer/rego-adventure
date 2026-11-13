@@ -37,12 +37,8 @@ vi.mock('../effects.js', () => ({
     cleanupEffects: vi.fn()
 }));
 
-import {
-    ModalManager,
-    formatActualValue,
-    formatPolicyError,
-    buildHintConfirmationText
-} from './modal-manager.js';
+import { ModalManager } from './modal-manager.js';
+import { formatActualValue, formatPolicyError, buildHintConfirmationText } from './dialog-text.js';
 import { ApiError } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
@@ -399,7 +395,7 @@ describe('modal-manager', () => {
             expect(nextQuest).toHaveBeenCalledTimes(1);
 
             state.currentQuest = { hints_count: 2, has_solution: false };
-            modal.showHintConfirmation({});
+            modal.showHintConfirmation();
             expect(cancel).toHaveBeenCalledTimes(1);
         });
     });

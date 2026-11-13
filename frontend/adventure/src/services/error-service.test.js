@@ -22,7 +22,8 @@ const toastMock = vi.hoisted(() => ({
 
 vi.mock('./toast-service.js', () => ({ showToast: toastMock.showToast }));
 
-import { showError, handleApiError, apiErrorHint } from './error-service.js';
+import { handleApiError, apiErrorHint } from './error-service.js';
+import { showError } from './error-display.js';
 import { ApiError } from './api-service.js';
 import { ErrorLevel, AuthFailure } from './constants.js';
 

@@ -40,7 +40,7 @@ import { AUDIO, TIMING } from '../services/constants.js';
  * | fading-out    | gain is ramping to 0, the element still runs            | off |
  * | play-rejected | play() rejected; cleared by the next toggle             | off |
  */
-export const MusicState = {
+const MusicState = {
     Unavailable: 'unavailable',
     Silent: 'silent',
     FadingIn: 'fading-in',

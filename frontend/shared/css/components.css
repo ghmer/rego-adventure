@@ -199,11 +199,6 @@
     font-size: 0.8rem;
 }
 
-.action-btn.large {
-    padding: 1rem 2.5rem;
-    font-size: 1.5rem;
-}
-
 /* Login Button Styling */
 .action-btn.login-btn,
 button[onclick*="login"] {

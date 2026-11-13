@@ -18,6 +18,9 @@ package quest
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,6 +39,19 @@ func writePackFixture(t *testing.T, dir, packID string, pack QuestPack) {
 	}
 	if err := os.WriteFile(filepath.Join(packDir, "quests.json"), data, 0o600); err != nil {
 		t.Fatalf("failed to write quests.json: %v", err)
+	}
+}
+
+// TestPackLoadWarning_Unwrap pins the error-wrapping affordance: consumers
+// can reach the underlying cause of a pack-load failure with errors.Is/As.
+func TestPackLoadWarning_Unwrap(t *testing.T) {
+	warning := PackLoadWarning{
+		PackID: "alpha",
+		Err:    fmt.Errorf("read quests.json: %w", io.ErrUnexpectedEOF),
+	}
+
+	if !errors.Is(warning, io.ErrUnexpectedEOF) {
+		t.Errorf("errors.Is should find io.ErrUnexpectedEOF through the warning, got %v", warning.Err)
 	}
 }
 

@@ -28,7 +28,7 @@ import { driver } from 'driver.js';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
 import { show, hide, isHidden } from './services/visibility.js';
 
-export class TutorialSystem {
+class TutorialSystem {
     constructor() {
         this.driverObj = null;
         // Track selectors hidden by the tutorial so they can be restored
@@ -113,6 +113,7 @@ export class TutorialSystem {
     /**
      * Define tutorial steps (driver.js format)
      */
+    // eslint-disable-next-line max-lines-per-function -- tour steps are one declarative data table in driver.js format
     defineTutorialSteps() {
         return [
             {

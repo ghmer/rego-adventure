@@ -15,7 +15,8 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { tokenizeRego, regoHighlighter, escapeHtml } from './rego-highlighter.js';
+import { regoHighlighter, escapeHtml } from './rego-highlighter.js';
+import { tokenizeRego } from './rego-tokenizer.js';
 
 /**
  * Compact helper: tokenize and return `[type, value]` pairs, dropping

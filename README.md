@@ -179,9 +179,9 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 
 | Layer | Command | CI job |
 | ------- | --------- | -------- |
-| Backend unit, handler and loader tests | `go test -race -count=1 ./...` | `go-ci.yml` |
-| Backend lint | `golangci-lint run ./...` | `go-ci.yml` |
-| Backend static analysis | `gosec -quiet ./...` | run locally |
+| Backend unit, handler and loader tests | `go test -race -count=1 ./backend/... ./cmd/... .` | `go-ci.yml` |
+| Backend lint | `golangci-lint run ./backend/... ./cmd/... .` | `go-ci.yml` |
+| Backend static analysis | `gosec -quiet ./backend/... ./cmd/... .` | run locally |
 | Frontend unit tests | `npm test` in `frontend/adventure`, with the pinned toolchain installed ephemerally as CI does: `npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3` | `frontend-ci.yml` |
 | Frontend lint | `npx eslint src` in `frontend/adventure` after `npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0` | `frontend-ci.yml` |
 | Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |

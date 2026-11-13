@@ -104,18 +104,6 @@ const (
 	OutcomeServerEnded
 )
 
-// String names the outcome for logging.
-func (o RunOutcome) String() string {
-	switch o {
-	case OutcomeDrained:
-		return "drained"
-	case OutcomeServerEnded:
-		return "server-ended"
-	default:
-		return "unknown"
-	}
-}
-
 // RunWithGracefulShutdown starts the server and blocks until ctx is cancelled
 // (e.g. by SIGTERM/SIGINT) or the server fails. On cancellation it drains
 // active requests for up to timeout before returning nil. A server failure

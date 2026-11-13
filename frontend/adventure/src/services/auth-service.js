@@ -76,7 +76,7 @@ export const AuthService = {
         if (!userManager) return null;
         try {
             return await userManager.getUser();
-        } catch (e) {
+        } catch {
             return null;
         }
     },
