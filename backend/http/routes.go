@@ -145,18 +145,27 @@ func (s *Server) setupFrontendRoutes() {
 	s.router.NoRoute(createSPAHandler(subFS))
 }
 
+// packParamOrAbort validates the pack URL parameter. Rejections share one
+// log line and one status so the handlers cannot diverge; the bool carries
+// whether the handler may continue.
+func packParamOrAbort(c *gin.Context) (string, bool) {
+	pack := c.Param("pack")
+	if isValidPackName(pack) {
+		return pack, true
+	}
+	slog.Warn("security: invalid pack name rejected", "pack", pack)
+	c.AbortWithStatus(http.StatusForbidden)
+	return "", false
+}
+
 // serveQuestAssets handles serving quest asset files
 func (s *Server) serveQuestAssets(c *gin.Context) {
-	pack := c.Param("pack")
-	// Gin wildcard params include a leading slash; strip it.
-	requestedPath := strings.TrimPrefix(c.Param("assetpath"), "/")
-
-	// Validate pack name
-	if !isValidPackName(pack) {
-		slog.Warn("security: invalid pack name rejected", "pack", pack)
-		c.AbortWithStatus(http.StatusForbidden)
+	pack, ok := packParamOrAbort(c)
+	if !ok {
 		return
 	}
+	// Gin wildcard params include a leading slash; strip it.
+	requestedPath := strings.TrimPrefix(c.Param("assetpath"), "/")
 
 	baseDir := filepath.Join(paths.QuestsDir, pack, "assets")
 	validate := func(p string) bool {
@@ -168,16 +177,12 @@ func (s *Server) serveQuestAssets(c *gin.Context) {
 
 // serveQuestCSS handles serving quest CSS files (theme.css, custom.css, styles.css)
 func (s *Server) serveQuestCSS(c *gin.Context) {
-	pack := c.Param("pack")
-	requestedPath := c.Param("csspath")
-	filename := filepath.Base(requestedPath)
-
-	// Validate pack name
-	if !isValidPackName(pack) {
-		slog.Warn("security: invalid pack name rejected", "pack", pack)
-		c.AbortWithStatus(http.StatusForbidden)
+	pack, ok := packParamOrAbort(c)
+	if !ok {
 		return
 	}
+	requestedPath := c.Param("csspath")
+	filename := filepath.Base(requestedPath)
 
 	baseDir := filepath.Join(paths.QuestsDir, pack)
 	validate := validateQuestCSSFile
