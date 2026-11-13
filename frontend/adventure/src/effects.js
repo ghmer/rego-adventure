@@ -61,6 +61,8 @@ function ensureConfettiIn(target) {
  * Creates a confetti effect across the entire screen. Does nothing while the
  * player has effects off. The particles render inside `target` — the dialog
  * the celebration belongs to — so the dialog's top layer cannot cover them.
+ * The canvas the burst belongs to is not created or replaced by the library
+ * (it has no target option), so the caller owns its placement and lifetime.
  * @param {HTMLElement} target - the open dialog the confetti belongs to
  */
 export function showConfetti(target) {
@@ -73,15 +75,14 @@ export function showConfetti(target) {
         clearInterval(confettiInterval);
     }
 
-    ensureConfettiIn(target || document.body);
+    ensureConfettiIn(target);
     
     const duration = TIMING.CONFETTI_DURATION;
     const animationEnd = Date.now() + duration;
     const defaults = {
         startVelocity: CONFETTI.START_VELOCITY,
         spread: CONFETTI.SPREAD,
-        ticks: CONFETTI.TICKS,
-        zIndex: CONFETTI.Z_INDEX
+        ticks: CONFETTI.TICKS
     };
 
     function randomInRange(min, max) {
