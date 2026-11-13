@@ -169,8 +169,7 @@ describe('modal-manager', () => {
             renderManual: vi.fn(),
             renderTestPayload: vi.fn(),
             renderSupportModules: vi.fn(),
-            updateScoreDisplay: vi.fn(),
-            parseMarkdown: vi.fn()
+            updateScoreDisplay: vi.fn()
         };
 
         // Dialogs must be in the document for showModal and focus to work

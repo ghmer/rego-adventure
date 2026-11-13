@@ -28,6 +28,19 @@ import { driver } from 'driver.js';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
 import { show, hide, isHidden } from './services/visibility.js';
 
+// The quest-screen elements the tour hides while it runs and unhides when it
+// ends, in unhiding order. Single source for the tests, which import this
+// list instead of re-typing it.
+export const tourTargets = [
+    '#editor-pane',
+    '#rego-editor',
+    '#check-manual-btn',
+    '#check-test-payload-btn',
+    '#verify-btn',
+    '#quest-back-btn',
+    '#quest-forward-btn'
+];
+
 class TutorialSystem {
     constructor() {
         this.driverObj = null;
@@ -331,18 +344,7 @@ class TutorialSystem {
      * Temporarily unhide elements needed for the tutorial
      */
     temporarilyUnhideElements() {
-        // List of elements that might be hidden initially but needed for tutorial
-        const elementsToCheck = [
-            '#rego-editor',
-            '#editor-pane',
-            '#check-manual-btn',
-            '#check-test-payload-btn',
-            '#verify-btn',
-            '#quest-back-btn',
-            '#quest-forward-btn'
-        ];
-
-        elementsToCheck.forEach(selector => {
+        tourTargets.forEach(selector => {
             const element = document.querySelector(selector);
             if (isHidden(element)) {
                 this.hiddenElementsState.add(selector);
@@ -470,3 +472,7 @@ class TutorialSystem {
 
 // Create singleton instance
 export const tutorial = new TutorialSystem();
+
+// The element selectors the tour steps point at, derived once from the
+// steps table so step targets have a single source as well.
+export const tourStepElements = [...new Set(tutorial.defineTutorialSteps().map(step => step.element))];

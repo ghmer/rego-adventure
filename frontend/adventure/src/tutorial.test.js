@@ -15,6 +15,7 @@
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { tourTargets, tourStepElements } from './tutorial.js';
 
 const driverMock = vi.hoisted(() => ({ driver: vi.fn() }));
 
@@ -32,15 +33,7 @@ async function freshTutorial() {
 }
 
 // The elements the tour hides on the quest screens and unhides while it runs
-const TOUR_TARGETS = [
-    '#editor-pane',
-    '#rego-editor',
-    '#check-manual-btn',
-    '#check-test-payload-btn',
-    '#verify-btn',
-    '#quest-back-btn',
-    '#quest-forward-btn'
-];
+// come from tutorial.js (tourTargets); see the import above.
 
 /**
  * A quest screen with the tour targets hidden, as a quest screen really is.
@@ -110,11 +103,11 @@ describe('tutorial transaction', () => {
         system.startTutorial();
 
         expect(driverMock.driver).toHaveBeenCalledTimes(1);
-        expect(visibleTargets(TOUR_TARGETS)).toEqual(TOUR_TARGETS);
+        expect(visibleTargets(tourTargets)).toEqual(tourTargets);
 
         // The tour's own destroy is the undo path of a tour that ran
         tour.getConfig().onDestroyed();
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
         expect(system.driverObj).toBe(null);
     });
 
@@ -128,7 +121,7 @@ describe('tutorial transaction', () => {
         const system = await freshTutorial();
 
         system.startTutorial();
-        expect(visibleTargets(TOUR_TARGETS)).toEqual(TOUR_TARGETS);
+        expect(visibleTargets(tourTargets)).toEqual(tourTargets);
 
         // driver.js calls onDestroyStarted on every exit, but reaches
         // onDestroyed only once a step transition has settled. An exit that
@@ -136,7 +129,7 @@ describe('tutorial transaction', () => {
         // and finishing the destroy is what lets the driver clean up after it.
         config.onDestroyStarted();
 
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
         expect(system.driverObj).toBe(null);
         expect(destroy).toHaveBeenCalledTimes(1);
     });
@@ -170,7 +163,7 @@ describe('tutorial transaction', () => {
         config.onDestroyed();
 
         expect(destroy).toHaveBeenCalledTimes(1);
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
     });
 
     it('restores the tour targets when the tour fails to start', async () => {
@@ -183,7 +176,7 @@ describe('tutorial transaction', () => {
 
         expect(() => system.startTutorial()).toThrow('driver could not start');
 
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
         expect(system.driverObj).toBe(null);
     });
 
@@ -195,16 +188,12 @@ describe('tutorial transaction', () => {
 
         expect(() => system.startTutorial()).toThrow('no document');
 
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
         expect(system.driverObj).toBe(null);
     });
 
     it('restores the tour targets when no step has an element to show', async () => {
-        for (const selector of ['.quest-title', '#quest-title', '#start-adventure', '#minimize-btn',
-            '#music-btn', '#effects-btn', '#restart-btn', '#home-btn', '#experience-points',
-            '#quest-counter', '#editor-pane', '#rego-editor', '#check-manual-btn',
-            '#check-support-modules-btn', '#check-test-payload-btn', '#verify-btn',
-            '#quest-back-btn', '#quest-forward-btn']) {
+        for (const selector of [...new Set([...tourTargets, ...tourStepElements])]) {
             const element = document.querySelector(selector);
             if (element) element.style.display = 'none';
         }
@@ -214,6 +203,6 @@ describe('tutorial transaction', () => {
 
         expect(driverMock.driver).not.toHaveBeenCalled();
         expect(system.driverObj).toBe(null);
-        expect(visibleTargets(TOUR_TARGETS)).toEqual([]);
+        expect(visibleTargets(tourTargets)).toEqual([]);
     });
 });

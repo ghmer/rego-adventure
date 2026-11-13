@@ -53,17 +53,31 @@ func parseTokenNames(t *testing.T, path string) map[string]bool {
 }
 
 func TestEmittedCSSVariablesResolve(t *testing.T) {
-	packTokens := parseTokenNames(t, "templates.go")
+	packTokens := map[string]bool{}
+	cssTemplateFiles, err := filepath.Glob("templates/*.css.tmpl")
+	if err != nil {
+		t.Fatalf("failed to list templates: %v", err)
+	}
+	if len(cssTemplateFiles) == 0 {
+		t.Fatal("no css templates found; the generator lost its skeletons")
+	}
+	for _, templateFile := range cssTemplateFiles {
+		for token := range parseTokenNames(t, templateFile) {
+			packTokens[token] = true
+		}
+	}
 	sharedTokens := parseTokenNames(t, filepath.Join("..", "..", "..", "..",
 		"frontend", "shared", "css", "base.css"))
 
-	source, err := os.ReadFile("templates.go")
-	if err != nil {
-		t.Fatalf("failed to read templates.go: %v", err)
-	}
 	used := map[string]bool{}
-	for _, match := range cssVarUsePattern.FindAllStringSubmatch(string(source), -1) {
-		used[match[1]] = true
+	for _, templateFile := range append(cssTemplateFiles, "templates/README.md.tmpl") {
+		data, err := os.ReadFile(templateFile) // #nosec G304 -- glob result from this test's own listing
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", templateFile, err)
+		}
+		for _, match := range cssVarUsePattern.FindAllStringSubmatch(string(data), -1) {
+			used[match[1]] = true
+		}
 	}
 
 	var unresolved []string
@@ -73,12 +87,12 @@ func TestEmittedCSSVariablesResolve(t *testing.T) {
 		}
 	}
 	if len(unresolved) > 0 {
-		t.Errorf("templates.go emits undefined var() references: %s (neither the "+
+		t.Errorf("templates emit undefined var() references: %s (neither the "+
 			"generated pack nor frontend/shared/css/base.css defines them)",
 			strings.Join(unresolved, ", "))
 	}
 	if len(used) == 0 {
-		t.Error("no var() usage found in templates.go; the extraction no longer matches the template source")
+		t.Error("no var() usage found in the embedded templates; the extraction no longer matches the template source")
 	}
 }
 

@@ -26,6 +26,7 @@ import { showToast } from '../services/toast-service.js';
 import { SCORING, ErrorLevel } from '../services/constants.js';
 import { show, hide, setHidden } from '../services/visibility.js';
 import { formatPolicyError, formatActualValue, buildHintConfirmationText } from './dialog-text.js';
+import { parseMarkdown } from '../services/markdown.js';
 
 /**
  * Manages the seven dialogs of the game interface.
@@ -355,7 +356,7 @@ export class ModalManager {
             this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/icon-success.png`;
         };
         
-        this.ui.elements.perfectScoreMessage.innerHTML = this.ui.parseMarkdown(this.state.label('perfectScoreMessage'));
+        this.ui.elements.perfectScoreMessage.innerHTML = parseMarkdown(this.state.label('perfectScoreMessage'));
         this.openDialog(this.ui.elements.perfectScoreModal);
         this.ui.elements.closePerfectScoreBtn.focus();
         

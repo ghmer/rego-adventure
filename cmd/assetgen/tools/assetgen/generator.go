@@ -455,17 +455,14 @@ func generateQuestsJSON(dir, theme string) error {
 }
 
 func generateThemeCSS(dir string) error {
-	return os.WriteFile(filepath.Join(dir, "theme.css"), []byte(themeCSSTemplate), 0600)
+	return renderTemplate(dir, "theme.css.tmpl", "theme.css", nil)
 }
 
 func generateCustomCSS(dir string) error {
-	return os.WriteFile(filepath.Join(dir, "custom.css"), []byte(customCSSTemplate), 0600)
+	return renderTemplate(dir, "custom.css.tmpl", "custom.css", nil)
 }
 
 func generateREADME(dir, themeName string) error {
-	// Placeholder substitution instead of Sprintf: the README body
-	// documents CSS like 100% and rgba(), whose percent signs would
-	// make a format-string approach fragile.
-	readme := strings.ReplaceAll(readmeTemplate, "%THEME%", themeName)
-	return os.WriteFile(filepath.Join(dir, "README.md"), []byte(readme), 0600)
+	return renderTemplate(dir, "README.md.tmpl", "README.md",
+		map[string]string{"ThemeName": themeName})
 }

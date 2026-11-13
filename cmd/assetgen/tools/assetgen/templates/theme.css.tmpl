@@ -1,0 +1,505 @@
+{{define "button-reset"}}    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none !important;
+{{end}}{{define "icon-shell"}}{{template "button-reset"}}    cursor: pointer;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 44px;
+    height: 44px;
+{{end}}{{define "icon-icon"}}    width: 40px;
+    height: 40px;
+    line-height: 36px;
+    text-align: center;
+    font-size: 1.2rem;
+    border-radius: 50%;
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    display: block;
+{{end}}{{define "icon-hover"}}    background-color: transparent;
+    transform: scale(1.1);
+{{end}}{{define "legend-badge"}}    position: absolute;
+    top: -1px;
+    left: 10px;
+    background: var(--bg-color);
+    padding: 0 5px;
+    color: var(--accent-color);
+    font-size: 0.8rem;
+    font-family: var(--font-heading);
+    transform: translateY(-50%);
+{{end}}/* ============================================
+   THEME.CSS - Theme-Specific Variables and Overrides
+   ============================================
+   
+   This file contains theme-specific CSS variables and minimal overrides.
+   The shared CSS files (base.css, layout.css, components.css, animations.css,
+   toast.css) are loaded from frontend/shared/css/ and provide the core styling.
+   
+   Customize this file to match your theme's visual identity.
+   ============================================ */
+
+:root {
+    /* Core Colors - Warm, sophisticated palette with excellent contrast */
+    --bg-color: #f8f6f3;
+    --surface-light: #fffef9;
+    --surface-dark: #e8e4dc;
+    --text-color: #2c2416;
+    --accent-color: #d97706;
+    --secondary-accent: #b45309;
+    --button-color: #ea580c;
+    --success-color: #16a34a;
+    --error-color: #dc2626;
+    --info-color: #0891b2;
+    --white: #ffffff;
+    
+    /* RGB for rgba() usage */
+    --accent-rgb: 217, 119, 6;
+    --success-rgb: 22, 163, 74;
+    --error-rgb: 220, 38, 38;
+    --text-rgb: 44, 36, 22;
+    --surface-light-rgb: 255, 254, 249;
+    --surface-dark-rgb: 232, 228, 220;
+    
+    /* Typography - System font stacks */
+    --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-code: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* Theme-specific background */
+body {
+    background-image: url('assets/bg-adventure.jpg');
+    background-size: cover;
+    background-attachment: fixed;
+}
+
+/* surface Background */
+.surface-bg {
+    box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.1);
+}
+
+/* Header */
+.game-header {
+    background-color: rgba(var(--surface-light-rgb), 0.9);
+    box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.15);
+    backdrop-filter: blur(5px);
+    border-radius: 0;
+}
+
+/* Firefox < 103 fallback for backdrop-filter */
+@supports not (backdrop-filter: blur(5px)) {
+    .game-header {
+        background-color: rgba(var(--surface-light-rgb), 0.98);
+    }
+}
+
+.game-header h1 {
+    text-shadow: 0 0 5px rgba(var(--accent-rgb), 0.5);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* Header Buttons - Circular Icon Style */
+#restart-btn,
+#minimize-btn,
+#home-btn,
+#logout-btn {
+{{template "button-reset"}}}
+
+#restart-btn:hover,
+#minimize-btn:hover,
+#home-btn:hover,
+#logout-btn:hover {
+{{template "icon-hover"}}}
+
+#restart-btn i,
+#minimize-btn i,
+#home-btn i,
+#logout-btn i {
+{{template "icon-icon"}}}
+
+#music-btn {
+{{template "icon-shell"}}}
+
+#music-btn.music-playing {
+    animation: mute-pulse 2s ease-in-out infinite;
+}
+
+/* Stop ambient animations when the user turns the effects toggle off */
+body.effects-disabled #music-btn.music-playing {
+    animation: none;
+}
+
+#music-btn:hover {
+{{template "icon-hover"}}}
+
+#music-btn i {
+{{template "icon-icon"}}    z-index: 1;
+}
+
+/* Effects Button */
+#effects-btn {
+{{template "icon-shell"}}}
+
+#effects-btn:hover {
+{{template "icon-hover"}}}
+
+#effects-btn i {
+{{template "icon-icon"}}    transition: all 0.3s ease;
+}
+
+/* Effects Active State */
+#effects-btn.effects-active i {
+    background-color: var(--accent-color);
+    color: var(--white);
+    box-shadow: 0 0 15px var(--accent-color);
+    border-radius: 50% !important;
+}
+
+#effects-btn:hover i {
+    box-shadow: 0 0 10px var(--accent-color);
+}
+
+/* Pane Header */
+.pane-header h2 {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 1.2rem;
+}
+
+/* Quest Title and Policy Grimoire Headings */
+#quest-title,
+#grimoire-title {
+    color: var(--accent-color);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.6);
+    font-family: var(--font-heading);
+}
+
+/* Avatar */
+.avatar {
+    box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.7);
+}
+
+.npc-avatar {
+    box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.6);
+}
+
+/* Lore Container */
+.lore-container {
+    position: relative;
+    margin-top: 1rem;
+}
+
+.lore-container::before {
+    content: "LORE";
+{{template "legend-badge"}}}
+
+/* Lore Text */
+.lore-text {
+    font-style: normal;
+    height: 200px;
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    background-color: rgba(var(--text-rgb), 0.05);
+}
+
+.lore-controls {
+    border-top: 1px dashed rgba(var(--accent-rgb), 0.3);
+}
+
+/* Task Box */
+.task-box {
+    background-color: rgba(var(--accent-rgb), 0.05);
+    border: 1px solid var(--accent-color);
+    border-radius: 0;
+    position: relative;
+    margin-top: 1rem;
+}
+
+.task-box::before {
+    content: "OBJECTIVE";
+{{template "legend-badge"}}}
+
+.task-box h3 {
+    display: none;
+}
+
+/* Hints */
+#hints-list li {
+    background-color: rgba(var(--accent-rgb), 0.1);
+    border-left: 2px solid var(--accent-color);
+    border-radius: 0;
+}
+
+/* Test Results */
+.test-result {
+    font-family: var(--font-code);
+}
+
+/* Editor */
+#rego-editor {
+    background-color: var(--surface-light);
+    color: var(--text-color);
+    border-radius: 0;
+    box-shadow: inset 0 0 25px rgba(var(--accent-rgb), 0.1);
+}
+
+#rego-editor:focus {
+    outline: 1px solid var(--accent-color);
+    box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.3);
+}
+
+/* Buttons */
+.action-btn {
+    background-color: rgba(var(--accent-rgb), 0.1);
+    border: 1px solid var(--accent-color);
+    border-radius: 0;
+    letter-spacing: 2px;
+    color: var(--accent-color);
+}
+
+.action-btn:hover {
+    background-color: var(--accent-color);
+    color: var(--white);
+    box-shadow: 0 0 15px var(--accent-color);
+}
+
+.action-btn.primary {
+    background-color: var(--accent-color);
+    color: var(--white);
+    box-shadow: 0 0 10px var(--accent-color);
+    border: none;
+}
+
+.action-btn.primary:hover {
+    background-color: var(--secondary-accent);
+    box-shadow: 0 0 20px var(--accent-color);
+}
+
+.action-btn.success {
+    background-color: var(--success-color);
+    color: var(--white);
+    border: none;
+    box-shadow: 0 0 10px var(--success-color);
+}
+
+.action-btn.danger {
+    background-color: transparent;
+    color: var(--error-color);
+    border-color: var(--error-color);
+}
+
+.action-btn.danger:hover {
+    background-color: var(--error-color);
+    color: var(--white);
+}
+
+/* App Container */
+.app-container {
+    max-width: 1600px;
+    z-index: 3;
+}
+
+/* Modal */
+.modal {
+    background-color: rgba(var(--text-rgb), 0.9);
+    backdrop-filter: blur(5px);
+}
+
+/* Firefox < 103 fallback for backdrop-filter */
+@supports not (backdrop-filter: blur(5px)) {
+    .modal {
+        background-color: rgba(var(--text-rgb), 0.98);
+    }
+}
+
+.modal-content {
+    background-color: var(--surface-dark);
+    box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.2);
+}
+
+.modal-content h2 {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.close-btn:hover {
+    text-shadow: 0 0 10px var(--error-color);
+}
+
+/* Manual Content */
+.manual-content {
+    background: rgba(var(--text-rgb), 0.05);
+}
+
+.manual-content code {
+    background-color: rgba(var(--accent-rgb), 0.1);
+    color: var(--secondary-accent);
+}
+
+.manual-content pre {
+    background-color: rgba(var(--text-rgb), 0.05);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
+}
+
+/* Global Scrollbar Styling */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-color) var(--surface-dark);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--surface-dark);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-accent);
+    opacity: 0.8;
+}
+
+/* Result Test List */
+.result-test-list {
+    background: rgba(var(--text-rgb), 0.05);
+}
+
+.result-test-list li {
+    border-bottom: 1px dashed rgba(var(--accent-rgb), 0.3);
+}
+
+/* Compile Error List (uses --error-color by default) */
+.compile-error-item {
+    color: var(--error-color);
+}
+
+/* Score Summary */
+.score-summary {
+    background: rgba(var(--success-rgb), 0.1);
+    border-radius: 0;
+}
+
+.score-value {
+    text-shadow: 0 0 10px rgba(var(--success-rgb), 0.5);
+}
+
+.score-possible .score-value {
+    text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5);
+}
+
+/* Experience Badge */
+.experience-badge {
+    background: linear-gradient(135deg, var(--success-color), var(--secondary-accent));
+    color: var(--white);
+}
+
+/* Perfect Score */
+.perfect-score-image {
+    box-shadow: 0 8px 16px rgba(var(--text-rgb), 0.3);
+    border-radius: 0;
+}
+
+.perfect-score-message {
+    background: rgba(var(--accent-rgb), 0.05);
+    border: 2px solid var(--accent-color);
+    border-radius: 0;
+}
+
+.perfect-score-btn {
+    border: none;
+    box-shadow: 0 0 10px var(--success-color);
+}
+
+.perfect-score-btn:hover {
+    background-color: var(--accent-color);
+    box-shadow: 0 0 15px var(--accent-color);
+}
+
+/* Tutorial Prompt */
+.tutorial-prompt-modal {
+    background-color: rgba(var(--text-rgb), 0.95);
+}
+
+.tutorial-prompt-content {
+    background-color: var(--surface-dark);
+    border: 1px solid var(--accent-color);
+    border-radius: 0;
+    box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.4);
+}
+
+.tutorial-prompt-content h2 {
+    color: var(--accent-color);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.tutorial-prompt-content p {
+    color: var(--text-color);
+}
+
+.tutorial-prompt-checkbox label {
+    color: var(--text-color);
+}
+
+dialog#result-modal[open] {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: var(--z-modal);
+}
+
+/* Test Case Cards */
+.test-case-card {
+    background: rgba(var(--text-rgb), 0.05);
+    border-radius: 0;
+}
+
+.test-case-expected {
+    background: rgba(var(--accent-rgb), 0.2);
+    border-radius: 0;
+}
+
+.test-case-label code {
+    background: rgba(var(--accent-rgb), 0.1);
+    border-radius: 0;
+}
+
+.test-case-input-data,
+.test-case-data-content {
+    background: rgba(var(--text-rgb), 0.05);
+    border-radius: 0;
+}
+
+/* Test Payload */
+#test-payload-data {
+    color: var(--text-color);
+}
+
+.test-result .test-payload pre {
+    background: rgba(var(--text-rgb), 0.05);
+}
+
+/* Check Manual Button */
+#check-manual-btn,
+#check-test-payload-btn,
+#check-support-modules-btn {
+    border-radius: 0;
+}
+
+/* Mobile Overrides */
+@media (max-width: 768px) {
+    .lore-text {
+        height: 150px;
+    }
+}
