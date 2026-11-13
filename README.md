@@ -187,6 +187,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
 | Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
 | Browser and command-line QA suites | `node docu/qa/<suite>.cjs` | `frontend-ci.yml` (`browser-qa` job) |
+| Clone gate | `npx --yes jscpd@4.0.5 --min-tokens 60 --threshold 0 ... backend cmd main.go frontend/adventure/src docu/quest-editor` (tests and test fixtures excluded) | `go-ci.yml`, `frontend-ci.yml` (`clone-gate` job) |
 
 The QA suites in `docu/qa/` start their own server on a free port and drive a real browser through
 Playwright, which is resolved from the machine rather than declared as a dependency. Six suites:
