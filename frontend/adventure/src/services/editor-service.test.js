@@ -68,8 +68,6 @@ describe('editor service', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
-        window.dispatchEvent(new Event('resize'));
-        window.onresize = null;
     });
 
     it('mounts Yace on the resolved element with the editor configuration', () => {
