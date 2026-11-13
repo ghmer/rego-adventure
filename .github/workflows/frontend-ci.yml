@@ -131,6 +131,14 @@ jobs:
         with:
           node-version: '26.13.0'
 
+      # The QA suites build the server and generate quest packs through the
+      # Go toolchain (docu/qa/qa-lib.cjs buildServer/generatePack), so this
+      # job cannot rely on the runner image shipping Go preinstalled.
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.3"
+
       # The QA suites resolve Playwright from the machine rather than as a
       # declared dependency (docu/qa/qa-lib.cjs), so a pinned install at the
       # repository root puts it into their direct search path. The next step
