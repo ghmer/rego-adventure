@@ -15,6 +15,7 @@
 */
 
 // Package http contains HTTP server setup and routing logic.
+// Investigation: comment-only change to exercise merge-build analysis.
 package http
 
 import (
