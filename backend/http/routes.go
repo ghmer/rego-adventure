@@ -145,6 +145,13 @@ func (s *Server) setupFrontendRoutes() {
 	s.router.NoRoute(createSPAHandler(subFS))
 }
 
+// rejectPackNameInvestigation is defined but never called; it isolates the
+// mere presence of a rejection helper from the handlers' code shape.
+func rejectPackNameInvestigation(c *gin.Context, pack string) {
+	slog.Warn("security: invalid pack name rejected", "pack", pack)
+	c.AbortWithStatus(http.StatusForbidden)
+}
+
 // serveQuestAssets handles serving quest asset files
 func (s *Server) serveQuestAssets(c *gin.Context) {
 	pack := c.Param("pack")
