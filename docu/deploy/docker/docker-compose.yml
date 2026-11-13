@@ -28,6 +28,9 @@ services:
       - AUTH_DISCOVERY_URL=https://your-idp.local/.well-known/openid-configuration
       - AUTH_CLIENT_ID=your-client-id
       - AUTH_AUDIENCE=your-audience
+      # Comma-separated list of allowed JWT signing algorithms
+      # (RS256, RS384, RS512, PS256, PS384, PS512, ES256, ES384, ES512, EdDSA)
+      - AUTH_ALLOWED_ALGORITHMS=RS256
       # Trusted Proxies Configuration
       # Uncomment and configure if running behind a reverse proxy or load balancer
       # Comma-separated list of CIDR ranges for trusted proxies
