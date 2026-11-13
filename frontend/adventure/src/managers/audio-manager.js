@@ -27,12 +27,45 @@
 import { AUDIO, TIMING } from '../services/constants.js';
 
 /**
+ * Background music states. One value carries the whole machine; the
+ * control is rendered from it and from nothing else. pauseTimer is an
+ * implementation detail of the fading states, not a state of its own.
+ *
+ * | State         | Meaning                                                 | Control |
+ * | ------------- | ------------------------------------------------------- | ------- |
+ * | unavailable   | the pack has no playable track (load or decode failed)  | off, disabled |
+ * | silent        | a track is available, nothing is playing                | off |
+ * | fading-in     | play() was called, gain is ramping up                   | on |
+ * | playing       | play() resolved, gain reached its target                | on |
+ * | fading-out    | gain is ramping to 0, the element still runs            | off |
+ * | play-rejected | play() rejected; cleared by the next toggle             | off |
+ */
+export const MusicState = {
+    Unavailable: 'unavailable',
+    Silent: 'silent',
+    FadingIn: 'fading-in',
+    Playing: 'playing',
+    FadingOut: 'fading-out',
+    PlayRejected: 'play-rejected'
+};
+
+/**
  * Manages audio playback and music controls
  */
 export class AudioManager {
+    /**
+     * @param {UIManager} uiManager - UI manager holding the audio element
+     *   and the music control
+     */
     constructor(uiManager) {
         this.ui = uiManager;
-        this.isMusicPlaying = false;
+        this.musicState = MusicState.Silent;
+
+        // Set when the Web Audio graph could not be created: element volume
+        // carries the level and every gain call degrades to a no-op. Kept as
+        // a flag so the degraded path is observable instead of silent.
+        this.audioGraphFallback = false;
+
         this.musicRingCircumference = 0;
         this.audioCtx = null;
         this.gainNode = null;
@@ -41,22 +74,34 @@ export class AudioManager {
         // Store bound functions once to avoid memory leaks from repeated .bind() calls
         this.boundHandleMusicEnded = this.handleMusicEnded.bind(this);
         this.boundUpdateMusicProgress = this.updateMusicProgress.bind(this);
+        this.boundHandleTrackError = this.handleTrackError.bind(this);
     }
 
     /**
-     * Setup music for a pack
+     * Setup music for a pack: point the element at that pack's track, reset
+     * playback and re-arm loading. The element preloads metadata, which is
+     * what makes a missing or undecodable track visible before the player
+     * clicks: the load attempt fires an error event on the element, and
+     * listeners are attached first so that event cannot be missed.
      * @param {string} packId - Pack identifier
      */
     setupMusic(packId) {
-        this.ui.elements.bgMusic.src = `/quests/${packId}/assets/bg-music.m4a`;
+        this.clearPauseTimer();
+
+        const music = this.ui.elements.bgMusic;
+        music.src = `/quests/${packId}/assets/bg-music.m4a`;
         // The element feeds the gain node; loudness is controlled there
-        this.ui.elements.bgMusic.volume = 1;
-        this.isMusicPlaying = false;
-        this.ui.elements.bgMusic.pause();
-        this.updateMusicButton();
+        music.volume = 1;
+        music.pause();
+        music.currentTime = 0;
+
         this.setupMusicListeners();
         this.initMusicProgress();
         this.setGain(AUDIO.DEFAULT_VOLUME);
+        this.transitionTo(MusicState.Silent);
+
+        // Changing src does not restart the loading algorithm on its own
+        music.load();
     }
 
     /**
@@ -80,12 +125,14 @@ export class AudioManager {
             this.gainNode.gain.value = AUDIO.DEFAULT_VOLUME;
             source.connect(this.gainNode);
             this.gainNode.connect(this.audioCtx.destination);
+            this.audioGraphFallback = false;
             return true;
         } catch (e) {
             // No Web Audio support: fall back to plain element playback
             console.warn('Web Audio unavailable, using element volume:', e);
             this.audioCtx = null;
             this.gainNode = null;
+            this.audioGraphFallback = true;
             this.ui.elements.bgMusic.volume = AUDIO.DEFAULT_VOLUME;
             return false;
         }
@@ -156,25 +203,42 @@ export class AudioManager {
      * Setup music event listeners
      */
     setupMusicListeners() {
-        this.ui.elements.bgMusic.removeEventListener('ended', this.boundHandleMusicEnded);
-        this.ui.elements.bgMusic.removeEventListener('timeupdate', this.boundUpdateMusicProgress);
+        const music = this.ui.elements.bgMusic;
+        music.removeEventListener('ended', this.boundHandleMusicEnded);
+        music.removeEventListener('timeupdate', this.boundUpdateMusicProgress);
+        music.removeEventListener('error', this.boundHandleTrackError);
 
-        this.ui.elements.bgMusic.addEventListener('ended', this.boundHandleMusicEnded);
-        this.ui.elements.bgMusic.addEventListener('timeupdate', this.boundUpdateMusicProgress);
+        music.addEventListener('ended', this.boundHandleMusicEnded);
+        music.addEventListener('timeupdate', this.boundUpdateMusicProgress);
+        music.addEventListener('error', this.boundHandleTrackError);
     }
 
     /**
      * Handle music ended event: the track plays once per toggle, so the
-     * ring returns to its initial state and the button to its off state
+     * ring returns to its initial state and the button to its off state.
+     * Rewinding the element makes the end of a track and a pause at the end
+     * of a track the same position, so resuming starts from the beginning
+     * either way.
      */
     handleMusicEnded() {
-        // Reset ring to its initial (empty) state
+        this.clearPauseTimer();
+        this.ui.elements.bgMusic.currentTime = 0;
         this.initMusicProgress();
 
-        if (this.isMusicPlaying) {
-            this.isMusicPlaying = false;
-            this.updateMusicButton();
+        if (this.musicState !== MusicState.Silent && this.musicState !== MusicState.Unavailable) {
+            this.transitionTo(MusicState.Silent);
         }
+    }
+
+    /**
+     * Handle a track that will not play: a missing asset or a file the
+     * decoder refuses (older packs carry a 0-byte placeholder). The pack has
+     * no music to offer, so the control says so instead of offering a button
+     * that does nothing.
+     */
+    handleTrackError() {
+        console.warn('Background music unavailable for this pack: the track failed to load');
+        this.transitionTo(MusicState.Unavailable);
     }
 
     /**
@@ -183,67 +247,124 @@ export class AudioManager {
      * would cut the waveform mid-flight and is heard as a sharp knack.
      */
     toggleMusic() {
-        this.isMusicPlaying = !this.isMusicPlaying;
-        if (this.isMusicPlaying) {
-            clearTimeout(this.pauseTimer);
-            // AudioContext creation/resume must happen inside a user gesture
-            this.ensureAudioGraph();
-            // Dropping the gain to 0 is only safe while nothing plays;
-            // resuming mid-fade-out must re-anchor on the live param
-            if (this.ui.elements.bgMusic.paused) {
-                this.setGain(0);
-            }
-            this.ui.elements.bgMusic.play().then(() => {
-                // Short ramp in to avoid the playback start/resume click
-                this.rampGain(AUDIO.DEFAULT_VOLUME, TIMING.FADE_DURATION);
-            }).catch(e => {
-                console.error("Audio play failed:", e);
-                this.isMusicPlaying = false;
-            });
+        if (this.musicState === MusicState.Unavailable) return;
+
+        if (this.musicState === MusicState.Playing || this.musicState === MusicState.FadingIn) {
+            this.fadeOut(false);
         } else {
-            this.rampGain(0, TIMING.FADE_DURATION);
-            this.pauseTimer = setTimeout(() => {
-                this.pauseTimer = null;
-                if (!this.isMusicPlaying) {
-                    this.ui.elements.bgMusic.pause();
-                }
-            }, TIMING.FADE_DURATION);
+            this.fadeIn();
         }
-        this.updateMusicButton();
     }
 
     /**
-     * Stop music playback with a fade-out, then rewind
+     * Start or resume playback, ramping the gain in.
      */
-    stopMusic() {
-        clearTimeout(this.pauseTimer);
-        this.isMusicPlaying = false;
-        this.updateMusicButton();
+    fadeIn() {
+        this.clearPauseTimer();
+        const music = this.ui.elements.bgMusic;
+
+        // AudioContext creation/resume must happen inside a user gesture
+        this.ensureAudioGraph();
+        // Dropping the gain to 0 is only safe while nothing plays; resuming
+        // mid-fade-out must re-anchor on the live param
+        if (music.paused) {
+            this.setGain(0);
+        }
+
+        this.transitionTo(MusicState.FadingIn);
+
+        music.play().then(() => {
+            // A toggle while play() was pending owns the element now: the
+            // fade-out path already armed the pause, so ramping here would
+            // fight it.
+            if (this.musicState !== MusicState.FadingIn) return;
+            // Short ramp in to avoid the playback start/resume click
+            this.rampGain(AUDIO.DEFAULT_VOLUME, TIMING.FADE_DURATION);
+            this.transitionTo(MusicState.Playing);
+        }).catch(e => {
+            // The only truthful rendering of a rejected play is an off
+            // control, re-rendered here rather than left from the attempt.
+            console.error('Audio play failed:', e);
+            if (this.musicState !== MusicState.FadingIn) return;
+            this.transitionTo(MusicState.PlayRejected);
+        });
+    }
+
+    /**
+     * Ramp the gain to silence, then pause the element.
+     * @param {boolean} rewind - Whether to return the element to its start
+     */
+    fadeOut(rewind) {
+        this.clearPauseTimer();
+        this.transitionTo(MusicState.FadingOut);
         this.rampGain(0, TIMING.FADE_DURATION);
+
         this.pauseTimer = setTimeout(() => {
             this.pauseTimer = null;
-            if (!this.isMusicPlaying) {
-                this.ui.elements.bgMusic.pause();
-                this.ui.elements.bgMusic.currentTime = 0;
+            if (this.musicState !== MusicState.FadingOut) return;
+
+            const music = this.ui.elements.bgMusic;
+            music.pause();
+            if (rewind) {
+                music.currentTime = 0;
             }
+            this.transitionTo(MusicState.Silent);
         }, TIMING.FADE_DURATION);
     }
 
     /**
-     * Update music button appearance
+     * Stop music playback with a fade-out, then rewind. A pack without a
+     * track has nothing to stop, and going through the fade would land it in
+     * the silent state with an enabled control: leaving unavailable intact is
+     * what keeps the control honest after the player goes home.
      */
-    updateMusicButton() {
-        const icon = this.ui.elements.musicBtn.querySelector('i');
-        if (this.isMusicPlaying) {
-            icon.className = 'fa-solid fa-volume-high';
-            this.ui.elements.musicBtn.setAttribute('aria-label', 'Mute background music');
-            this.ui.elements.musicBtn.setAttribute('aria-pressed', 'true');
-            this.ui.elements.musicBtn.classList.add('music-playing');
+    stopMusic() {
+        if (this.musicState === MusicState.Unavailable) return;
+        this.fadeOut(true);
+    }
+
+    /**
+     * Discard an armed fade-out pause
+     */
+    clearPauseTimer() {
+        clearTimeout(this.pauseTimer);
+        this.pauseTimer = null;
+    }
+
+    /**
+     * The only writer of musicState transitions: move the machine and
+     * repaint the control from the new state.
+     * @param {string} state - Target MusicState
+     */
+    transitionTo(state) {
+        this.musicState = state;
+        this.renderMusicButton();
+    }
+
+    /**
+     * Render the music control from musicState: the single place the button
+     * icon, pressed state, label and availability are decided.
+     */
+    renderMusicButton() {
+        const button = this.ui.elements.musicBtn;
+        const icon = button.querySelector('i');
+        const playing = this.musicState === MusicState.Playing || this.musicState === MusicState.FadingIn;
+        const available = this.musicState !== MusicState.Unavailable;
+
+        icon.className = playing ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+        button.disabled = !available;
+        button.classList.toggle('music-playing', playing);
+        button.setAttribute('aria-pressed', playing ? 'true' : 'false');
+
+        if (!available) {
+            button.setAttribute('aria-label', 'Background music is not available for this pack');
+            button.title = 'This pack has no background music';
+        } else if (playing) {
+            button.setAttribute('aria-label', 'Mute background music');
+            button.title = 'Toggle background music on/off';
         } else {
-            icon.className = 'fa-solid fa-volume-xmark';
-            this.ui.elements.musicBtn.setAttribute('aria-label', 'Unmute background music');
-            this.ui.elements.musicBtn.setAttribute('aria-pressed', 'false');
-            this.ui.elements.musicBtn.classList.remove('music-playing');
+            button.setAttribute('aria-label', 'Unmute background music');
+            button.title = 'Toggle background music on/off';
         }
     }
 }

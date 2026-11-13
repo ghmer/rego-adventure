@@ -20,8 +20,9 @@ package quest
 // String length validation constants for quest pack data structures.
 // These constants define maximum character limits for various fields of quests.json.
 
-// Note: keep in sync with constants defined in docu/quest-editor/app.js
-// If you change these values, you MUST update the frontend validation constants as well.
+// The quest editor enforces the same limits from docu/quest-editor/rules.js,
+// where they appear under these names; TestEditorLimitsMatchBackendConstants
+// fails if either side changes without the other.
 
 const (
 	// MaxPackTitle is the maximum length for pack title.

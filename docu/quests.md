@@ -49,6 +49,12 @@ Each element in the `quests` array is a `quest` specification with the following
   - `data`: (Optional) Object containing external data accessible via `data.*` in Rego policies
   - `expected_value`: any result that the policy must return
 
+  Test cases live in the pack file only. The pack payload the browser loads (`GET
+  /api/packs/{packId}`) omits them; the test modal fetches them from
+  `GET /api/packs/{packId}/quests/{questId}/test-payload` when it opens. That endpoint is a
+  convenience layer rather than a secrecy boundary: it answers `payload`, `data` and
+  `expected_value` to any client that asks. Tests are a checking device, not hidden content.
+
 ## String Length Validation Limits
 
 All text fields in the quest JSON structure are validated against maximum length limits. These limits are enforced server-side when validating a quest pack and in the quest editor HTML forms.

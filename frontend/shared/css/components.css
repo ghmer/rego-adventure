@@ -16,7 +16,7 @@
 
 /* ============================================
    COMPONENTS.CSS - Shared Component Styles
-   Start screen, buttons, lore, tasks, outcomes, editor, modals, tests, tutorial
+   Start screen, buttons, lore, tasks, editor, modals, tests, tutorial
    ============================================ */
 
 /* ============================================
@@ -52,6 +52,13 @@
     grid-auto-rows: 1fr;
     gap: 1rem;
     width: 100%;
+}
+
+/* The start screen states an empty pack list instead of showing nothing */
+.pack-list-empty {
+    color: var(--muted-color, #a8a29e);
+    font-style: italic;
+    padding: 1rem 0;
 }
 
 .quest-pack-card {
@@ -307,30 +314,8 @@ button[onclick*="login"]:hover {
 }
 
 /* ============================================
-   OUTCOME COMPONENTS
+   TEST RESULT COMPONENTS
    ============================================ */
-
-.outcome-area {
-    margin-top: 1rem;
-    padding: 1rem;
-    border: 2px dashed var(--accent-color);
-    background-color: rgba(0, 0, 0, 0.2);
-}
-
-.outcome-area.success {
-    border-color: var(--success-color);
-    background-color: rgba(var(--accent-rgb), 0.1);
-}
-
-.outcome-area.failure {
-    border-color: var(--error-color);
-    background-color: rgba(var(--accent-rgb), 0.1);
-}
-
-#test-results {
-    list-style: none;
-    margin-top: 0.5rem;
-}
 
 .test-result {
     display: flex;
@@ -705,6 +690,11 @@ dialog#result-modal[open] {
 .save-indicator.error {
     background-color: var(--error-color);
     box-shadow: 0 0 6px var(--error-color);
+}
+
+.save-indicator.idle {
+    background-color: var(--muted-color, #a8a29e);
+    box-shadow: none;
 }
 
 .result-test-list .test-result {
@@ -1200,6 +1190,21 @@ dialog#result-modal[open] {
     .quest-pack-list {
         grid-template-columns: 1fr;
         grid-auto-rows: auto;
+    }
+}
+
+/* The pulsing call-to-action buttons are decoration: they point at a control,
+   they carry no information of their own. Under a reduced-motion preference an
+   infinite animation has to stop. #perfect-score-btn gets its pulse from
+   base.css, so its id is repeated here rather than left to cascade luck. The
+   start screen's login button is silenced by its own rule,
+   "#start-screen .action-btn.login-btn" in frontend/adventure/styles/theme.css,
+   and is not repeated here. */
+@media (prefers-reduced-motion: reduce) {
+    .action-btn.success,
+    .perfect-score-btn,
+    #perfect-score-btn {
+        animation: none;
     }
 }
 

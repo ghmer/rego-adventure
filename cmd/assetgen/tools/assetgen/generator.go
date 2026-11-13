@@ -18,7 +18,9 @@
 package assetgen
 
 import (
+	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -27,6 +29,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -39,6 +42,74 @@ type Asset struct {
 	Width    int
 	Height   int
 	HexColor string
+}
+
+// placeholderMusic is a valid, silent 5 second AAC/M4A track written into
+// every generated pack so the music control has something playable to load.
+// A 0-byte placeholder is not playable: the media element rejects it and
+// the player sees a music button that does nothing.
+//
+// Regenerate with:
+//
+//	ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 5 -c:a aac -b:a 24k assets/bg-music.m4a
+//
+//go:embed assets/bg-music.m4a
+var placeholderMusic []byte
+
+// packScaffold records what a generation run changes, so a run that fails part
+// way through can be taken back: a pack directory is either the complete pack or
+// exactly what it held before the run started.
+type packScaffold struct {
+	created []string
+	prior   map[string]priorContent
+}
+
+type priorContent struct {
+	data []byte
+	mode os.FileMode
+}
+
+// noteBefore records path just before a step writes to it. A path that was not
+// there is removed again by undo. A path that was there belongs to the pack
+// author: it is never removed, and what it held is kept so that a step which
+// overwrote it can put the author's content back.
+func (s *packScaffold) noteBefore(path string) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		s.created = append(s.created, path)
+		return
+	}
+	if err != nil || !info.Mode().IsRegular() {
+		return
+	}
+	if _, recorded := s.prior[path]; recorded {
+		return
+	}
+
+	data, readErr := os.ReadFile(path) // #nosec G304 -- path from the run's own step list
+	if readErr != nil {
+		return
+	}
+	if s.prior == nil {
+		s.prior = make(map[string]priorContent)
+	}
+	s.prior[path] = priorContent{data: data, mode: info.Mode().Perm()}
+}
+
+// undo removes the paths the run created, innermost first, and writes back the
+// content of the files it overwrote. Errors are ignored: the point is to leave no
+// half-written pack, not to report why a leftover could not be removed.
+func (s *packScaffold) undo() {
+	slices.Reverse(s.created)
+	for _, path := range s.created {
+		_ = os.RemoveAll(path)
+	}
+	s.created = nil
+
+	for path, content := range s.prior {
+		_ = os.WriteFile(path, content.data, content.mode) // #nosec G304 -- path noted before writing
+	}
+	s.prior = nil
 }
 
 // GenerateTheme creates a new quest pack theme with assets, quests.json, theme.css, custom.css, and README.md.
@@ -58,7 +129,13 @@ func GenerateTheme(themeName, outputDir string) error {
 		return fmt.Errorf("theme name %q must be a single directory name", themeName)
 	}
 
-	if err := generateAssets(filepath.Join(baseDir, "assets")); err != nil {
+	// Nothing exists under baseDir yet when the run starts, so a failure at
+	// any later step can remove the whole pack this run was building.
+	scaffold := &packScaffold{}
+	scaffold.noteBefore(baseDir)
+
+	if err := generateAssets(filepath.Join(baseDir, "assets"), scaffold); err != nil {
+		scaffold.undo()
 		return err
 	}
 
@@ -72,7 +149,9 @@ func GenerateTheme(themeName, outputDir string) error {
 		{"README.md", func() error { return generateREADME(baseDir, themeName) }},
 	}
 	for _, step := range steps {
+		scaffold.noteBefore(filepath.Join(baseDir, step.name))
 		if err := step.run(); err != nil {
+			scaffold.undo()
 			return fmt.Errorf("error generating %s: %w", step.name, err)
 		}
 		fmt.Printf("Generated %s\n", step.name)
@@ -89,8 +168,9 @@ func GenerateTheme(themeName, outputDir string) error {
 }
 
 // generateAssets creates the assets directory with placeholder images and
-// the placeholder background music file.
-func generateAssets(assetsDir string) error {
+// the silent placeholder background music track.
+func generateAssets(assetsDir string, scaffold *packScaffold) error {
+	scaffold.noteBefore(assetsDir)
 	if err := os.MkdirAll(assetsDir, 0750); err != nil {
 		return fmt.Errorf("error creating directory: %w", err)
 	}
@@ -105,18 +185,21 @@ func generateAssets(assetsDir string) error {
 	}
 
 	for _, asset := range assets {
+		scaffold.noteBefore(filepath.Join(assetsDir, asset.Filename))
 		if err := generateAsset(assetsDir, asset); err != nil {
 			return fmt.Errorf("error generating %s: %w", asset.Filename, err)
 		}
 		fmt.Printf("Generated %s\n", asset.Filename)
 	}
 
-	// Create placeholder audio file
+	// Silent placeholder track: decodes and plays, so the music control is
+	// truthful until the pack author replaces it.
 	audioPath := filepath.Join(assetsDir, "bg-music.m4a")
-	if err := os.WriteFile(audioPath, []byte{}, 0600); err != nil {
+	scaffold.noteBefore(audioPath)
+	if err := os.WriteFile(audioPath, placeholderMusic, 0600); err != nil {
 		return fmt.Errorf("error creating placeholder audio: %w", err)
 	}
-	fmt.Printf("Generated bg-music.m4a (placeholder - replace with actual audio)\n")
+	fmt.Printf("Generated bg-music.m4a (silent placeholder - replace with actual audio)\n")
 	return nil
 }
 

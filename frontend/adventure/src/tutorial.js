@@ -26,6 +26,7 @@
 
 import { driver } from 'driver.js';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from './services/storage-service.js';
+import { show, hide, isHidden } from './services/visibility.js';
 
 export class TutorialSystem {
     constructor() {
@@ -119,7 +120,7 @@ export class TutorialSystem {
                 popover: {
                     title: 'Quest Title',
                     description: 'This shows the current quest you\'re working on. Each adventure has multiple quests to complete. '
-                        + 'Navigate with the buttons, the arrow keys, or Enter; press Esc to leave the tour at any point.',
+                        + 'Move through the tour with its Next and Previous buttons, the Left and Right arrow keys, or Enter; press Esc to leave the tour at any point.',
                     side: 'bottom',
                     align: 'center'
                 }
@@ -182,7 +183,7 @@ export class TutorialSystem {
                 element: '#editor-save-indicator',
                 popover: {
                     title: 'Save Indicator',
-                    description: 'This light shows the save state of your policy: green means all changes are saved, orange means you are still typing, and red means saving failed. Saving happens automatically, but you can also press Ctrl/Cmd+S to save at any time.',
+                    description: 'This light shows the save state of your policy: green means your changes are saved, orange means you are still typing, red means saving failed, and grey means this screen has no policy to save. Saving happens automatically, but you can also press Ctrl/Cmd+S to save at any time.',
                     side: 'bottom',
                     align: 'center'
                 }
@@ -254,7 +255,7 @@ export class TutorialSystem {
                 element: '#music-btn',
                 popover: {
                     title: 'Music Control',
-                    description: 'Toggle background music on or off. Immerse yourself in the adventure!',
+                    description: 'Toggle background music on or off, when the pack provides a track. Immerse yourself in the adventure!',
                     side: 'bottom',
                     align: 'center'
                 }
@@ -342,9 +343,9 @@ export class TutorialSystem {
 
         elementsToCheck.forEach(selector => {
             const element = document.querySelector(selector);
-            if (element && element.classList.contains('hidden')) {
+            if (isHidden(element)) {
                 this.hiddenElementsState.add(selector);
-                element.classList.remove('hidden');
+                show(element);
             }
         });
     }
@@ -354,10 +355,7 @@ export class TutorialSystem {
      */
     restoreHiddenElements() {
         this.hiddenElementsState.forEach((selector) => {
-            const element = document.querySelector(selector);
-            if (element) {
-                element.classList.add('hidden');
-            }
+            hide(document.querySelector(selector));
         });
 
         // Clear the tracked state
@@ -365,27 +363,46 @@ export class TutorialSystem {
     }
 
     /**
-     * Start the tutorial
+     * Start the tutorial. The unhide/restore pair is a transaction: every way
+     * out of here that leaves no tour running owes the restore, whether there
+     * was nothing to show or the driver failed to start.
      */
     startTutorial() {
         // Temporarily unhide elements needed for tutorial
         this.temporarilyUnhideElements();
 
-        // Only include steps whose element exists and is actually visible;
-        // the overlay blocks interaction, so visibility cannot change mid-tour
-        const steps = this.defineTutorialSteps().filter(step => {
-            const element = document.querySelector(step.element);
-            if (!element) return false;
-            const computedStyle = window.getComputedStyle(element);
-            return computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
-        });
+        let running = false;
 
-        if (steps.length === 0) {
-            this.restoreHiddenElements();
-            return;
+        try {
+            // Only include steps whose element exists and is actually visible;
+            // the overlay blocks interaction, so visibility cannot change mid-tour
+            const steps = this.defineTutorialSteps().filter(step => {
+                const element = document.querySelector(step.element);
+                if (!element) return false;
+                const computedStyle = window.getComputedStyle(element);
+                return computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
+            });
+
+            if (steps.length > 0) {
+                this.driverObj = this.startDriver(steps);
+                this.driverObj.drive();
+                running = true;
+            }
+        } finally {
+            if (!running) {
+                this.driverObj = null;
+                this.restoreHiddenElements();
+            }
         }
+    }
 
-        this.driverObj = driver({
+    /**
+     * Build the driver for the given steps.
+     * @param {Array<Object>} steps - Steps whose elements are visible
+     * @returns {Object} driver.js instance, not yet started
+     */
+    startDriver(steps) {
+        return driver({
             steps,
             popoverClass: 'tutorial-driver-popover',
             showProgress: true,
@@ -409,21 +426,44 @@ export class TutorialSystem {
             onPopoverRender: (popover) => {
                 requestAnimationFrame(() => popover.nextButton.focus());
             },
+            // Every exit passes through this hook, including one that arrives
+            // before a step has finished animating - driver.js only reaches
+            // onDestroyed once a step transition has settled. The undo runs
+            // here and the driver is then finished without re-entering it.
+            onDestroyStarted: () => {
+                const driverObj = this.driverObj;
+                this.undoTour();
+                driverObj?.destroy();
+            },
             onDestroyed: () => {
-                this.driverObj = null;
-                this.restoreHiddenElements();
-                // Hand keyboard focus to the primary call to action so
-                // keyboard and screen-reader users land on the obvious
-                // next step (only when the button is actually visible,
-                // i.e. on the prologue screen)
-                const startBtn = document.getElementById('start-adventure');
-                if (startBtn && !startBtn.classList.contains('hidden')) {
-                    startBtn.focus();
-                }
+                this.undoTour();
             }
         });
+    }
 
-        this.driverObj.drive();
+    /**
+     * The undo path of a tour that ran: the borrowed controls go back to being
+     * hidden and focus is handed to the primary call to action. It is reached
+     * from both destroy hooks and does nothing once the undo has been done, so a
+     * tour that is exited twice is restored once.
+     */
+    undoTour() {
+        if (!this.driverObj && this.hiddenElementsState.size === 0) {
+            return;
+        }
+
+        this.driverObj = null;
+        this.restoreHiddenElements();
+
+        // Hand keyboard focus to the primary call to action so keyboard and
+        // screen-reader users land on the obvious next step (only when the
+        // button is actually visible, i.e. on the prologue screen). driver.js
+        // restores its own focus after its destroy hooks, so the hand-off is
+        // deferred past that.
+        const startBtn = document.getElementById('start-adventure');
+        if (!isHidden(startBtn)) {
+            requestAnimationFrame(() => startBtn.focus());
+        }
     }
 }
 

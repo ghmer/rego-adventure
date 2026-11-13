@@ -21,52 +21,71 @@
 
 import { fetchPackDetails } from '../services/api-service.js';
 import { handleApiError } from '../services/error-service.js';
-import { DEFAULT_TEXT, TIMING } from '../services/constants.js';
+import { DEFAULT_TEXT, ErrorLevel, TIMING } from '../services/constants.js';
+import { showToast } from '../services/toast-service.js';
 import { tutorial } from '../tutorial.js';
 
 /**
  * Manages quest packs and theming
  */
 export class PackManager {
-    constructor(state, uiManager, audioManager) {
+    constructor(state, uiManager, audioManager, questManager, modalManager) {
         this.state = state;
         this.ui = uiManager;
         this.audio = audioManager;
-        // Incremented on every pack entry/exit; stale async asset
-        // continuations compare against it and bail out
+        this.quest = questManager;
+        this.modal = modalManager;
+        // Generation token for the pack and theme context, the single place
+        // its contract is stated: incremented by every pack entry (loadPack)
+        // and by resetToDefaultTheme, and compared by an async continuation
+        // before it writes. loadPack compares it once its fetch settles,
+        // loadPackAssets compares it again after preloading images.
         this.loadSeq = 0;
     }
 
     /**
-     * Load pack details and setup theming
+     * Load the pack's details and apply everything that belongs to the pack:
+     * state data, UI labels, page titles, theme links, asset paints and
+     * music. The generation token is compared as soon as the fetch settles,
+     * so an entry that has been superseded cannot write any of them - only
+     * the fetch itself is allowed to finish.
      * @param {string} packId - Pack identifier
+     * @returns {Promise<boolean>} false when a newer entry, or a move back to
+     *   the default theme, took the page over while these details were in
+     *   flight; true when this entry applied them
+     * @throws {Error} Surfaced through the error service and rethrown so the
+     *   caller can roll the pack entry back
      */
     async loadPack(packId) {
         const seq = ++this.loadSeq;
         try {
             const data = await fetchPackDetails(packId);
-            
+
+            if (seq !== this.loadSeq) return false;
+
             // Load pack data into state
             this.state.loadPackData(data);
-            
+
             // Update UI with pack-specific labels
             this.ui.updateGrimoireTitle(this.state.label('grimoireTitle'));
             this.ui.elements.verifyBtnLabel.textContent = this.state.label('verifyButton');
             this.ui.updateHintButtonText(null, 0, this.state.label('hintButton'));
-            
+
             // Update page titles
             const adventureTitle = this.state.meta?.title || DEFAULT_TEXT.ADVENTURE_TITLE;
             this.ui.updateTitles(adventureTitle);
-            
+
             // Load pack-specific theming
             this.loadPackTheme(packId);
-            
+
             // Load pack-specific assets (not awaited: images appear when
             // preloaded; loadPackAssets checks for staleness itself)
             this.loadPackAssets(packId, seq);
-            
+
             // Setup music
             this.audio.setupMusic(packId);
+
+            return true;
         } catch (error) {
             handleApiError(error, 'load pack details');
             throw error;
@@ -74,7 +93,11 @@ export class PackManager {
     }
 
     /**
-     * Load pack-specific CSS theme
+     * Load pack-specific CSS theme.
+     * custom.css is optional: when it is missing the link removes itself,
+     * which is the only record of that sub-state - "pack themed" then means
+     * theme.css alone. A pack is allowed to ship no custom.css, so this is
+     * not an error and no UI reports it.
      * @param {string} packId - Pack identifier
      */
     loadPackTheme(packId) {
@@ -95,7 +118,7 @@ export class PackManager {
         customLink.href = `/quests/${packId}/custom.css`;
         customLink.setAttribute('data-quest-theme', 'custom');
         customLink.onerror = () => {
-            // Custom CSS is optional, silently ignore if not found
+            // An absent custom.css is recorded here, by the link going away
             customLink.remove();
         };
         document.head.appendChild(customLink);
@@ -181,38 +204,75 @@ export class PackManager {
     }
 
     /**
-     * Start an adventure (new or resume)
+     * Start an adventure (new or resume).
      * @param {string} packId - Pack identifier
-     * @throws {Error} If the pack details fail to load
+     * @returns {Promise<boolean>} false when the entry was superseded by a
+     *   newer one, in which case the caller must not continue into the pack;
+     *   true when the pack is loaded and on screen
+     * @throws {Error} If the pack details fail to load. The pack entry is
+     *   rolled back before the error propagates: no pack pointer and no
+     *   pack-scoped state survive a failed entry.
      */
     async startAdventure(packId) {
-        this.ui.hidePerfectScoreButton();
+        this.clearPackCaches();
+        this.ui.renderPerfectScoreButton(false);
+        this.ui.resetInterfaceMinimized();
 
-        // Set pack in state; the returned loaded state tells us whether
-        // there is saved progress to resume
-        const loaded = this.state.setCurrentPack(packId);
-        const isResuming = loaded !== null;
+        // Set pack in state; the entry it returns says whether there is saved
+        // progress to resume, and whether a saved body could not be read
+        const entry = this.state.setCurrentPack(packId);
+        const isResuming = entry.resumed !== null;
+        if (entry.corrupt) {
+            showToast(
+                `Saved progress for pack "${packId}" could not be read. It is kept aside and the adventure starts fresh.`,
+                ErrorLevel.WARNING
+            );
+        }
 
         // Load pack details (errors are shown via handleApiError in loadPack)
-        await this.loadPack(packId);
+        let applied;
+        try {
+            applied = await this.loadPack(packId);
+        } catch (error) {
+            this.state.rollbackPackEntry();
+            throw error;
+        }
+        if (!applied) return false;
 
         // Show game interface
         this.ui.showScreen('game');
         this.ui.updateScoreDisplay(this.state.totalScore);
 
-        // Show tutorial prompt when entering an adventure (not when resuming)
+        // The tour is offered on a fresh entry only. A resumed adventure finds
+        // the player mid-policy, where a tour would interrupt the work they came
+        // back to; the offer stays open to them until they take it.
         if (!isResuming) {
             setTimeout(() => {
                 tutorial.showTutorialPrompt();
             }, TIMING.TUTORIAL_SHOW_DELAY);
         }
+
+        return true;
+    }
+
+    /**
+     * Drop the texts and payloads that a pack visit fetched: reveal texts,
+     * test payloads and support module sources belong to the pack that is
+     * open, and entering a pack, leaving it and restarting its progress each
+     * end what the previous state of that visit relied on.
+     */
+    clearPackCaches() {
+        this.quest.clearCaches();
+        this.modal.clearCaches();
     }
 
     /**
      * Return to home screen
      */
     returnHome() {
-        this.ui.hidePerfectScoreButton();
+        this.clearPackCaches();
+        this.ui.renderPerfectScoreButton(false);
+        this.ui.resetInterfaceMinimized();
 
         // Flush progress and clear the active pack pointer so a reload
         // stays on the start screen; progress itself is kept for resume

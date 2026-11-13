@@ -199,27 +199,4 @@ export class EditorService {
         this.syncScroll();
         this.instance.update({ value });
     }
-
-    /**
-     * Read-only flag for history and narrative modes. readOnly (not disabled)
-     * keeps selection and copying available while blocking edits; Yace also
-     * suppresses its plugin pipeline on read-only keydowns.
-     * @returns {boolean} Whether the editor is read-only
-     */
-    get readOnly() {
-        return this.instance.textarea.readOnly;
-    }
-
-    set readOnly(readOnly) {
-        this.instance.textarea.readOnly = readOnly;
-    }
-
-    /**
-     * Tear down the editor and restore the mount node
-     */
-    destroy() {
-        this.instance.textarea.removeEventListener('scroll', this.handleScroll);
-        window.removeEventListener('resize', this.handleResize);
-        this.instance.destroy();
-    }
 }

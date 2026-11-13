@@ -15,57 +15,21 @@
 */
 
 // ============================================================================
-// VALIDATION CONSTANTS
+// VALIDATION
 // ============================================================================
-// String length validation limits - must match backend/quest/constants.go
-// If you change these values, you MUST update the backend validation constants as well.
-const VALIDATION_LIMITS = {
-    // Pack Meta
-    PACK_TITLE: 100,
-    PACK_DESCRIPTION: 500,
-    PACK_GENRE: 50,
-    PACK_OBJECTIVE: 500,
-    
-    // UI Labels
-    UI_GRIMOIRE_TITLE: 100,
-    UI_HINT_BUTTON: 100,
-    UI_VERIFY_BUTTON: 100,
-    UI_VERIFYING: 100,
-    UI_MESSAGE_SUCCESS: 200,
-    UI_MESSAGE_FAILURE: 200,
-    UI_PERFECT_SCORE_MESSAGE: 1000,
-    UI_PERFECT_SCORE_BUTTON: 100,
-    UI_BEGIN_ADVENTURE_BUTTON: 100,
-    
-    // Quest
-    QUEST_TITLE: 100,
-    QUEST_DESCRIPTION_TASK: 1000,
-    QUEST_DESCRIPTION_LORE: 2000,
-    QUEST_HINT: 500,
-    QUEST_SOLUTION: 5000,
-    QUEST_TEMPLATE: 10000,
-    QUEST_TESTS: 100,
-    QUEST_SUPPORT_MODULE: 10000,
-    QUEST_SUPPORT_MODULES_MAX: 5,
-    
-    // Manual
-    MANUAL_DATA_MODEL: 2000,
-    MANUAL_REGO_SNIPPET: 5000,
-    MANUAL_EXTERNAL_LINK: 500,
-    
-    // Narrative
-    PROLOGUE_ITEM: 2000,
-    EPILOGUE_ITEM: 2000,
-    
-    // Test
-    TEST_PAYLOAD_MAX_BYTES: 50000
-};
+// The pack rules and their length limits are declared in rules.js, where the
+// backend's rules_parity_test.go can compare them against the server's own
+// checks. PACK_LIMITS, validatePack, renumberQuests, nextFreeTestId and
+// parseTestId come from that file.
 
 // ============================================================================
 // GLOBAL STATE
 // ============================================================================
 let questData = null;
-let currentModalTest = null;
+
+// openTestCase is the test case the modal is working on: 'add' with no
+// position yet, or 'edit' with the position it sits at in the quest's list.
+let openTestCase = null;
 
 // ============================================================================
 // INITIALIZATION
@@ -110,8 +74,11 @@ function initializeEventListeners() {
     document.getElementById('modalClose').addEventListener('click', closeModal);
     document.getElementById('modalCancel').addEventListener('click', closeModal);
     document.getElementById('modalSave').addEventListener('click', saveModalTest);
+
+    // Validation report
+    document.getElementById('validationReportClose').addEventListener('click', hideValidationReport);
     
-    // Form change listeners for auto-save
+    // Form change listeners write every edit straight into questData
     setupFormListeners();
 }
 
@@ -119,24 +86,24 @@ function initializeEventListeners() {
 function initializeMaxLengthAttributes() {
     // Meta fields
     const metaFields = {
-        'meta-title': VALIDATION_LIMITS.PACK_TITLE,
-        'meta-description': VALIDATION_LIMITS.PACK_DESCRIPTION,
-        'meta-genre': VALIDATION_LIMITS.PACK_GENRE,
-        'meta-initial_objective': VALIDATION_LIMITS.PACK_OBJECTIVE,
-        'meta-final_objective': VALIDATION_LIMITS.PACK_OBJECTIVE
+        'meta-title': PACK_LIMITS.MaxPackTitle,
+        'meta-description': PACK_LIMITS.MaxPackDescription,
+        'meta-genre': PACK_LIMITS.MaxPackGenre,
+        'meta-initial_objective': PACK_LIMITS.MaxPackObjective,
+        'meta-final_objective': PACK_LIMITS.MaxPackObjective
     };
     
     // UI Labels fields
     const uiLabelsFields = {
-        'ui_labels-grimoire_title': VALIDATION_LIMITS.UI_GRIMOIRE_TITLE,
-        'ui_labels-hint_button': VALIDATION_LIMITS.UI_HINT_BUTTON,
-        'ui_labels-verify_button': VALIDATION_LIMITS.UI_VERIFY_BUTTON,
-        'ui_labels-verifying': VALIDATION_LIMITS.UI_VERIFYING,
-        'ui_labels-message_success': VALIDATION_LIMITS.UI_MESSAGE_SUCCESS,
-        'ui_labels-message_failure': VALIDATION_LIMITS.UI_MESSAGE_FAILURE,
-        'ui_labels-perfect_score_message': VALIDATION_LIMITS.UI_PERFECT_SCORE_MESSAGE,
-        'ui_labels-perfect_score_button_text': VALIDATION_LIMITS.UI_PERFECT_SCORE_BUTTON,
-        'ui_labels-begin_adventure_button': VALIDATION_LIMITS.UI_BEGIN_ADVENTURE_BUTTON
+        'ui_labels-grimoire_title': PACK_LIMITS.MaxUIGrimoireTitle,
+        'ui_labels-hint_button': PACK_LIMITS.MaxUIHintButton,
+        'ui_labels-verify_button': PACK_LIMITS.MaxUIVerifyButton,
+        'ui_labels-verifying': PACK_LIMITS.MaxUIVerifying,
+        'ui_labels-message_success': PACK_LIMITS.MaxUIMessageSuccess,
+        'ui_labels-message_failure': PACK_LIMITS.MaxUIMessageFailure,
+        'ui_labels-perfect_score_message': PACK_LIMITS.MaxUIPerfectScoreMessage,
+        'ui_labels-perfect_score_button_text': PACK_LIMITS.MaxUIPerfectScoreButton,
+        'ui_labels-begin_adventure_button': PACK_LIMITS.MaxUIBeginAdventureButton
     };
     
     // Apply maxlength to meta fields
@@ -194,6 +161,8 @@ function normalizeTestPayloads() {
 
 function loadEditor() {
     normalizeTestPayloads();
+    renumberQuests(questData);
+    hideValidationReport();
 
     // Hide empty state, show editor
     document.getElementById('emptyState').classList.add('hidden');
@@ -220,11 +189,16 @@ function loadEditor() {
 function saveJSON() {
     if (!questData) return;
 
-    // Validate
-    if (!validateData()) {
-        alert('Please fix validation errors before saving');
+    // The export is refused when the pack breaks a rule the backend enforces as
+    // well; the report lists every problem at once instead of one per attempt.
+    const problems = validatePack(questData);
+    if (problems.length > 0) {
+        renderValidationReport(problems);
         return;
     }
+    hideValidationReport();
+
+    renumberQuests(questData);
     
     // Create download
     const dataStr = JSON.stringify(questData, null, 4);
@@ -318,13 +292,13 @@ function switchToQuest(questIndex) {
 // Initialize maxlength attributes for quest template fields
 function initializeQuestMaxLengthAttributes(questView) {
     const questFields = {
-        'quest-title': VALIDATION_LIMITS.QUEST_TITLE,
-        'quest-description_task': VALIDATION_LIMITS.QUEST_DESCRIPTION_TASK,
-        'quest-solution': VALIDATION_LIMITS.QUEST_SOLUTION,
-        'quest-template': VALIDATION_LIMITS.QUEST_TEMPLATE,
-        'quest-manual-data_model': VALIDATION_LIMITS.MANUAL_DATA_MODEL,
-        'quest-manual-rego_snippet': VALIDATION_LIMITS.MANUAL_REGO_SNIPPET,
-        'quest-manual-external_link': VALIDATION_LIMITS.MANUAL_EXTERNAL_LINK
+        'quest-title': PACK_LIMITS.MaxQuestTitle,
+        'quest-description_task': PACK_LIMITS.MaxQuestDescriptionTask,
+        'quest-solution': PACK_LIMITS.MaxQuestSolution,
+        'quest-template': PACK_LIMITS.MaxQuestTemplate,
+        'quest-manual-data_model': PACK_LIMITS.MaxManualDataModel,
+        'quest-manual-rego_snippet': PACK_LIMITS.MaxManualRegoSnippet,
+        'quest-manual-external_link': PACK_LIMITS.MaxManualExternalLink
     };
 
     Object.entries(questFields).forEach(([field, maxLength]) => {
@@ -405,7 +379,7 @@ function renderPrologue() {
     questData.prologue.forEach((item, index) => {
         const div = createListItem(item, () => removePrologueItem(index), (value) => {
             questData.prologue[index] = value;
-        }, VALIDATION_LIMITS.PROLOGUE_ITEM);
+        }, PACK_LIMITS.MaxPrologueItem);
         container.appendChild(div);
     });
 }
@@ -419,7 +393,7 @@ function renderEpilogue() {
     questData.epilogue.forEach((item, index) => {
         const div = createListItem(item, () => removeEpilogueItem(index), (value) => {
             questData.epilogue[index] = value;
-        }, VALIDATION_LIMITS.EPILOGUE_ITEM);
+        }, PACK_LIMITS.MaxEpilogueItem);
         container.appendChild(div);
     });
 }
@@ -498,7 +472,7 @@ function renderLore(questIndex, questView) {
     quest.description_lore.forEach((item, index) => {
         const div = createListItem(item, () => removeLoreItem(questIndex, index), (value) => {
             questData.quests[questIndex].description_lore[index] = value;
-        }, VALIDATION_LIMITS.QUEST_DESCRIPTION_LORE);
+        }, PACK_LIMITS.MaxQuestDescriptionLore);
         container.appendChild(div);
     });
 }
@@ -513,7 +487,7 @@ function renderHints(questIndex, questView) {
     quest.hints.forEach((item, index) => {
         const div = createListItem(item, () => removeHintItem(questIndex, index), (value) => {
             questData.quests[questIndex].hints[index] = value;
-        }, VALIDATION_LIMITS.QUEST_HINT);
+        }, PACK_LIMITS.MaxQuestHint);
         container.appendChild(div);
     });
 }
@@ -548,7 +522,7 @@ function renderSupportModules(questIndex, questView) {
     quest.support_modules.forEach((module, index) => {
         const div = createCodeListItem(module, () => removeSupportModuleItem(questIndex, index), (value) => {
             questData.quests[questIndex].support_modules[index] = value;
-        }, VALIDATION_LIMITS.QUEST_SUPPORT_MODULE);
+        }, PACK_LIMITS.MaxQuestSupportModule);
         container.appendChild(div);
     });
 }
@@ -557,8 +531,8 @@ function addSupportModuleItem(questIndex) {
     const quest = questData.quests[questIndex];
     if (!Array.isArray(quest.support_modules)) quest.support_modules = [];
 
-    if (quest.support_modules.length >= VALIDATION_LIMITS.QUEST_SUPPORT_MODULES_MAX) {
-        alert(`A quest can have at most ${VALIDATION_LIMITS.QUEST_SUPPORT_MODULES_MAX} support modules`);
+    if (quest.support_modules.length >= PACK_LIMITS.MaxQuestSupportModules) {
+        alert(`A quest can have at most ${PACK_LIMITS.MaxQuestSupportModules} support modules`);
         return;
     }
 
@@ -682,8 +656,10 @@ function removeEpilogueItem(index) {
 
 function addQuest() {
     if (!questData.quests) questData.quests = [];
-    
+
     const newQuest = {
+        // Seeded so the ID leads the exported object; renumberQuests below gives
+        // it the real value, which is the quest's position.
         id: questData.quests.length + 1,
         title: 'New Quest',
         query: 'data.play.allow',
@@ -703,22 +679,35 @@ function addQuest() {
     };
     
     questData.quests.push(newQuest);
+    renumberQuests(questData);
+    destroyQuestViews();
     renderQuestNav();
     switchToQuest(questData.quests.length - 1);
 }
 
 function deleteQuest(questIndex) {
     if (!confirm('Are you sure you want to delete this quest?')) return;
-    
+
     questData.quests.splice(questIndex, 1);
-    
-    // Remove the quest view
-    const questView = document.getElementById(`view-quest-${questIndex}`);
-    if (questView) questView.remove();
-    
-    // Re-render navigation and switch to meta view
+    renumberQuests(questData);
+
+    // A quest view is addressed by the quest's position and its buttons close
+    // over that position, so every view goes with it: the remaining ones would
+    // otherwise show and edit the wrong quest.
+    destroyQuestViews();
+
     renderQuestNav();
     switchView('meta');
+}
+
+// destroyQuestViews drops the cloned quest views, which are rebuilt from the
+// data the next time a quest is opened. The template itself stays.
+function destroyQuestViews() {
+    document.querySelectorAll('.main-content .quest-view').forEach((view) => {
+        if (/^view-quest-\d+$/.test(view.id)) {
+            view.remove();
+        }
+    });
 }
 
 function addLoreItem(questIndex) {
@@ -757,24 +746,24 @@ function addTestItem(questIndex) {
 
     // Mirrors the backend MaxQuestTests cap: verification loops over
     // every test case per request, so an unbounded list is refused.
-    if (quest.tests.length >= VALIDATION_LIMITS.QUEST_TESTS) {
-        alert(`A quest can have at most ${VALIDATION_LIMITS.QUEST_TESTS} test cases`);
+    if (quest.tests.length >= PACK_LIMITS.MaxQuestTests) {
+        alert(`A quest can have at most ${PACK_LIMITS.MaxQuestTests} test cases`);
         return;
     }
 
     const newTest = {
-        id: quest.tests.length + 1,
+        id: nextFreeTestId(quest.tests),
         payload: { input: {} },
         expected_value: false
     };
-    
-    currentModalTest = { questIndex, testIndex: -1, test: newTest };
+
+    openTestCase = { mode: 'add', questIndex, testIndex: null };
     showTestModal(newTest);
 }
 
 function editTestItem(questIndex, testIndex) {
     const test = questData.quests[questIndex].tests[testIndex];
-    currentModalTest = { questIndex, testIndex, test };
+    openTestCase = { mode: 'edit', questIndex, testIndex };
     showTestModal(test);
 }
 
@@ -790,22 +779,55 @@ function removeTestItem(questIndex, testIndex) {
 // MODAL FUNCTIONS
 // ============================================================================
 function showTestModal(test) {
-    document.getElementById('modal-test-id').value = test.id || '';
+    document.getElementById('modalTitle').textContent =
+        openTestCase.mode === 'add' ? 'Add Test Case' : `Edit Test Case ${test.id}`;
+    document.getElementById('modal-test-id').value = test.id ?? '';
     document.getElementById('modal-test-payload').value = JSON.stringify(test.payload?.input ?? {}, null, 2);
     document.getElementById('modal-test-data').value = JSON.stringify(test.payload?.data ?? {}, null, 2);
     document.getElementById('modal-test-expected').value = JSON.stringify(test.expected_value);
-    
+
+    hideTestModalError();
     document.getElementById('modal').classList.add('active');
 }
 
 function closeModal() {
     document.getElementById('modal').classList.remove('active');
-    currentModalTest = null;
+    hideTestModalError();
+    openTestCase = null;
 }
 
+function showTestModalError(message) {
+    const error = document.getElementById('modalError');
+    error.textContent = message;
+    error.classList.remove('hidden');
+}
+
+function hideTestModalError() {
+    document.getElementById('modalError').classList.add('hidden');
+}
+
+// saveTest builds the test case from the modal fields. The ID is read as a
+// whole number and refused if it is blank, not a number, or already used by
+// another test of this quest - a blank ID used to become 0 and collide.
 function saveModalTest() {
-    if (!currentModalTest) return;
-    
+    if (!openTestCase) return;
+
+    const quest = questData.quests[openTestCase.questIndex];
+    const parsedId = parseTestId(document.getElementById('modal-test-id').value);
+    if (parsedId.error) {
+        showTestModalError(parsedId.error);
+        return;
+    }
+
+    const clash = (quest.tests || []).find(
+        (test, index) => index !== openTestCase.testIndex && test.id === parsedId.id
+    );
+    if (clash) {
+        showTestModalError(`This quest already has a test case with ID ${parsedId.id}.`);
+        return;
+    }
+
+    let test;
     try {
         const payload = {
             input: JSON.parse(document.getElementById('modal-test-payload').value || '{}')
@@ -814,29 +836,25 @@ function saveModalTest() {
         if (data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length > 0) {
             payload.data = data;
         }
-
-        const test = {
-            id: parseInt(document.getElementById('modal-test-id').value) || 0,
+        test = {
+            id: parsedId.id,
             payload,
             expected_value: JSON.parse(document.getElementById('modal-test-expected').value)
         };
-        
-        const { questIndex, testIndex } = currentModalTest;
-        
-        if (testIndex === -1) {
-            // Adding new test
-            questData.quests[questIndex].tests.push(test);
-        } else {
-            // Editing existing test
-            questData.quests[questIndex].tests[testIndex] = test;
-        }
-        
-        const questView = document.getElementById(`view-quest-${questIndex}`);
-        renderTests(questIndex, questView);
-        closeModal();
     } catch (error) {
-        alert('Error saving test: ' + error.message);
+        showTestModalError('The payload or expected value is not valid JSON: ' + error.message);
+        return;
     }
+
+    if (openTestCase.mode === 'add') {
+        quest.tests.push(test);
+    } else {
+        quest.tests[openTestCase.testIndex] = test;
+    }
+
+    const questView = document.getElementById(`view-quest-${openTestCase.questIndex}`);
+    renderTests(openTestCase.questIndex, questView);
+    closeModal();
 }
 
 // ============================================================================
@@ -868,7 +886,6 @@ function setupFormListeners() {
 
 function setupQuestFormListeners(questView, questIndex) {
     const fields = [
-        { field: 'quest-id', key: 'id', type: 'number' },
         { field: 'quest-title', key: 'title', type: 'text' },
         { field: 'quest-query', key: 'query', type: 'text' },
         { field: 'quest-description_task', key: 'description_task', type: 'text' },
@@ -881,16 +898,14 @@ function setupQuestFormListeners(questView, questIndex) {
         const el = questView.querySelector(`[data-field="${field}"]`);
         if (el) {
             el.addEventListener('change', () => {
-                if (type === 'number') {
-                    questData.quests[questIndex][key] = parseInt(el.value) || 0;
-                } else if (type === 'checkbox') {
+                if (type === 'checkbox') {
                     questData.quests[questIndex][key] = el.checked;
                 } else {
                     questData.quests[questIndex][key] = el.value;
                 }
 
                 // Update title in navigation if changed
-                if (key === 'title' || key === 'id') {
+                if (key === 'title') {
                     renderQuestNav();
                     questView.querySelector('[data-field="questViewTitle"]').textContent =
                         `Quest ${questData.quests[questIndex].id}: ${questData.quests[questIndex].title || 'Untitled'}`;
@@ -927,45 +942,31 @@ function updateQuestCount() {
     document.getElementById('questCount').textContent = `${count} quest${count !== 1 ? 's' : ''}`;
 }
 
-function validateData() {
-    if (!questData) return false;
-    
-    // Validate quest IDs are unique
-    const ids = questData.quests.map(q => q.id);
-    const uniqueIds = new Set(ids);
-    if (ids.length !== uniqueIds.size) {
-        alert('Quest IDs must be unique!');
-        return false;
+// ============================================================================
+// VALIDATION REPORT
+// ============================================================================
+
+// renderValidationReport lists the pack problems in the panel under the top
+// bar, so an author with several problems sees them in one pass. Text only: the
+// pack content is user input and never reaches the panel as markup.
+function renderValidationReport(problems) {
+    const panel = document.getElementById('validationReport');
+    const list = document.getElementById('validationReportList');
+
+    document.getElementById('validationReportTitle').textContent =
+        problems.length === 1
+            ? 'The pack has one problem that the backend would refuse'
+            : `The pack has ${problems.length} problems that the backend would refuse`;
+
+    list.textContent = '';
+    for (const problem of problems) {
+        const item = document.createElement('li');
+        item.textContent = problem.message;
+        list.appendChild(item);
     }
-    
-    // Validate test IDs within each quest
-    for (let i = 0; i < questData.quests.length; i++) {
-        const quest = questData.quests[i];
-        if (quest.tests && quest.tests.length > 0) {
-            const testIds = quest.tests.map(t => t.id);
-            const uniqueTestIds = new Set(testIds);
-            if (testIds.length !== uniqueTestIds.size) {
-                alert(`Quest ${quest.id}: Test IDs must be unique!`);
-                return false;
-            }
-            if (quest.tests.length > VALIDATION_LIMITS.QUEST_TESTS) {
-                alert(`Quest ${quest.id}: at most ${VALIDATION_LIMITS.QUEST_TESTS} test cases are allowed!`);
-                return false;
-            }
-        }
-        if (Array.isArray(quest.support_modules)) {
-            if (quest.support_modules.length > VALIDATION_LIMITS.QUEST_SUPPORT_MODULES_MAX) {
-                alert(`Quest ${quest.id}: at most ${VALIDATION_LIMITS.QUEST_SUPPORT_MODULES_MAX} support modules are allowed!`);
-                return false;
-            }
-            for (let j = 0; j < quest.support_modules.length; j++) {
-                if (!quest.support_modules[j] || quest.support_modules[j].trim() === '') {
-                    alert(`Quest ${quest.id}: support module ${j} cannot be empty!`);
-                    return false;
-                }
-            }
-        }
-    }
-    
-    return true;
+    panel.classList.remove('hidden');
+}
+
+function hideValidationReport() {
+    document.getElementById('validationReport').classList.add('hidden');
 }

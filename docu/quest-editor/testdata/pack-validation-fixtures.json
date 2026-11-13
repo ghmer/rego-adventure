@@ -1,0 +1,243 @@
+{
+  "_comment": [
+    "Fixture packs shared by the two halves of the pack-validation comparison.",
+    "backend/quest/rules_parity_test.go runs every pack through the server's own",
+    "load path; docu/quest-editor/rules.test.js runs every pack through the",
+    "editor's validatePack. basePack is the starting pack; each case applies its",
+    "patches to a copy of it. A patch sets a value at a dot path whose numeric",
+    "segments index arrays; {\"remove\": true} deletes an array element; {\"count\": n,",
+    "\"value\": v} repeats v n times; {\"$repeatChars\": n, \"char\": c} expands to a",
+    "string of n copies of c. valid defaults to false, meaning the server and the",
+    "editor must both refuse the pack."
+  ],
+  "basePack": {
+    "meta": {
+      "title": "Fixture Adventure",
+      "description": "A pack used only by the validation parity tests.",
+      "genre": "fantasy",
+      "initial_objective": "Learn the basics",
+      "final_objective": "Write a policy"
+    },
+    "ui_labels": {
+      "grimoire_title": "Grimoire",
+      "hint_button": "Hint",
+      "verify_button": "Verify",
+      "verifying": "Verifying",
+      "message_success": "Correct",
+      "message_failure": "Not yet",
+      "perfect_score_message": "Every test passed",
+      "perfect_score_button_text": "Continue",
+      "begin_adventure_button": "Begin adventure"
+    },
+    "prologue": [
+      "The grimoire has gone quiet."
+    ],
+    "epilogue": [
+      "The grimoire answers again."
+    ],
+    "quests": [
+      {
+        "id": 1,
+        "title": "The Open Door",
+        "description_lore": [
+          "A door stands open on the path."
+        ],
+        "description_task": "Allow everyone through the door.",
+        "manual": {
+          "data_model": "input.role : string",
+          "rego_snippet": "default allow = false",
+          "external_link": "https://www.openpolicyagent.org/docs/latest/policy-language/"
+        },
+        "hints": [
+          "Start from the input document."
+        ],
+        "solution": "allow { input.role = \"traveller\" }",
+        "apply_template": false,
+        "template": "",
+        "query": "data.play.allow",
+        "tests": [
+          {
+            "id": 1,
+            "payload": {
+              "input": {
+                "role": "traveller"
+              }
+            },
+            "expected_value": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "The Sealed Archive",
+        "description_lore": [
+          "The archive stays shut for strangers.",
+          "Only the keeper may enter."
+        ],
+        "description_task": "Allow the keeper and no one else.",
+        "manual": {
+          "data_model": "",
+          "rego_snippet": "",
+          "external_link": ""
+        },
+        "hints": [],
+        "solution": "allow { input.role = \"keeper\" }",
+        "apply_template": true,
+        "template": "package play\n\ndefault allow = false\n",
+        "query": "data.play.allow",
+        "tests": [
+          {
+            "id": 1,
+            "payload": {
+              "input": {
+                "role": "keeper"
+              }
+            },
+            "expected_value": true
+          },
+          {
+            "id": 2,
+            "payload": {
+              "input": {
+                "role": "stranger"
+              },
+              "data": {
+                "sealed": true
+              }
+            },
+            "expected_value": false
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "The Borrowed Sigil",
+        "description_lore": [
+          "A sigil was left in the margin."
+        ],
+        "description_task": "Use the helper module to decide.",
+        "manual": {
+          "data_model": "",
+          "rego_snippet": "",
+          "external_link": "http://example.com/rego"
+        },
+        "hints": [
+          "The sigil is a helper module."
+        ],
+        "solution": "allow { helper.ok }",
+        "apply_template": false,
+        "template": "",
+        "query": "data.play.allow",
+        "support_modules": [
+          "package helper\n\ndefault ok = false\n\nok { input.sigil = true }"
+        ],
+        "tests": [
+          {
+            "id": 1,
+            "payload": {
+              "input": {
+                "sigil": true
+              }
+            },
+            "expected_value": true
+          }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    { "ruleId": "pack_title_required", "patches": [{ "path": "meta.title", "value": "  " }] },
+    { "ruleId": "pack_title_max_length", "patches": [{ "path": "meta.title", "value": { "$repeatChars": 101, "char": "x" } }] },
+    { "ruleId": "pack_description_required", "patches": [{ "path": "meta.description", "value": "" }] },
+    { "ruleId": "pack_description_max_length", "patches": [{ "path": "meta.description", "value": { "$repeatChars": 501, "char": "x" } }] },
+    { "ruleId": "pack_genre_required", "patches": [{ "path": "meta.genre", "value": "" }] },
+    { "ruleId": "pack_genre_max_length", "patches": [{ "path": "meta.genre", "value": { "$repeatChars": 51, "char": "a" } }] },
+    { "ruleId": "pack_genre_charset", "patches": [{ "path": "meta.genre", "value": "fantasy & dragons" }] },
+    { "ruleId": "pack_genre_charset", "name": "genre with a non-breaking space", "patches": [{ "path": "meta.genre", "value": "fantasy\u00a0dragons" }] },
+    { "ruleId": "pack_initial_objective_max_length", "patches": [{ "path": "meta.initial_objective", "value": { "$repeatChars": 501, "char": "x" } }] },
+    { "ruleId": "pack_final_objective_max_length", "patches": [{ "path": "meta.final_objective", "value": { "$repeatChars": 501, "char": "x" } }] },
+
+    { "ruleId": "ui_grimoire_title_required", "patches": [{ "path": "ui_labels.grimoire_title", "value": "" }] },
+    { "ruleId": "ui_grimoire_title_max_length", "patches": [{ "path": "ui_labels.grimoire_title", "value": { "$repeatChars": 101, "char": "x" } }] },
+    { "ruleId": "ui_hint_button_required", "patches": [{ "path": "ui_labels.hint_button", "value": "" }] },
+    { "ruleId": "ui_hint_button_max_length", "patches": [{ "path": "ui_labels.hint_button", "value": { "$repeatChars": 101, "char": "x" } }] },
+    { "ruleId": "ui_verify_button_required", "patches": [{ "path": "ui_labels.verify_button", "value": "" }] },
+    { "ruleId": "ui_verify_button_max_length", "patches": [{ "path": "ui_labels.verify_button", "value": { "$repeatChars": 101, "char": "x" } }] },
+    { "ruleId": "ui_verifying_max_length", "patches": [{ "path": "ui_labels.verifying", "value": { "$repeatChars": 101, "char": "x" } }] },
+    { "ruleId": "ui_message_success_max_length", "patches": [{ "path": "ui_labels.message_success", "value": { "$repeatChars": 201, "char": "x" } }] },
+    { "ruleId": "ui_message_failure_max_length", "patches": [{ "path": "ui_labels.message_failure", "value": { "$repeatChars": 201, "char": "x" } }] },
+    { "ruleId": "ui_perfect_score_message_max_length", "patches": [{ "path": "ui_labels.perfect_score_message", "value": { "$repeatChars": 1001, "char": "x" } }] },
+    { "ruleId": "ui_perfect_score_button_text_max_length", "patches": [{ "path": "ui_labels.perfect_score_button_text", "value": { "$repeatChars": 101, "char": "x" } }] },
+    { "ruleId": "ui_begin_adventure_button_max_length", "patches": [{ "path": "ui_labels.begin_adventure_button", "value": { "$repeatChars": 101, "char": "x" } }] },
+
+    { "ruleId": "pack_prologue_min_items", "patches": [{ "path": "prologue", "value": [] }] },
+    { "ruleId": "pack_prologue_item_max_length", "patches": [{ "path": "prologue.0", "value": { "$repeatChars": 2001, "char": "x" } }] },
+    { "ruleId": "pack_epilogue_min_items", "patches": [{ "path": "epilogue", "value": [] }] },
+    { "ruleId": "pack_epilogue_item_max_length", "patches": [{ "path": "epilogue.0", "value": { "$repeatChars": 2001, "char": "x" } }] },
+    { "ruleId": "pack_quests_min_items", "patches": [{ "path": "quests", "value": [] }] },
+
+    { "ruleId": "quest_ids_contiguous", "patches": [{ "path": "quests.0.id", "value": 5 }] },
+    { "ruleId": "quest_ids_unique", "patches": [{ "path": "quests.1.id", "value": 1 }] },
+    { "ruleId": "quest_title_required", "patches": [{ "path": "quests.1.title", "value": "" }] },
+    { "ruleId": "quest_title_max_length", "patches": [{ "path": "quests.1.title", "value": { "$repeatChars": 101, "char": "x" } }] },
+    { "ruleId": "quest_task_required", "patches": [{ "path": "quests.1.description_task", "value": "" }] },
+    { "ruleId": "quest_task_max_length", "patches": [{ "path": "quests.1.description_task", "value": { "$repeatChars": 1001, "char": "x" } }] },
+    { "ruleId": "quest_lore_min_items", "patches": [{ "path": "quests.1.description_lore", "value": [] }] },
+    { "ruleId": "quest_lore_item_max_length", "patches": [{ "path": "quests.1.description_lore.0", "value": { "$repeatChars": 2001, "char": "x" } }] },
+    { "ruleId": "quest_hint_item_max_length", "patches": [{ "path": "quests.0.hints.0", "value": { "$repeatChars": 501, "char": "x" } }] },
+    { "ruleId": "quest_solution_max_length", "patches": [{ "path": "quests.1.solution", "value": { "$repeatChars": 5001, "char": "x" } }] },
+    { "ruleId": "quest_template_max_length", "patches": [{ "path": "quests.1.template", "value": { "$repeatChars": 10001, "char": "x" } }] },
+    { "ruleId": "quest_query_required", "patches": [{ "path": "quests.1.query", "value": "" }] },
+    { "ruleId": "quest_manual_data_model_max_length", "patches": [{ "path": "quests.0.manual.data_model", "value": { "$repeatChars": 2001, "char": "x" } }] },
+    { "ruleId": "quest_manual_rego_snippet_max_length", "patches": [{ "path": "quests.0.manual.rego_snippet", "value": { "$repeatChars": 5001, "char": "x" } }] },
+    { "ruleId": "quest_manual_external_link_max_length", "patches": [{ "path": "quests.0.manual.external_link", "value": { "$repeatChars": 501, "char": "x" } }] },
+    { "ruleId": "quest_manual_external_link_scheme", "patches": [{ "path": "quests.0.manual.external_link", "value": "javascript:alert(1)" }] },
+    { "ruleId": "quest_support_modules_max_items", "patches": [{ "path": "quests.2.support_modules", "value": { "count": 6, "value": "package helper\n\ndefault ok = false" } }] },
+    { "ruleId": "quest_support_module_non_empty", "patches": [{ "path": "quests.2.support_modules.0", "value": "  " }] },
+    { "ruleId": "quest_support_module_max_length", "patches": [{ "path": "quests.2.support_modules.0", "value": { "$repeatChars": 10001, "char": "x" } }] },
+    { "ruleId": "quest_tests_min_items", "patches": [{ "path": "quests.1.tests", "value": [] }] },
+    { "ruleId": "quest_tests_max_items", "patches": [{ "path": "quests.1.tests", "value": { "count": 101, "value": { "id": 1, "payload": { "input": {} }, "expected_value": true } } }] },
+    { "ruleId": "quest_test_payload_max_bytes", "patches": [{ "path": "quests.0.tests.0.payload", "value": { "input": { "blob": { "$repeatChars": 60000, "char": "x" } } } }] },
+    { "ruleId": "quest_test_ids_unique", "patches": [{ "path": "quests.1.tests", "value": [
+      { "id": 4, "payload": { "input": {} }, "expected_value": true },
+      { "id": 4, "payload": { "input": {} }, "expected_value": false }
+    ] }] },
+
+    { "name": "base pack", "valid": true, "patches": [] },
+    { "name": "genre with a tab", "valid": true, "patches": [{ "path": "meta.genre", "value": "fantasy\tdragons" }] },
+    {
+      "name": "optional fields left empty",
+      "valid": true,
+      "patches": [
+        { "path": "meta.initial_objective", "value": "" },
+        { "path": "meta.final_objective", "value": "" },
+        { "path": "ui_labels.verifying", "value": "" },
+        { "path": "ui_labels.message_success", "value": "" },
+        { "path": "ui_labels.message_failure", "value": "" },
+        { "path": "ui_labels.perfect_score_message", "value": "" },
+        { "path": "ui_labels.perfect_score_button_text", "value": "" },
+        { "path": "ui_labels.begin_adventure_button", "value": "" },
+        { "path": "quests.0.hints", "value": [] },
+        { "path": "quests.0.solution", "value": "" },
+        { "path": "quests.0.template", "value": "" },
+        { "path": "quests.0.support_modules", "value": [] }
+      ]
+    },
+    {
+      "name": "a pack authored without support modules or manual entries",
+      "valid": true,
+      "patches": [
+        { "path": "quests.2.manual", "value": {} },
+        { "path": "quests.2.support_modules", "value": [] }
+      ]
+    },
+    {
+      "name": "deleting the middle quest leaves contiguous IDs",
+      "valid": true,
+      "patches": [
+        { "path": "quests.1", "remove": true },
+        { "path": "quests.1.id", "value": 2 }
+      ]
+    }
+  ]
+}

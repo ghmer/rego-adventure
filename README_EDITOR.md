@@ -42,7 +42,7 @@ Each quest has six tabs.
 
 **Details** - Core quest configuration:
 
-- ID and title
+- ID (read-only: it is the quest's position in the list) and title
 - Query path (e.g., `data.play.allow`)
 - Task description
 - Solution code
@@ -83,7 +83,18 @@ Each test needs:
 - Data object (becomes `data` in Rego, optional)
 - Expected value (any JSON value the query must return - boolean, string, number, array, or object)
 
-The editor validates that quest IDs and test IDs are unique before saving.
+A new test is proposed an ID the quest does not use yet. A blank, non-numeric or colliding test ID is refused in the dialog and nothing is added.
+
+## Saving and Validation
+
+**Save** refuses to export a pack that the backend would refuse, and lists every
+problem it found in a panel under the top bar instead of one per attempt. The
+rules it checks are the same ones the server enforces when a pack is loaded -
+required text, length limits, at least one lore entry and one test case per
+quest, quest IDs numbered 1, 2, 3 in order, unique test IDs - and they are
+declared once in [`docu/quest-editor/rules.js`](docu/quest-editor/rules.js).
+`backend/quest/rules_parity_test.go` compares that list with the server's own
+validation, so the two cannot drift apart.
 
 ## Quest Pack Structure
 
@@ -97,6 +108,10 @@ It's a Single-Page Application (SPA).
 
 - Font Awesome 7.0.1 (icons)
 
+The validation rules and their limits are declared in `docu/quest-editor/rules.js`,
+which the editor loads as a plain script and the backend tests read directly.
+`node --test docu/quest-editor/` runs the rule tests without installing anything.
+
 **Browser Requirements:**
 
 - Modern browser with ES6 support
@@ -109,8 +124,8 @@ Use the `asset generator` to create a skeleton for the new quest. Load the gener
 
 **Key points:**
 
-- Quest IDs must be unique
-- Test IDs must be unique within each quest
+- Quest IDs are assigned by the editor as the quest's position, so they run 1, 2, 3; the backend reads quests in ID order and refuses a pack with a gap or a duplicate
+- Test IDs must be unique within each quest and are whole numbers of 1 or more
 - Use `apply_template: true` to replace editor content
 - Leave `apply_template: false` to keep user's code
 - Template field can be empty if not used
@@ -133,7 +148,7 @@ Customize button text and messages to match your theme. Examples:
 
 **Organizing quests:**
 
-- Use sequential IDs (1, 2, 3...)
+- Quests are numbered by their order in the list, so order them deliberately
 - Keep titles short and clear
 - Put easier quests first
 

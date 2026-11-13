@@ -23,22 +23,25 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { nextReveal } from '../services/reveal-service.js';
-import { DEFAULT_TEXT, ErrorLevel } from '../services/constants.js';
+import { DEFAULT_TEXT, ErrorLevel, SaveStatus } from '../services/constants.js';
 import { showToast } from '../services/toast-service.js';
 import { regoHighlighter } from '../services/rego-highlighter.js';
+import { show, hide, setHidden, isHidden } from '../services/visibility.js';
 
 /**
  * Manages all DOM elements and UI rendering
  */
 export class UIManager {
     /**
-     * @param {EditorService|null} [editorService] - Editor service owning the
-     *   Yace instance; when absent the editor falls back to a plain textarea
-     *   (used by tests and any page without the editor service wired up)
+     * @param {EditorService} editorService - Editor service owning the Yace
+     *   instance. Required: the editor element is always the service's native
+     *   textarea, which is what the typing gates and value reads act on.
      */
-    constructor(editorService = null) {
+    constructor(editorService) {
         this.editorService = editorService;
         this.elements = this.initializeElements();
+        // Interface minimize state, rendered by renderInterfaceMinimized
+        this.interfaceMinimized = false;
     }
 
     /**
@@ -56,22 +59,15 @@ export class UIManager {
             loreNextBtn: document.getElementById('lore-next-btn'),
             lorePageIndicator: document.getElementById('lore-page-indicator'),
             questTask: document.getElementById('quest-task'),
-            
+
             // Hints
             hintsList: document.getElementById('hints-list'),
             hintBtn: document.getElementById('hint-btn'),
-            
-            // Outcome
-            outcomeArea: document.getElementById('outcome-area'),
-            outcomeMessage: document.getElementById('outcome-message'),
-            testResults: document.getElementById('test-results'),
-            
-            // Editor: with the editor service wired up this is the native
-            // textarea inside the Yace instance; listeners, value reads and
-            // read-only toggling work on it like on any plain textarea
-            editor: this.editorService
-                ? this.editorService.textarea
-                : document.getElementById('rego-editor'),
+
+            // Editor: the native textarea inside the Yace instance;
+            // listeners, value reads and read-only toggling work on it like
+            // on any plain textarea
+            editor: this.editorService.textarea,
             verifyBtn: document.getElementById('verify-btn'),
             verifyBtnLabel: document.querySelector('#verify-btn [data-label]'),
             editorPane: document.getElementById('editor-pane'),
@@ -79,6 +75,7 @@ export class UIManager {
             
             // Navigation buttons
             startAdventureBtn: document.getElementById('start-adventure'),
+            questFooter: document.querySelector('.quest-footer'),
             restartBtn: document.getElementById('restart-btn'),
             minimizeBtn: document.getElementById('minimize-btn'),
             homeBtn: document.getElementById('home-btn'),
@@ -165,18 +162,18 @@ export class UIManager {
         
         if (Array.isArray(lore)) {
             if (lore.length > 1) {
-                this.elements.loreControls.classList.remove('hidden');
+                show(this.elements.loreControls);
                 this.elements.questLore.innerHTML = this.parseMarkdown(lore[currentLoreIndex]);
                 this.elements.lorePageIndicator.textContent = `${currentLoreIndex + 1}/${lore.length}`;
                 
                 this.elements.lorePrevBtn.disabled = currentLoreIndex === 0;
                 this.elements.loreNextBtn.disabled = currentLoreIndex === lore.length - 1;
             } else {
-                this.elements.loreControls.classList.add('hidden');
+                hide(this.elements.loreControls);
                 this.elements.questLore.innerHTML = this.parseMarkdown(lore[0]);
             }
         } else {
-            this.elements.loreControls.classList.add('hidden');
+            hide(this.elements.loreControls);
             this.elements.questLore.innerHTML = this.parseMarkdown(lore);
         }
         
@@ -218,12 +215,23 @@ export class UIManager {
     }
 
     /**
-     * Render pack list on start screen
+     * Render pack list on start screen. The server answers an empty list when
+     * it runs with no pack directory; that condition is stated here rather than
+     * left as a blank selection.
      * @param {Array} packs - Array of pack objects
      * @param {Function} onPackClick - Callback when pack is clicked
      */
     renderPackList(packs, onPackClick) {
         this.elements.questPackList.innerHTML = '';
+
+        if (packs.length === 0) {
+            const notice = document.createElement('p');
+            notice.className = 'pack-list-empty';
+            notice.textContent = 'No adventure packs are loaded. Start the server with a pack directory.';
+            this.elements.questPackList.appendChild(notice);
+            return;
+        }
+
         const sortedPacks = [...packs].sort((a, b) => a.title.localeCompare(b.title));
         const template = document.getElementById('quest-pack-card-template');
         
@@ -237,7 +245,7 @@ export class UIManager {
             if (pack.genre) {
                 const genreBadge = cardElement.querySelector('.genre-badge');
                 genreBadge.textContent = pack.genre;
-                genreBadge.classList.remove('hidden');
+                show(genreBadge);
             }
             
             // Accessibility
@@ -424,7 +432,7 @@ export class UIManager {
             
             if (test.payload.data) {
                 const dataSection = testCase.querySelector('.test-case-data');
-                dataSection.classList.remove('hidden');
+                show(dataSection);
                 testCase.querySelector('.test-case-data-content').textContent =
                     JSON.stringify(test.payload.data, null, 2);
             }
@@ -491,30 +499,103 @@ export class UIManager {
     }
 
     /**
-     * Update quest footer visibility based on button states.
-     * Element visibility is managed exclusively via the `hidden` class;
-     * the footer's flex layout comes from CSS when visible.
+     * Recompute the quest footer. It is shown exactly while one of the two
+     * buttons it holds is offered, so this reads their visibility instead of
+     * deciding it: the prologue offers the adventure button
+     * (renderQuestButtonVisibility) and the epilogue of a pack finished
+     * without reveals offers the perfect-score button
+     * (renderPerfectScoreButton). The quest render pipeline calls it after
+     * every screen; nothing else writes the footer's own visibility.
      */
-    updateQuestFooterVisibility() {
-        const footer = document.querySelector('.quest-footer');
+    renderQuestFooter() {
+        const footer = this.elements.questFooter;
         if (!footer) return;
 
         const buttons = footer.querySelectorAll('button');
         const hasVisibleButton = Array.from(buttons).some(button =>
-            !button.classList.contains('hidden')
+            !isHidden(button)
         );
 
-        footer.classList.toggle('hidden', !hasVisibleButton);
+        setHidden(footer, !hasVisibleButton);
     }
 
     /**
-     * Hide the perfect score button and refresh the quest footer
+     * Render the adventure offer of the prologue screen. This is the only
+     * writer of the button's visibility: the prologue offers it and every
+     * other screen withdraws it.
+     * @param {boolean} visible - Whether this screen offers the adventure
+     * @param {string} [label] - Button text, applied when visible
      */
-    hidePerfectScoreButton() {
-        if (this.elements.perfectScoreBtn) {
-            this.elements.perfectScoreBtn.classList.add('hidden');
+    renderQuestButtonVisibility(visible, label) {
+        const startAdventureBtn = this.elements.startAdventureBtn;
+        if (!startAdventureBtn) return;
+
+        if (visible && label !== undefined) {
+            startAdventureBtn.textContent = label;
         }
-        this.updateQuestFooterVisibility();
+        setHidden(startAdventureBtn, !visible);
+    }
+
+    /**
+     * Render the perfect-score button. This is the only writer of its
+     * visibility: a screen offers it when the pack is finished with a perfect
+     * score, every other screen renders it hidden.
+     * @param {boolean} visible - Whether the screen on offer is this one
+     * @param {string} [label] - Button text, applied when visible
+     */
+    renderPerfectScoreButton(visible, label) {
+        const perfectScoreBtn = this.elements.perfectScoreBtn;
+        if (!perfectScoreBtn) return;
+
+        if (visible && label !== undefined) {
+            perfectScoreBtn.textContent = label;
+        }
+        setHidden(perfectScoreBtn, !visible);
+    }
+
+    /**
+     * Render the interface minimize state. The layout class, the button icon
+     * and its pressed state are one state written together, and a visit change
+     * returns it to normal (resetInterfaceMinimized).
+     * @param {boolean} minimized - Whether the interface is minimized
+     */
+    renderInterfaceMinimized(minimized) {
+        this.interfaceMinimized = minimized;
+
+        const button = this.elements.minimizeBtn;
+        if (!this.elements.gameInterface || !button) return;
+
+        this.elements.gameInterface.classList.toggle('minimized', minimized);
+
+        const icon = button.querySelector('i');
+        if (minimized) {
+            icon?.classList.replace('fa-minus', 'fa-expand');
+            button.setAttribute('aria-label', 'Restore interface');
+            button.setAttribute('aria-pressed', 'true');
+            button.title = 'Restore the interface';
+        } else {
+            icon?.classList.replace('fa-expand', 'fa-minus');
+            button.setAttribute('aria-label', 'Minimize interface');
+            button.setAttribute('aria-pressed', 'false');
+            button.title = 'Minimize the interface to reveal the background';
+        }
+    }
+
+    /**
+     * Minimize the interface, or return it to normal.
+     */
+    toggleInterfaceMinimized() {
+        this.renderInterfaceMinimized(!this.interfaceMinimized);
+    }
+
+    /**
+     * Return the interface to normal. Entering a pack, leaving it and
+     * restarting its progress all start a view that is not minimized.
+     */
+    resetInterfaceMinimized() {
+        if (!this.interfaceMinimized) return;
+
+        this.renderInterfaceMinimized(false);
     }
 
     /**
@@ -523,59 +604,70 @@ export class UIManager {
      */
     showScreen(screen) {
         if (screen === 'start') {
-            this.elements.gameInterface.classList.add('hidden');
-            this.elements.startScreen.classList.remove('hidden');
+            hide(this.elements.gameInterface);
+            show(this.elements.startScreen);
         } else if (screen === 'game') {
-            this.elements.startScreen.classList.add('hidden');
-            this.elements.gameInterface.classList.remove('hidden');
+            hide(this.elements.startScreen);
+            show(this.elements.gameInterface);
         }
     }
 
     /**
-     * Update the editor save indicator light
-     * @param {string} status - 'saved' (green), 'dirty' (orange, typing),
-     * or 'error' (red, writing to localStorage failed)
+     * Render the editor save indicator. This is the only writer of its state
+     * class, and the class it paints describes a real write: SAVED reached
+     * storage, DIRTY has a write pending, FAILED was refused by storage, and
+     * IDLE means this screen has no grimoire to write.
+     * @param {string} status - A SaveStatus value
      */
-    setSaveIndicator(status) {
+    renderSaveStatus(status) {
         const indicator = this.elements.saveIndicator;
         if (!indicator) return;
 
+        const classes = {
+            saved: 'saved',
+            dirty: 'dirty',
+            failed: 'error',
+            idle: 'idle'
+        };
         const messages = {
             saved: 'All changes saved',
             dirty: 'Unsaved changes',
-            error: 'Saving failed'
+            failed: 'Saving failed',
+            idle: 'No policy to save here'
         };
-        const state = messages[status] ? status : 'saved';
 
-        indicator.classList.remove('saved', 'dirty', 'error');
-        indicator.classList.add(state);
-        indicator.title = `Editor save status: ${messages[state]}`;
-        indicator.setAttribute('aria-label', indicator.title);
+        const state = classes[status] ? status : SaveStatus.IDLE;
+
+        for (const cssClass of Object.values(classes)) {
+            indicator.classList.remove(cssClass);
+        }
+        indicator.classList.add(classes[state]);
+
+        const label = `Editor save status: ${messages[state]}`;
+        indicator.title = label;
+        indicator.setAttribute('aria-label', label);
     }
 
     /**
      * Reset UI for new quest
      */
     resetQuestUI() {
-        this.elements.outcomeArea.classList.add('hidden');
-        this.elements.startAdventureBtn.classList.add('hidden');
-        this.elements.hintsList.classList.add('hidden');
+        hide(this.elements.hintsList);
         this.elements.hintsList.innerHTML = '';
-        this.elements.hintBtn.classList.remove('hidden');
-        this.elements.editorPane.classList.remove('hidden');
-        this.elements.editor.readOnly = false;
-        this.elements.verifyBtn.disabled = false;
-        this.elements.hintBtn.disabled = false;
+        show(this.elements.hintBtn);
     }
 
     /**
-     * Set editor to read-only mode (for history mode)
-     * @param {boolean} readOnly - Whether to enable read-only mode
+     * Render the interaction gate. This is the only place the editor, the
+     * verify button, the hint button and the editor pane are enabled or
+     * disabled; the values come from GameState.getInteractionGate.
+     * @param {Object} gate - {editorReadOnly, verifyEnabled, hintEnabled, editorVisible}
      */
-    setEditorReadOnly(readOnly) {
-        this.elements.editor.readOnly = readOnly;
-        this.elements.verifyBtn.disabled = readOnly;
-        this.elements.hintBtn.disabled = readOnly;
+    renderInteractionGate(gate) {
+        this.elements.editor.readOnly = gate.editorReadOnly;
+        this.elements.verifyBtn.disabled = !gate.verifyEnabled;
+        this.elements.hintBtn.disabled = !gate.hintEnabled;
+        setHidden(this.elements.editorPane, !gate.editorVisible);
     }
 
     /**
@@ -585,11 +677,7 @@ export class UIManager {
      * @param {string} value - New editor content
      */
     setEditorValue(value) {
-        if (this.editorService) {
-            this.editorService.setValue(value);
-        } else if (this.elements.editor) {
-            this.elements.editor.value = value;
-        }
+        this.editorService.setValue(value);
     }
 
     /**
@@ -675,34 +763,25 @@ export class UIManager {
      * @param {boolean} authEnabled - Whether authentication is enabled in config
      */
     updateAuthUI(isAuthenticated, authEnabled) {
+        const el = this.elements;
         if (!authEnabled) {
-            this.elements.loginContainer.classList.add('hidden');
-            this.elements.logoutBtn.classList.add('hidden');
-            this.elements.logoutContainerStart.classList.add('hidden');
+            hide(el.loginContainer);
+            hide(el.logoutBtn);
+            hide(el.logoutContainerStart);
             return;
         }
 
-        if (isAuthenticated) {
-            this.elements.logoutBtn.classList.remove('hidden');
-            this.elements.logoutContainerStart.classList.remove('hidden');
-            this.elements.loginContainer.classList.add('hidden');
-            this.elements.questPackList.classList.remove('hidden');
-        } else {
-            this.elements.loginContainer.classList.remove('hidden');
-            this.elements.questPackList.classList.add('hidden');
-            this.elements.logoutBtn.classList.add('hidden');
-            this.elements.logoutContainerStart.classList.add('hidden');
-        }
+        setHidden(el.loginContainer, isAuthenticated);
+        setHidden(el.questPackList, !isAuthenticated);
+        setHidden(el.logoutBtn, !isAuthenticated);
+        setHidden(el.logoutContainerStart, !isAuthenticated);
     }
 
     /**
      * Update impressum footer visibility
-     * @param {boolean} show - Whether to show the impressum footer
+     * @param {boolean} visible - Whether to show the impressum footer
      */
-    updateImpressumVisibility(show) {
-        const impressumFooter = document.querySelector('.start-footer');
-        if (impressumFooter) {
-            impressumFooter.classList.toggle('hidden', !show);
-        }
+    updateImpressumVisibility(visible) {
+        setHidden(document.querySelector('.start-footer'), !visible);
     }
 }

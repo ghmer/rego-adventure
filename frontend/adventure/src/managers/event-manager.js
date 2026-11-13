@@ -29,15 +29,19 @@ import { ErrorLevel } from '../services/constants.js';
  * Manages all event listeners
  */
 export class EventManager {
-    constructor(state, uiManager, questManager, audioManager, modalManager, packManager) {
+    constructor(state, uiManager, questManager, audioManager, modalManager, packManager, autosave) {
         this.state = state;
         this.ui = uiManager;
         this.quest = questManager;
         this.audio = audioManager;
         this.modal = modalManager;
         this.pack = packManager;
-        // Pending debounced grimoire save (set by setupEditorListeners)
-        this.saveTimeout = 0;
+        // The editor's pending write: timer, storage write and indicator are
+        // one collaborator, shared with the quest screens that replace content
+        this.autosave = autosave;
+        // One verification at a time: the keyboard shortcut cannot be stopped
+        // by a button attribute, so the action carries its own guard
+        this.verifying = false;
     }
 
     /**
@@ -122,65 +126,39 @@ export class EventManager {
     setupQuestNavigationListeners() {
         if (this.ui.elements.questBackBtn) {
             this.ui.elements.questBackBtn.addEventListener('click', () => {
-                this.saveGrimoire();
+                this.autosave.flush();
                 this.quest.navigateToPreviousQuest();
             });
         }
 
         if (this.ui.elements.questForwardBtn) {
             this.ui.elements.questForwardBtn.addEventListener('click', () => {
-                this.saveGrimoire();
+                this.autosave.flush();
                 this.quest.navigateToNextQuest();
             });
         }
     }
 
     /**
-     * Save the grimoire content of the current quest via the game state
-     * and update the save indicator. No-op on narrative screens (prologue
-     * or epilogue), where there is no quest to save for.
-     * @returns {boolean} True when the content was written successfully
-     */
-    saveGrimoire() {
-        if (!this.state.questsMap?.has(this.state.currentQuestId)) {
-            return false;
-        }
-
-        const saved = this.state.saveGrimoire(this.state.currentQuestId, this.ui.elements.editor.value);
-        this.ui.setSaveIndicator(saved ? 'saved' : 'error');
-        return saved;
-    }
-
-    /**
-     * Setup editor listeners. The 1.5s debounce keeps localStorage writes
-     * off every keystroke; pagehide/visibilitychange flushes make sure the
-     * pending save cannot be lost when the page goes away.
+     * Setup editor listeners. The autosave's debounce keeps storage writes off
+     * every keystroke; blur and the pagehide/visibilitychange flushes make sure
+     * a pending write cannot be lost when the editor or the page goes away.
      */
     setupEditorListeners() {
-        // Debounced save on input
         this.ui.elements.editor.addEventListener('input', () => {
-            this.ui.setSaveIndicator('dirty');
-            clearTimeout(this.saveTimeout);
-            this.saveTimeout = setTimeout(() => {
-                this.saveGrimoire();
-            }, 1500);
+            this.autosave.markDirty();
         });
 
-        // Save immediately when editor loses focus
         this.ui.elements.editor.addEventListener('blur', () => {
-            clearTimeout(this.saveTimeout);
-            this.saveGrimoire();
+            this.autosave.flush();
         });
 
-        // Flush pending saves when the page is hidden or closed
         window.addEventListener('pagehide', () => {
-            clearTimeout(this.saveTimeout);
-            this.saveGrimoire();
+            this.autosave.flush();
         });
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
-                clearTimeout(this.saveTimeout);
-                this.saveGrimoire();
+                this.autosave.flush();
             }
         });
     }
@@ -200,7 +178,7 @@ export class EventManager {
                 this.handleVerify();
             } else if (event.key === 's' || event.key === 'S') {
                 event.preventDefault();
-                if (this.saveGrimoire()) {
+                if (this.autosave.flush()) {
                     showToast('Policy saved.', ErrorLevel.INFO);
                 }
             }
@@ -312,19 +290,23 @@ export class EventManager {
      * the Ctrl/Cmd+Enter shortcut.
      */
     async handleVerify() {
-        if (this.ui.elements.verifyBtn.disabled) return;
+        const gate = this.state.getInteractionGate();
+        if (!gate.verifyEnabled || this.verifying) return;
 
-        // Save grimoire content before verifying
-        this.saveGrimoire();
+        // Write the grimoire before verifying, so the code that is checked is
+        // the code on screen
+        this.autosave.flush();
 
         const code = this.ui.elements.editor.value;
         if (!code.trim()) return;
 
-        const btn = this.ui.elements.verifyBtn;
         const label = this.ui.elements.verifyBtnLabel;
         const originalLabel = label ? label.textContent : null;
 
-        btn.disabled = true;
+        this.verifying = true;
+        // The gate with verification taken away, so the button cannot start a
+        // second request while one runs
+        this.ui.renderInteractionGate({ ...gate, verifyEnabled: false });
         if (label) {
             label.textContent = this.state.label('verifying');
         }
@@ -346,7 +328,10 @@ export class EventManager {
         } catch (e) {
             handleApiError(e, 'verify solution');
         } finally {
-            btn.disabled = false;
+            this.verifying = false;
+            // The state did not change unless the tests passed, in which case
+            // the derived gate is what belongs on screen now
+            this.ui.renderInteractionGate(this.state.getInteractionGate());
             if (label && originalLabel !== null) {
                 label.textContent = originalLabel;
             }
@@ -354,12 +339,12 @@ export class EventManager {
     }
 
     /**
-     * Setup start adventure button listener (for prologue)
+     * Setup the adventure offer listener. The quest manager withdraws the
+     * offer and recomputes the footer; this edge only forwards the request.
      */
     setupNextButtonListener() {
         this.ui.elements.startAdventureBtn.addEventListener('click', () => {
-            this.quest.proceedToNextQuest();
-            this.ui.updateQuestFooterVisibility();
+            this.quest.leavePrologue();
         });
     }
 
@@ -384,22 +369,22 @@ export class EventManager {
      * Handle restart confirmation
      */
     handleRestart() {
-        // Reset state (clears scores, hints, and grimoires, and persists
-        // the reset)
+        // Reset state (clears scores, hints, and grimoires, and persists the
+        // reset), and drop the reveal texts the old progress had fetched
         this.state.resetProgress();
+        this.pack.clearPackCaches();
 
         // Reset UI
         this.modal.closeRestartConfirmation();
-        this.ui.setEditorReadOnly(false);
-        
-        this.ui.hidePerfectScoreButton();
-        
+
+        this.ui.renderPerfectScoreButton(false);
+        this.ui.resetInterfaceMinimized();
+
         // Update score display
         this.ui.updateScoreDisplay(this.state.totalScore);
-        
+
         // Load the prologue
         this.quest.loadQuest(0);
-        this.ui.updateQuestFooterVisibility();
     }
 
     /**
@@ -418,22 +403,7 @@ export class EventManager {
         if (!this.ui.elements.minimizeBtn) return;
 
         this.ui.elements.minimizeBtn.addEventListener('click', () => {
-            const container = this.ui.elements.gameInterface;
-            const btn = this.ui.elements.minimizeBtn;
-            const icon = btn.querySelector('i');
-            const isMinimized = container.classList.toggle('minimized');
-
-            if (isMinimized) {
-                icon.classList.replace('fa-minus', 'fa-expand');
-                btn.setAttribute('aria-label', 'Restore interface');
-                btn.setAttribute('aria-pressed', 'true');
-                btn.title = 'Restore the interface';
-            } else {
-                icon.classList.replace('fa-expand', 'fa-minus');
-                btn.setAttribute('aria-label', 'Minimize interface');
-                btn.setAttribute('aria-pressed', 'false');
-                btn.title = 'Minimize the interface to reveal the background';
-            }
+            this.ui.toggleInterfaceMinimized();
         });
     }
 }

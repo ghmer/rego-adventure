@@ -21,7 +21,7 @@
 
 import { showToast } from './toast-service.js';
 import { ApiError } from './api-service.js';
-import { ErrorLevel } from './constants.js';
+import { ErrorLevel, AuthFailure } from './constants.js';
 
 /**
  * Display an error message to the user. Toast notifications fire for
@@ -42,6 +42,36 @@ export function showError(message, level = ErrorLevel.ERROR) {
 }
 
 /**
+ * The sentence for a failed API call, chosen from the error's own data (status
+ * and, for a 401, authFailure) rather than from message text. handleApiError
+ * and initializeApp both use it.
+ * @param {Error} error - ApiError from api-service
+ * @returns {string} User-facing sentence
+ */
+export function apiErrorHint(error) {
+    if (error instanceof ApiError) {
+        if (error.status === 401) {
+            return error.authFailure === AuthFailure.RenewalFailed
+                ? 'The session could not be renewed. Please log in again.'
+                : 'Your session has expired. Please log in again.';
+        }
+        if (error.status === 0) {
+            return 'Please check if the server is running.';
+        }
+        if (error.status === 408) {
+            // Mirrors the player-facing timeout message the backend puts
+            // in the 408 body (backend/http/handlers.go timeoutMessage);
+            // kept here because ensureOk discards error response bodies.
+            return 'Your policy took too long to evaluate. Check for unbounded loops or very large comprehensions.';
+        }
+        if (error.status >= 500) {
+            return 'The server encountered an error. Please try again later.';
+        }
+    }
+    return 'Please try again.';
+}
+
+/**
  * Handle API errors with user-friendly messages, branching on the
  * error's data (status code) instead of matching message strings
  * @param {Error} error - The error object (ApiError from api-service)
@@ -49,22 +79,5 @@ export function showError(message, level = ErrorLevel.ERROR) {
  */
 export function handleApiError(error, context) {
     console.error(`API Error in ${context}:`, error);
-
-    let hint = 'Please try again.';
-    if (error instanceof ApiError) {
-        if (error.status === 401) {
-            hint = 'Your session has expired. Please log in again.';
-        } else if (error.status === 0) {
-            hint = 'Please check if the server is running.';
-        } else if (error.status === 408) {
-            // Mirrors the player-facing timeout message the backend puts
-            // in the 408 body (backend/http/handlers.go timeoutMessage);
-            // kept here because ensureOk discards error response bodies.
-            hint = 'Your policy took too long to evaluate. Check for unbounded loops or very large comprehensions.';
-        } else if (error.status >= 500) {
-            hint = 'The server encountered an error. Please try again later.';
-        }
-    }
-
-    showError(`Failed to ${context}. ${hint}`, ErrorLevel.ERROR);
+    showError(`Failed to ${context}. ${apiErrorHint(error)}`, ErrorLevel.ERROR);
 }

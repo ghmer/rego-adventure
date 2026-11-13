@@ -62,6 +62,35 @@ func newTestServer(t *testing.T, handler nethttp.Handler) *nethttp.Server {
 
 // ==================== RunWithGracefulShutdown ====================
 
+// runResult carries what a backgrounded run of RunWithGracefulShutdown
+// reported, so tests can assert on the outcome as well as the error.
+type runResult struct {
+	outcome RunOutcome
+	err     error
+}
+
+// TestRunWithGracefulShutdown_ListenerClosedWithoutAShutdownRequest: a
+// listener that stops on its own never served the shutdown the final log line
+// claims. The run reports which of the two it was.
+func TestRunWithGracefulShutdown_ListenerClosedWithoutAShutdownRequest(t *testing.T) {
+	server := newTestServer(t, nethttp.HandlerFunc(func(nethttp.ResponseWriter, *nethttp.Request) {}))
+
+	// Closing the listener before the run makes ListenAndServe report
+	// ErrServerClosed without having served anything, and nothing in the run
+	// asked for that.
+	if err := server.Close(); err != nil {
+		t.Fatalf("failed to close the listener: %v", err)
+	}
+
+	outcome, err := RunWithGracefulShutdown(context.Background(), server, DefaultShutdownTimeout)
+	if err != nil {
+		t.Fatalf("a listener closed by itself is not a failure: %v", err)
+	}
+	if outcome != OutcomeServerEnded {
+		t.Errorf("outcome is %v, want %v", outcome, OutcomeServerEnded)
+	}
+}
+
 // TestRunWithGracefulShutdown_StopsOnContextCancel verifies that cancelling
 // the context stops the server and returns nil.
 func TestRunWithGracefulShutdown_StopsOnContextCancel(t *testing.T) {
@@ -70,9 +99,10 @@ func TestRunWithGracefulShutdown_StopsOnContextCancel(t *testing.T) {
 	}))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
+	done := make(chan runResult, 1)
 	go func() {
-		done <- RunWithGracefulShutdown(ctx, server, DefaultShutdownTimeout)
+		outcome, err := RunWithGracefulShutdown(ctx, server, DefaultShutdownTimeout)
+		done <- runResult{outcome: outcome, err: err}
 	}()
 
 	// Wait until the server is accepting connections.
@@ -98,9 +128,14 @@ func TestRunWithGracefulShutdown_StopsOnContextCancel(t *testing.T) {
 	cancel()
 
 	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("RunWithGracefulShutdown returned error: %v", err)
+	case result := <-done:
+		if result.err != nil {
+			t.Fatalf("RunWithGracefulShutdown returned error: %v", result.err)
+		}
+		// The context ended this run, so it is the drain that stopped the
+		// server - not a listener that closed by itself.
+		if result.outcome != OutcomeDrained {
+			t.Errorf("outcome is %v, want %v", result.outcome, OutcomeDrained)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("RunWithGracefulShutdown did not return after context cancel")
@@ -132,9 +167,12 @@ func TestRunWithGracefulShutdown_ReturnsListenError(t *testing.T) {
 	server := NewServer(l.Addr().String(),
 		nethttp.HandlerFunc(func(nethttp.ResponseWriter, *nethttp.Request) {}))
 
-	err = RunWithGracefulShutdown(context.Background(), server, DefaultShutdownTimeout)
+	outcome, err := RunWithGracefulShutdown(context.Background(), server, DefaultShutdownTimeout)
 	if err == nil {
 		t.Fatal("expected error when the port is already in use")
+	}
+	if outcome != OutcomeServerEnded {
+		t.Errorf("outcome is %v, want %v", outcome, OutcomeServerEnded)
 	}
 	if !strings.Contains(err.Error(), "address already in use") {
 		t.Fatalf("unexpected error: %v", err)
@@ -158,9 +196,10 @@ func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 	}))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
+	done := make(chan runResult, 1)
 	go func() {
-		done <- RunWithGracefulShutdown(ctx, server, 100*time.Millisecond)
+		outcome, err := RunWithGracefulShutdown(ctx, server, 100*time.Millisecond)
+		done <- runResult{outcome: outcome, err: err}
 	}()
 
 	if !waitUntilListening(t, server.Addr, 2*time.Second) {
@@ -192,12 +231,15 @@ func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 	cancel()
 
 	select {
-	case err := <-done:
-		if err == nil {
+	case result := <-done:
+		if result.err == nil {
 			t.Fatal("expected timeout error for stuck in-flight request")
 		}
-		if !strings.Contains(err.Error(), "graceful shutdown failed") {
-			t.Fatalf("unexpected error: %v", err)
+		if !strings.Contains(result.err.Error(), "graceful shutdown failed") {
+			t.Fatalf("unexpected error: %v", result.err)
+		}
+		if result.outcome != OutcomeDrained {
+			t.Errorf("outcome is %v, want %v", result.outcome, OutcomeDrained)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("RunWithGracefulShutdown did not return after timeout")

@@ -17,24 +17,25 @@
 package quest
 
 // PublicQuest is the client-facing view of a quest. It deliberately omits
-// the solution, the hint texts, and the hidden support modules: revealing
-// them is a deliberate player action served by dedicated API endpoints, so
-// the bulk pack payload must never contain them. HintsCount and HasSolution
-// describe what is available so the UI can render button states without the
-// content itself.
+// the solution, the hint texts, the hidden support modules and the test
+// cases: each is fetched on demand by a dedicated endpoint, so the bulk pack
+// payload never carries them. HintsCount and HasSolution describe what is
+// available so the UI can render button states without the content itself.
+// Test cases reach the client through GetTestPayload (`handlers.go:151`),
+// which answers input, data and expected outcome to any client that asks: it
+// is a convenience layer for the test modal, not a secrecy boundary.
 type PublicQuest struct {
-	ID                int        `json:"id"`
-	Title             string     `json:"title"`
-	DescriptionLore   []string   `json:"description_lore"`
-	DescriptionTask   string     `json:"description_task"`
-	Manual            Manual     `json:"manual"`
-	HintsCount        int        `json:"hints_count"`
-	HasSolution       bool       `json:"has_solution"`
-	HasSupportModules bool       `json:"has_support_modules"`
-	Tests             []TestCase `json:"tests"`
-	ApplyTemplate     bool       `json:"apply_template"`
-	Template          string     `json:"template"`
-	Query             string     `json:"query"`
+	ID                int      `json:"id"`
+	Title             string   `json:"title"`
+	DescriptionLore   []string `json:"description_lore"`
+	DescriptionTask   string   `json:"description_task"`
+	Manual            Manual   `json:"manual"`
+	HintsCount        int      `json:"hints_count"`
+	HasSolution       bool     `json:"has_solution"`
+	HasSupportModules bool     `json:"has_support_modules"`
+	ApplyTemplate     bool     `json:"apply_template"`
+	Template          string   `json:"template"`
+	Query             string   `json:"query"`
 }
 
 // PublicQuestPack is the client-facing view of a quest pack. It mirrors
@@ -59,7 +60,6 @@ func (q *Quest) PublicView() PublicQuest {
 		HintsCount:        len(q.Hints),
 		HasSolution:       q.Solution != "",
 		HasSupportModules: len(q.SupportModules) > 0,
-		Tests:             q.Tests,
 		ApplyTemplate:     q.ApplyTemplate,
 		Template:          q.Template,
 		Query:             q.Query,

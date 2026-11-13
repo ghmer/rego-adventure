@@ -93,10 +93,16 @@ func main() {
 	defer stop()
 
 	server := http.NewServer(addr, srv.Router())
-	if err := http.RunWithGracefulShutdown(ctx, server, http.DefaultShutdownTimeout); err != nil {
+	outcome, err := http.RunWithGracefulShutdown(ctx, server, http.DefaultShutdownTimeout)
+	if err != nil {
 		slog.Error("server exited", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Info("server stopped gracefully")
+	switch outcome {
+	case http.OutcomeDrained:
+		slog.Info("server stopped gracefully")
+	case http.OutcomeServerEnded:
+		slog.Warn("server listener ended without a shutdown request")
+	}
 }

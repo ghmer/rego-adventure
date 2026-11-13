@@ -77,6 +77,18 @@ export function getPackKey(baseKey, packId) {
 }
 
 /**
+ * Create the key a pack's unreadable body is kept under. A body that cannot be
+ * parsed is copied there before the pack starts fresh, so a later save cannot
+ * destroy what storage still held.
+ * @param {string} baseKey - The base key of the pack state
+ * @param {string} packId - The pack identifier
+ * @returns {string} The scoped backup key
+ */
+export function getCorruptPackKey(baseKey, packId) {
+    return `${getPackKey(baseKey, packId)}_corrupt`;
+}
+
+/**
  * Storage keys used throughout the application
  */
 export const STORAGE_KEYS = {

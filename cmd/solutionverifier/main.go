@@ -115,6 +115,11 @@ func verifyQuestPack(ctx context.Context, verifier *quest.Verifier, pack *quest.
 		cancel()
 		if err != nil {
 			fmt.Printf("  ERROR: %v\n\n", err)
+			// Evaluation itself failed (deadline, cancellation). Count the
+			// quest's tests towards the total without passing any, so the
+			// summary cannot report an all-passed run over a quest it never
+			// checked.
+			totalTests += len(q.Tests)
 			continue
 		}
 

@@ -19,8 +19,10 @@
  * Manages game state with encapsulation and persistence
  */
 
-import { getLocalStorage, setLocalStorage, removeLocalStorage, getPackKey, STORAGE_KEYS } from './storage-service.js';
-import { SCORING, DEFAULT_TEXT } from './constants.js';
+import {
+    getLocalStorage, setLocalStorage, removeLocalStorage, getPackKey, getCorruptPackKey, STORAGE_KEYS
+} from './storage-service.js';
+import { SCORING, DEFAULT_TEXT, SaveStatus } from './constants.js';
 
 /**
  * Maps label accessor keys to the pack's snake_case ui_labels key and
@@ -44,14 +46,30 @@ const LABEL_KEYS = {
  */
 export class GameState {
     constructor() {
+        this.initNoPackState();
         this.currentPackId = getLocalStorage(STORAGE_KEYS.PACK_ID);
+
+        // Load pack-specific data if pack is set
+        if (this.currentPackId) {
+            this.loadPackState(this.currentPackId);
+        }
+    }
+
+    /**
+     * The state shape when no pack is loaded. The constructor and a rolled
+     * back pack entry both end here, so neither can leave a pack-scoped field
+     * behind.
+     */
+    initNoPackState() {
+        this.currentPackId = null;
+
         this.quests = [];
-        this.questsMap = null; // Map for O(1) quest lookup by ID
+        this.questsMap = new Map(); // Map for O(1) quest lookup by ID
         this.prologue = [];
         this.epilogue = [];
         this.meta = null;
-        this.currentQuestId = 0;
         this.currentQuest = null;
+        this.currentQuestId = 0;
         this.currentLoreIndex = 0;
 
         // Scoring
@@ -70,53 +88,57 @@ export class GameState {
 
         // UI Labels (loaded from pack metadata; accessed via label())
         this.uiLabels = {};
-
-        // Load pack-specific data if pack is set
-        if (this.currentPackId) {
-            this.loadPackState(this.currentPackId);
-        }
     }
-    
+
     /**
-     * Load state for a specific pack from localStorage
+     * Read the saved body of a pack and apply the progress it holds. An
+     * unparseable body is copied to a backup key before anything fresh is
+     * written, so what storage held is not destroyed by the fresh start that
+     * follows; the caller decides what the player is told about it.
      * @param {string} packId - The pack identifier
-     * @returns {Object|null} The loaded batched state, or null when no
-     * valid saved state exists
+     * @returns {{resumed: Object|null, corrupt: boolean}} resumed is the
+     *   readable body when one was stored; corrupt reports that a body was
+     *   there but could not be read
      */
     loadPackState(packId) {
         const packedState = getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, packId), null);
-
-        if (packedState) {
-            try {
-                const state = JSON.parse(packedState);
-                this.currentQuestId = state.questId || 0;
-                this.totalScore = state.totalScore || 0;
-                this.questScores = state.questScores || {};
-                this.questHints = state.questHints || {};
-                this.grimoires = state.grimoires || {};
-                this.activeQuestId = state.activeQuestId || this.currentQuestId;
-                return state;
-            } catch (e) {
-                console.warn(`Ignoring corrupt saved state for pack "${packId}":`, e);
-                return null;
-            }
+        if (!packedState) {
+            return { resumed: null, corrupt: false };
         }
 
-        return null;
+        try {
+            const state = JSON.parse(packedState);
+            this.currentQuestId = state.questId || 0;
+            this.questScores = state.questScores || {};
+            this.questHints = state.questHints || {};
+            this.grimoires = state.grimoires || {};
+            this.activeQuestId = state.activeQuestId || this.currentQuestId;
+
+            // totalScore is derived from the quest records, so a stored
+            // total that drifted from them is corrected on load. The
+            // field is still written on save for readers that predate the
+            // derivation.
+            this.totalScore = this.sumQuestScores();
+            return { resumed: state, corrupt: false };
+        } catch (e) {
+            setLocalStorage(getCorruptPackKey(STORAGE_KEYS.PACK_STATE, packId), packedState);
+            return { resumed: null, corrupt: true };
+        }
     }
 
     /**
-     * Set the current pack and initialize its state
+     * Set the current pack and start its adventure.
      * @param {string} packId - The pack identifier
-     * @returns {Object|null} The loaded batched state when resuming an
-     * adventure, or null when starting fresh (state was reset)
+     * @returns {{resumed: Object|null, corrupt: boolean}} resumed is the saved
+     *   body when the adventure continues, null when it starts fresh; corrupt
+     *   reports a saved body that could not be read and was kept aside
      */
     setCurrentPack(packId) {
         this.currentPackId = packId;
         setLocalStorage(STORAGE_KEYS.PACK_ID, packId);
 
-        const loaded = this.loadPackState(packId);
-        if (!loaded || !loaded.questId) {
+        const entry = this.loadPackState(packId);
+        if (!entry.resumed || !entry.resumed.questId) {
             // Starting new adventure - reset everything
             this.currentQuestId = 0;
             this.activeQuestId = 0;
@@ -125,10 +147,10 @@ export class GameState {
             this.questHints = {};
             this.grimoires = {};
             this.savePackState();
-            return null;
+            return { resumed: null, corrupt: entry.corrupt };
         }
 
-        return loaded;
+        return entry;
     }
 
     /**
@@ -144,12 +166,29 @@ export class GameState {
         removeLocalStorage(STORAGE_KEYS.PACK_ID);
         this.currentPackId = null;
     }
-    
+
     /**
-     * Save current pack state to localStorage
+     * Discard a pack entry whose details never finished loading. The pointer
+     * and every pack-scoped field in memory go with it; nothing is written,
+     * so saved bodies on disk stay exactly as they were. Without this, a
+     * failed entry leaves the pointer on a pack that was never loaded and
+     * the previously loaded pack's quests behind. A fresh body written while
+     * the entry was being made is left alone; it holds no progress.
+     */
+    rollbackPackEntry() {
+        if (!this.currentPackId) return;
+
+        removeLocalStorage(STORAGE_KEYS.PACK_ID);
+        this.initNoPackState();
+    }
+
+    /**
+     * Write the packed state of the current pack.
+     * @returns {boolean} true when storage accepted the body; false when there
+     *   is no pack to write for or the write was refused
      */
     savePackState() {
-        if (!this.currentPackId) return;
+        if (!this.currentPackId) return false;
         
         // Batch all state into a single JSON object
         const state = {
@@ -161,7 +200,7 @@ export class GameState {
             activeQuestId: this.activeQuestId
         };
         
-        setLocalStorage(
+        return setLocalStorage(
             getPackKey(STORAGE_KEYS.PACK_STATE, this.currentPackId),
             JSON.stringify(state)
         );
@@ -200,13 +239,83 @@ export class GameState {
         return this.uiLabels[keys.ui] || DEFAULT_TEXT[keys.fallback];
     }
     
+    // Progression. The cursor (currentQuestId), the frontier (activeQuestId)
+    // and the per-quest records (questScores) are written only by the
+    // operations of this section and by completeQuest. The history mode is
+    // never stored: it follows the cursor.
+
     /**
-     * Set the current quest
-     * @param {number} questId - The quest identifier
+     * Move the cursor onto a quest or narrative screen and derive its mode
+     * @param {number} questId - Quest identifier, 0 for the prologue
      */
-    setCurrentQuest(questId) {
+    enterQuest(questId) {
         this.currentQuestId = questId;
+        this.deriveHistoryMode();
         this.savePackState();
+    }
+
+    /**
+     * Move one quest forward in the linear flow: from the prologue onto the
+     * first quest, or from a quest onto its successor. The frontier only ever
+     * grows, and it stops at the last quest - the epilogue sentinel belongs
+     * to visitEpilogue.
+     *
+     * Whether a move is allowed is the caller's decision: the arrow actions
+     * consult canNavigateForward, while the flow action (begin adventure, the
+     * result dialog's next quest) may step past a completed frontier quest.
+     * @returns {boolean} false when the cursor already sits on the epilogue
+     */
+    advanceQuest() {
+        const target = this.currentQuestId === 0 ? 1 : this.currentQuestId + 1;
+        if (target > this.quests.length + 1) return false;
+
+        this.currentQuestId = target;
+        if (target <= this.quests.length && target > this.activeQuestId) {
+            this.activeQuestId = target;
+        }
+
+        this.deriveHistoryMode();
+        this.savePackState();
+        return true;
+    }
+
+    /**
+     * Move one screen back, under the back rule. Navigating never lowers the
+     * frontier. Unlike advancing, rewinding has no action that may legitimately
+     * step against the guard, so the transition asks it directly.
+     * @returns {boolean} false when the back rule refuses the step
+     */
+    rewindQuest() {
+        if (!this.canNavigateBack()) return false;
+
+        this.currentQuestId -= 1;
+        this.deriveHistoryMode();
+        this.savePackState();
+        return true;
+    }
+
+    /**
+     * Take the transition onto the epilogue: cursor and frontier both land
+     * past the last quest, which makes the epilogue the resume target of the
+     * pack. Render paths do not write this; loadQuest performs the transition
+     * before it renders the epilogue.
+     */
+    visitEpilogue() {
+        this.currentQuestId = this.quests.length + 1;
+        this.activeQuestId = this.currentQuestId;
+        this.deriveHistoryMode();
+        this.savePackState();
+    }
+
+    /**
+     * Derive the mode of the quest the cursor stands on: a completed quest
+     * behind the frontier is history and read-only, everything else is
+     * playable - including a completed frontier quest, which is the only
+     * legitimate way to play a quest twice.
+     */
+    deriveHistoryMode() {
+        const isCompleted = this.questScores[this.currentQuestId] !== undefined;
+        this.isHistoryMode = isCompleted && this.currentQuestId !== this.activeQuestId;
     }
     
     /**
@@ -254,17 +363,29 @@ export class GameState {
     }
 
     /**
-     * Persist the editor content (grimoire) of a quest
+     * Whether the screen a cursor points at has a grimoire whose write the
+     * editor can report: the quest screens of an open pack. The prologue, the
+     * epilogue and a closed pack have none.
+     * @param {number} questId - The quest identifier the cursor points at
+     * @returns {boolean} true when a grimoire belongs to this screen
+     */
+    isGrimoireScreen(questId) {
+        return Boolean(this.currentPackId) && this.questsMap?.has(questId) === true;
+    }
+
+    /**
+     * Persist the editor content (grimoire) of a quest.
      * @param {number} questId - The quest identifier
      * @param {string} code - The editor content to store
-     * @returns {boolean} True when the content was persisted
+     * @returns {string} SaveStatus: SAVED when the body was written, FAILED
+     *   when storage refused it, IDLE when this screen has no grimoire to
+     *   store (no pack, or a narrative screen)
      */
     saveGrimoire(questId, code) {
-        if (!this.currentPackId || !this.questsMap?.has(questId)) return false;
+        if (!this.isGrimoireScreen(questId)) return SaveStatus.IDLE;
 
         this.grimoires[questId] = code;
-        this.savePackState();
-        return true;
+        return this.savePackState() ? SaveStatus.SAVED : SaveStatus.FAILED;
     }
 
     /**
@@ -300,37 +421,51 @@ export class GameState {
     }
     
     /**
-     * Record quest completion and update scores. Replays can never lower
-     * a quest's recorded score: the better of the previous and the new
-     * result is kept, so replaying a completed quest in history mode is
-     * always safe.
+     * Sum the recorded per-quest scores. totalScore is derived from this so
+     * the total cannot drift away from the records that produce it.
+     * @returns {number} The summed points of all recorded quests
+     */
+    sumQuestScores() {
+        return Object.values(this.questScores)
+            .reduce((sum, score) => sum + (score.pointsEarned || 0), 0);
+    }
+
+    /**
+     * Record quest completion and update scores. Replays can never lower a
+     * quest's recorded score: the better of the previous and the new result
+     * stands, together with the reveal counters of the run that produced it.
      * @param {number} questId - The quest identifier
+     * @returns {number} The recorded points for the quest
      */
     completeQuest(questId) {
-        const previousScore = this.questScores[questId]?.pointsEarned || 0;
-        const pointsEarned = Math.max(previousScore, this.calculateQuestScore());
-
-        // Update total score
-        this.totalScore = this.totalScore - previousScore + pointsEarned;
-        
-        // Save quest score details
-        this.questScores[questId] = {
+        const attempt = {
             hintsUsed: this.currentQuestHintsUsed,
             solutionViewed: this.currentQuestSolutionViewed,
-            pointsEarned: pointsEarned
+            pointsEarned: this.calculateQuestScore()
         };
+        const recorded = this.questScores[questId];
+
+        // Score and reveals describe the same run: a replay that does not beat
+        // the recorded score leaves that record, and its reveal accounting,
+        // untouched.
+        const best = recorded && recorded.pointsEarned >= attempt.pointsEarned
+            ? recorded
+            : attempt;
+        this.questScores[questId] = best;
+        this.totalScore = this.sumQuestScores();
 
         // The transient hint entry is superseded by the quest score
         delete this.questHints[questId];
-        
-        // Update active quest to next quest
-        if (questId < this.quests.length) {
+
+        // The frontier only ever grows: completing a quest behind it cannot
+        // lock the quests it had already unlocked
+        if (questId < this.quests.length && questId + 1 > this.activeQuestId) {
             this.activeQuestId = questId + 1;
         }
-        
+
         this.savePackState();
-        
-        return pointsEarned;
+
+        return best.pointsEarned;
     }
     
     /**
@@ -343,37 +478,73 @@ export class GameState {
     }
     
     /**
-     * Check if can navigate to previous quest
-     * @returns {boolean} True if previous quest exists
+     * True when a cursor lies past the last quest, which is where the
+     * epilogue sits.
+     * @param {number} [questId] - Cursor to test, the current one by default
+     * @returns {boolean} True for a cursor past the last quest
+     */
+    isEpilogueCursor(questId = this.currentQuestId) {
+        return this.quests.length > 0 && questId > this.quests.length;
+    }
+
+    /**
+     * What the screen the cursor stands on allows: a quest the player can act
+     * on is playable, a completed quest behind the frontier is read only, and
+     * anything else - prologue, epilogue, no pack, pack data not arrived -
+     * has no editor at all. Derived from the cursor and the history mode, so
+     * no layout function decides what a screen permits and nothing outside
+     * the gate renderer writes those controls.
+     * @returns {Object} {editorReadOnly, verifyEnabled, hintEnabled, editorVisible}
+     */
+    getInteractionGate() {
+        const questScreen = this.quests.length > 0 && this.currentQuestId > 0 && !this.isEpilogueCursor();
+        const playable = questScreen && !this.isHistoryMode;
+
+        return {
+            editorReadOnly: !playable,
+            verifyEnabled: playable,
+            hintEnabled: playable,
+            editorVisible: questScreen
+        };
+    }
+
+    /**
+     * The back rule, used by the arrow's disabled state and by the arrow
+     * action alike: one implementation decides both, so a disabled control is
+     * never the only thing keeping a navigation step from happening.
+     * @returns {boolean} True if a quest exists before the current one
      */
     canNavigateBack() {
         return this.currentQuestId > 1;
     }
-    
+
     /**
-     * Check if can navigate to next quest
-     * @returns {boolean} True if next quest is available
+     * The forward rule, used by the arrow's disabled state and by the arrow
+     * action alike. A step forward needs the next quest to be completed, or
+     * history view below the frontier. It deliberately bounds the arrows at
+     * the last quest: the epilogue is reached by the flow action, not here.
+     * @returns {boolean} True if the next quest may be opened
      */
     canNavigateForward() {
-        return this.currentQuestId < this.quests.length && (
-            this.questScores[this.currentQuestId + 1] ||
-            (this.isHistoryMode && this.currentQuestId < this.activeQuestId)
-        );
+        if (this.currentQuestId >= this.quests.length) return false;
+
+        return this.questScores[this.currentQuestId + 1] !== undefined ||
+            (this.isHistoryMode && this.currentQuestId < this.activeQuestId);
     }
     
     /**
-     * Reset all progress for current pack
+     * Reset all progress for the current pack
      */
     resetProgress() {
-        this.currentQuestId = 0;
-        this.activeQuestId = 0;
-        this.totalScore = 0;
         this.questScores = {};
         this.questHints = {};
         this.grimoires = {};
         this.currentQuestHintsUsed = 0;
         this.currentQuestSolutionViewed = false;
-        this.isHistoryMode = false;
+        this.currentQuestId = 0;
+        this.activeQuestId = 0;
+        this.deriveHistoryMode();
+        this.totalScore = this.sumQuestScores();
 
         this.savePackState();
     }

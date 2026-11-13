@@ -32,10 +32,14 @@ if (document.readyState === 'loading') {
 import { ConfigService } from './services/config-service.js';
 import { AuthService } from './services/auth-service.js';
 import { ApiError, fetchPacks } from './services/api-service.js';
+import { apiErrorHint } from './services/error-service.js';
 import { GameState } from './services/state-service.js';
-import { removeLocalStorage, migrateStorageKeys, STORAGE_KEYS } from './services/storage-service.js';
+import { ErrorLevel } from './services/constants.js';
+import { showToast } from './services/toast-service.js';
+import { migrateStorageKeys } from './services/storage-service.js';
 import { EditorService } from './services/editor-service.js';
 import { UIManager } from './managers/ui-manager.js';
+import { GrimoireAutosave } from './managers/grimoire-autosave.js';
 import { QuestManager } from './managers/quest-manager.js';
 import { AudioManager } from './managers/audio-manager.js';
 import { ModalManager } from './managers/modal-manager.js';
@@ -48,10 +52,13 @@ const editorService = new EditorService('#rego-editor');
 const state = new GameState();
 const uiManager = new UIManager(editorService);
 const audioManager = new AudioManager(uiManager);
-const questManager = new QuestManager(state, uiManager);
+const grimoireAutosave = new GrimoireAutosave(state, uiManager);
+const questManager = new QuestManager(state, uiManager, grimoireAutosave);
 const modalManager = new ModalManager(state, uiManager);
-const packManager = new PackManager(state, uiManager, audioManager);
-const eventManager = new EventManager(state, uiManager, questManager, audioManager, modalManager, packManager);
+const packManager = new PackManager(state, uiManager, audioManager, questManager, modalManager);
+const eventManager = new EventManager(
+    state, uiManager, questManager, audioManager, modalManager, packManager, grimoireAutosave
+);
 
 /**
  * Start (or resume) the given pack and load its current quest.
@@ -62,10 +69,14 @@ const eventManager = new EventManager(state, uiManager, questManager, audioManag
  */
 let beginQuestInFlight = false;
 async function beginQuest(packId) {
-    if (beginQuestInFlight) return;
+    if (beginQuestInFlight) {
+        showToast('An adventure is already loading. Please wait for it.', ErrorLevel.INFO);
+        return;
+    }
     beginQuestInFlight = true;
     try {
-        await packManager.startAdventure(packId);
+        const entered = await packManager.startAdventure(packId);
+        if (!entered) return;
         questManager.loadQuest(state.currentQuestId);
     } finally {
         beginQuestInFlight = false;
@@ -92,6 +103,15 @@ async function init() {
             return;
         }
         await AuthService.init();
+
+        // A refused silent renewal ends the signed-in view: return to the start
+        // screen (progress flushed and kept, pack pointer cleared) and offer the
+        // login control. The failed request reports its own cause through
+        // apiErrorHint.
+        AuthService.onSessionLost(() => {
+            packManager.returnHome();
+            uiManager.updateAuthUI(false, true);
+        });
 
         // Handle impressum footer visibility based on config
         const config = ConfigService.get();
@@ -130,22 +150,20 @@ async function init() {
             try {
                 await beginQuest(state.currentPackId);
             } catch (e) {
-                console.error("Failed to resume:", e);
-                // Persisted pointer is cleared so the next page load
-                // starts clean instead of retrying the broken pack
-                removeLocalStorage(STORAGE_KEYS.PACK_ID);
-                state.currentPackId = null;
-                state.currentQuestId = 0;
+                // A failed entry is rolled back where it was made: the
+                // pointer and all pack-scoped state are gone, so this page
+                // load stays on the pack list
+                console.error('Failed to resume:', e);
             }
         }
     } catch (error) {
         console.error("Failed to initialize:", error);
-        if (error instanceof ApiError && error.status === 401) {
-            uiManager.elements.questPackList.innerHTML =
-                '<p>Your session has expired. Please log out and log in again.</p>';
-        } else {
-            uiManager.elements.questPackList.innerHTML = "<p>Error loading adventures. Is the backend running?</p>";
-        }
+        // The start screen describes a session failure the way a toast would, so
+        // a renewal the issuer refused is not reported as an expired session.
+        const sentence = error instanceof ApiError && error.status === 401
+            ? apiErrorHint(error)
+            : 'Error loading adventures. Is the backend running?';
+        uiManager.elements.questPackList.innerHTML = `<p>${sentence}</p>`;
     }
 }
 

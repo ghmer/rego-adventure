@@ -20,6 +20,7 @@ import {
     setLocalStorage,
     removeLocalStorage,
     getPackKey,
+    getCorruptPackKey,
     migrateStorageKeys,
     STORAGE_KEYS
 } from './storage-service.js';
@@ -59,6 +60,11 @@ describe('storage-service', () => {
 
         it('returns the unscoped key without a pack id', () => {
             expect(getPackKey('base', undefined)).toBe('base');
+        });
+
+        it('derives the backup key of a corrupt pack body beside its body', () => {
+            expect(getCorruptPackKey(STORAGE_KEYS.PACK_STATE, 'alpha'))
+                .toBe('rego_pack_state_alpha_corrupt');
         });
     });
 

@@ -172,19 +172,19 @@
                         <ul id="hints-list" class="hidden" aria-live="polite"></ul>
                     </section>
 
-                    <section id="outcome-area" class="outcome-area hidden" aria-live="polite"
-                        aria-labelledby="outcome-heading">
-                        <h3 id="outcome-heading">Outcome</h3>
-                        <div id="outcome-message"></div>
-                        <ul id="test-results"></ul>
-                    </section>
                 </div>
 
-                <div class="quest-footer">
+                <!-- The quest footer holds both offers it derives its own
+                     visibility from: the prologue's adventure offer and the
+                     perfect-score offer of a finished pack. Both start hidden
+                     and are rendered by the screen that offers them. -->
+                <div class="quest-footer hidden">
                     <button id="perfect-score-btn" class="action-btn perfect-score-btn hidden"
                         aria-label="Reveal perfect score message" title="View perfect score achievement message">
                         A Secret Awaits...
                     </button>
+                    <button id="start-adventure" class="action-btn primary hidden"
+                        aria-label="Begin the adventure" title="Begin the adventure">Begin Adventure</button>
                 </div>
             </section>
 
@@ -193,9 +193,9 @@
                 <div class="pane-header">
                     <div class="pane-title">
                         <h2 id="grimoire-title">Policy Grimoire</h2>
-                        <span id="editor-save-indicator" class="save-indicator saved" role="status"
-                            aria-live="polite" aria-label="Editor save status: all changes saved"
-                            title="Editor save status: all changes saved"></span>
+                        <span id="editor-save-indicator" class="save-indicator idle" role="status"
+                            aria-live="polite" aria-label="Editor save status: No policy to save here"
+                            title="Editor save status: No policy to save here"></span>
                     </div>
                     <div class="grimoire-controls">
                         <button id="check-manual-btn" class="action-btn secondary" aria-label="Show manual"
@@ -224,8 +224,6 @@
                         title="Go to next quest">
                         <i class="fa-solid fa-chevron-right"></i>
                     </button>
-                    <button id="start-adventure" class="action-btn primary hidden"
-                        aria-label="Proceed to the next quest" title="Continue to the next quest">Next Quest</button>
                 </div>
             </section>
         </main>
@@ -439,7 +437,7 @@
     </template>
 
     <script type="module" src="src/app.js"></script>
-    <audio id="bg-music" aria-label="Background music" preload="none"></audio>
+    <audio id="bg-music" aria-label="Background music" preload="metadata"></audio>
 </body>
 
 </html>

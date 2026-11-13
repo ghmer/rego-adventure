@@ -148,6 +148,13 @@ func TestGetPacks_EmptyRepository(t *testing.T) {
 		t.Errorf("expected status 200, got %d", w.Code)
 	}
 
+	// The empty condition is an empty array, not null: the client tells
+	// "no packs are loaded" apart from a malformed response only if the
+	// contract holds at the byte level.
+	if body := strings.TrimSpace(w.Body.String()); body != "[]" {
+		t.Fatalf("expected an empty JSON array, got %s", body)
+	}
+
 	var result []map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
@@ -349,10 +356,12 @@ func TestGetPack_WithholdsSecrets(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", w.Code)
 	}
 
-	// The bulk pack payload must not contain solution, hint texts, or
-	// hidden support modules - these are revealed by dedicated endpoints.
+	// The bulk pack payload must not contain solution, hint texts, hidden
+	// support modules or test data - each is served by the endpoint that
+	// needs it.
 	body := w.Body.String()
-	for _, secret := range []string{"Think about roles", "Compare the user string", "default allow", "package helpers"} {
+	secrets := []string{"Think about roles", "Compare the user string", "default allow", "package helpers", "guest"}
+	for _, secret := range secrets {
 		if strings.Contains(body, secret) {
 			t.Errorf("pack payload leaks secret %q", secret)
 		}
@@ -370,7 +379,7 @@ func TestGetPack_WithholdsSecrets(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected quest entry to be an object, got %T", quests[0])
 	}
-	for _, key := range []string{"solution", "hints", "support_modules"} {
+	for _, key := range []string{"solution", "hints", "support_modules", "tests"} {
 		if _, exists := first[key]; exists {
 			t.Errorf("quest payload must not contain key %q", key)
 		}

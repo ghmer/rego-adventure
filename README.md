@@ -45,6 +45,12 @@ The system breaks down into two main parts. A Go backend handles HTTP requests, 
 - [`frontend/adventure/`](frontend/adventure/) - Main game interface
 - [`frontend/quests/`](frontend/quests/) - Quest pack definitions (JSON) and assets
 
+**Startup reveal and CSP:** `frontend/adventure/index.html` hides the document in an inline
+`<style>` block and reveals it once the SPA entry point adds the `loaded` class. That inline block
+requires the `style-src 'unsafe-inline'` entry of the Content-Security-Policy set in
+`backend/http/middleware.go`. Tightening `style-src` without adding a hash for that block makes the
+application boot invisible.
+
 ## Prerequisites
 
 You'll need Go 1.27 or higher. Docker is optional but useful for containerized deployment, and Kubernetes if you are going that route.
@@ -169,6 +175,27 @@ kubectl apply -f docu/deploy/k8s/ingress.yaml
 
 Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8s/configmap.yaml) with your environment-specific values.
 
+## Testing
+
+| Layer | Command | CI job |
+| ------- | --------- | -------- |
+| Backend unit, handler and loader tests | `go test -race -count=1 ./...` | `go-ci.yml` |
+| Backend lint | `golangci-lint run ./...` | `go-ci.yml` |
+| Backend static analysis | `gosec -quiet ./...` | run locally |
+| Frontend unit tests | `npm test` in `frontend/adventure`, with the pinned toolchain installed ephemerally as CI does: `npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3` | `frontend-ci.yml` |
+| Frontend lint | `npx eslint src` in `frontend/adventure` after `npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0` | `frontend-ci.yml` |
+| Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
+| Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
+| Browser and command-line QA suites | `node docu/qa/<suite>.cjs` | none |
+
+The QA suites in `docu/qa/` start their own server on a free port and drive a real browser through
+Playwright, which is resolved from the machine rather than declared as a dependency. Six suites:
+`spa-qa` (the adventure interface), `dialog-qa` (the seven dialogs), `editor-qa` (the quest editor),
+`save-compat` (saved-state compatibility), `cli-qa` (the command-line tools) and `session-qa` (a
+signed session token that expires during a quest, on the start screen and inside a quest). They run by
+hand against the change they test: each removes the quest packs it generates and reports any tree
+change it did not make itself.
+
 ## Project Structure
 
 ```text
@@ -192,9 +219,11 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 │   │   ├── docker/        # Docker Compose
 │   │   └── k8s/           # Kubernetes manifests
 │   ├── images/            # Documentation images
+│   ├── qa/                # Browser and command-line QA suites
 │   ├── quest-editor/      # Browser-based quest editor
 │   ├── utilities/         # Documentation utilities
-│   └── quests.md          # Quest pack format documentation
+│   ├── quests.md          # Quest pack format documentation
+│   └── state-machines.md  # State machines the code implements
 ├── Dockerfile             # Multi-stage container build
 └── go.mod                 # Go dependencies
 ```
@@ -307,16 +336,31 @@ Mount a PersistentVolume containing your custom impressum.html file to `/app/fro
 
 ## Quest Packs
 
-Quest packs are defined in JSON format in a dedicated folder under [`frontend/quests/`](frontend/quests/) (for example: `frontend/quests/my-quest-pack`). Each pack contains:
+Quest packs are defined in JSON format in a dedicated folder under [`frontend/quests/`](frontend/quests/) (for example: `frontend/quests/my-quest-pack`). If that folder holds no pack, the application still starts: `/api/packs` answers an empty list and the start screen says that no adventure packs are loaded instead of showing an empty selection. Each pack contains:
 
 - Metadata (title, description, genre)
 - Prologue and epilogue narratives
 - Quest definitions with test cases
 - Theme-specific assets (images, audio, styles)
 
+### What the Browser Receives
+
+`GET /api/packs/{packId}` serves a projection of the pack, not the pack file. It omits the solution,
+the hint texts, the hidden support modules and the test cases; `hints_count`, `has_solution` and
+`has_support_modules` say what exists, so the interface can render its controls without the content.
+Each withheld item is served by the endpoint that needs it: hints and solution on a confirmed reveal
+(`Cache-Control: no-store`), support modules on request, and the test cases through
+`GET /api/packs/{packId}/quests/{questId}/test-payload` when the test modal opens.
+
+That endpoint is a convenience layer, not a secrecy boundary. It answers every test's input, its
+`data` document and its expected outcome to any client that asks, and its response is cacheable for
+five minutes (`Cache-Control: private, max-age=300`). A pack's tests are readable by anyone who can
+reach the server; the projection keeps the startup payload small, it does not hide the truth table
+the player is coding against.
+
 ### Asset Generator
 
-The asset generator tool creates new quest pack scaffolding with placeholder assets and configuration files.
+The asset generator tool creates new quest pack scaffolding with placeholder assets and configuration files. A run that fails part way through leaves no partial pack: everything it had already written below the pack directory is removed again, and content that was already there is left alone.
 
 **Location:** [`cmd/assetgen/`](cmd/assetgen/)
 
@@ -347,7 +391,7 @@ go run cmd/assetgen/main.go -theme western -output frontend/quests
   - `icon-success.png` (128x128) - Success icon
   - `icon-failure.png` (128x128) - Failure icon
   - `perfect_score.png` (512x512) - Perfect score image
-  - `bg-music.m4a` - Empty placeholder for background music
+  - `bg-music.m4a` - Silent placeholder track for background music
 
 All generated images are solid color placeholders. Replace with theme-appropriate artwork before deployment.
 
@@ -395,7 +439,10 @@ A browser-based visual editor for creating and modifying quest packs. The editor
 3. Edit quest content using the visual interface
 4. Click "Save" to download the modified `quests.json` file
 
-For more complete documentation, check out [`README_EDITOR.md`](README_EDITOR.md).
+For more complete documentation, check out [`README_EDITOR.md`](README_EDITOR.md). Before an
+export, the editor checks the pack against the same rules the backend enforces at pack load;
+[`docu/quest-editor/QA.md`](docu/quest-editor/QA.md) lists the checks a change to the tool is
+verified by, and `node --test docu/quest-editor/` runs its rule tests.
 
 ## deployment
 
@@ -417,6 +464,16 @@ Refer to:
 Locally, a quest pack must go in the `frontend/quests` folder.
 
 For Kubernetes or Docker Compose deployments, you can mount them there too.
+
+### Replacing the SPA Document
+
+`frontend/adventure/index.html` is read once, when the server starts, and served from memory
+afterwards. The import map block inside it is part of those bytes, and its Content-Security-Policy
+hash is computed in the same step. Replacing the file inside a running container changes nothing
+until the process restarts.
+
+Quest packs, images, audio, `theme.css` and `custom.css` are read per request and need no restart,
+nor do the SPA's JavaScript modules, which are ordinary static files.
 
 ## License
 

@@ -17,7 +17,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuestManager } from './quest-manager.js';
 import { GameState } from '../services/state-service.js';
-import { DEFAULT_TEXT, DEFAULT_REGO_CODE } from '../services/constants.js';
+import { DEFAULT_TEXT, DEFAULT_REGO_CODE, SaveStatus } from '../services/constants.js';
 import { getLocalStorage, getPackKey, STORAGE_KEYS } from '../services/storage-service.js';
 
 const apiMock = vi.hoisted(() => ({
@@ -67,30 +67,45 @@ function createUi() {
             questBackBtn: document.createElement('button'),
             questForwardBtn: document.createElement('button'),
             editor: document.createElement('textarea'),
-            outcomeArea: document.createElement('section'),
             editorPane: document.createElement('section'),
             questTask: document.createElement('p'),
-            startAdventureBtn: document.createElement('button')
+            questCounter: document.createElement('span'),
+            questTitle: document.createElement('h2'),
+            startAdventureBtn: document.createElement('button'),
+            perfectScoreBtn: document.createElement('button')
         },
         renderQuest: vi.fn(),
         resetQuestUI: vi.fn(),
-        updateQuestFooterVisibility: vi.fn(),
+        renderPerfectScoreButton: vi.fn(),
+        renderInteractionGate: vi.fn(),
+        renderQuestFooter: vi.fn(),
+        renderQuestButtonVisibility: vi.fn(),
+        renderSaveStatus: vi.fn(),
         updateHintButtonText: vi.fn(),
+        updateSupportModulesButton: vi.fn(),
         renderLore: vi.fn(),
-        setEditorReadOnly: vi.fn(),
         setEditorValue: vi.fn()
     };
 }
 
 /**
+ * An autosave double: the quest screen only tells it to drop a pending write.
+ * @returns {Object} Autosave double
+ */
+function createAutosave() {
+    return { markDirty: vi.fn(), flush: vi.fn(), cancel: vi.fn() };
+}
+
+/**
  * Create a quest manager wired to fresh state and UI doubles.
  * @param {Array<Object>} quests - Quest definitions
- * @returns {Object} { state, ui, qm }
+ * @param {Object} [autosave] - Autosave collaborator double
+ * @returns {Object} { state, ui, autosave, qm }
  */
-function createFixture(quests) {
+function createFixture(quests, autosave = createAutosave()) {
     const state = createState(quests);
     const ui = createUi();
-    return { state, ui, qm: new QuestManager(state, ui) };
+    return { state, ui, autosave, qm: new QuestManager(state, ui, autosave) };
 }
 
 describe('quest-manager', () => {
@@ -104,6 +119,76 @@ describe('quest-manager', () => {
             <template id="hint-item-template"><li><code></code></li></template>
             <template id="hint-solution-template"><li><code></code></li></template>
         `;
+    });
+
+    describe('screen render', () => {
+        it('recomputes the quest footer once per screen', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+
+            fixture.qm.loadQuest(0);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(1);
+
+            fixture.qm.loadQuest(1);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(2);
+
+            fixture.qm.loadQuest(3);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(3);
+        });
+
+        it('renders the adventure offer into the footer the markup put it in', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+            const footer = document.createElement('div');
+            footer.className = 'quest-footer';
+            footer.appendChild(fixture.ui.elements.startAdventureBtn);
+            document.body.appendChild(footer);
+
+            fixture.qm.loadQuest(0);
+
+            expect(fixture.ui.elements.startAdventureBtn.parentNode).toBe(footer);
+            expect(fixture.ui.renderQuestButtonVisibility)
+                .toHaveBeenCalledWith(true, expect.any(String));
+        });
+
+        it('withdraws the adventure offer when a quest screen replaces it', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+
+            fixture.qm.loadQuest(0);
+            fixture.qm.loadQuest(1);
+
+            expect(fixture.ui.renderQuestButtonVisibility).toHaveBeenLastCalledWith(false);
+        });
+
+        it('withdraws the adventure offer when the epilogue replaces it', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+
+            fixture.qm.loadQuest(0);
+            fixture.qm.loadQuest(3);
+
+            expect(fixture.ui.renderQuestButtonVisibility).toHaveBeenLastCalledWith(false);
+        });
+
+        it('withdraws the offer itself when no screen follows the prologue', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+            fixture.qm.loadQuest(0);
+            vi.spyOn(fixture.qm, 'proceedToNextQuest').mockReturnValue(false);
+
+            const advanced = fixture.qm.leavePrologue();
+
+            expect(advanced).toBe(false);
+            expect(fixture.ui.renderQuestButtonVisibility).toHaveBeenLastCalledWith(false);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(2);
+        });
+
+        it('recomputes the footer through the screen when the prologue advances', () => {
+            const fixture = createFixture([{ id: 1 }, { id: 2 }]);
+            fixture.qm.loadQuest(0);
+
+            const advanced = fixture.qm.leavePrologue();
+
+            expect(advanced).toBe(true);
+            expect(fixture.ui.renderQuestButtonVisibility).toHaveBeenLastCalledWith(false);
+            expect(fixture.ui.renderQuestFooter).toHaveBeenCalledTimes(2);
+        });
     });
 
     describe('loadQuestCode', () => {
@@ -263,7 +348,7 @@ describe('quest-manager', () => {
 
             // Second session: same persisted state, fresh UI and cache
             const ui = createUi();
-            const qm = new QuestManager(first.state, ui);
+            const qm = new QuestManager(first.state, ui, createAutosave());
             qm.loadQuest(1);
             await vi.waitFor(() => expect(ui.elements.hintsList.children).toHaveLength(2));
 
@@ -284,7 +369,7 @@ describe('quest-manager', () => {
             await first.qm.showHint();
 
             const ui = createUi();
-            const qm = new QuestManager(first.state, ui);
+            const qm = new QuestManager(first.state, ui, createAutosave());
             qm.loadQuest(1);
             await vi.waitFor(() => expect(ui.elements.hintsList.children).toHaveLength(2));
 
@@ -313,6 +398,85 @@ describe('quest-manager', () => {
             expect(state.currentQuestHintsUsed).toBe(1);
         });
 
+        it('keeps the paid reveal accounting when the stored reveals cannot be fetched', async () => {
+            const { state, ui, qm } = createFixture([{ id: 1, hints_count: 2, has_solution: false }]);
+            state.enterQuest(1);
+            state.currentQuest = state.quests[0];
+            state.currentQuestHintsUsed = 1;
+            state.persistQuestHintState();
+
+            apiMock.fetchQuestHint.mockRejectedValueOnce(new ApiError('boom', 500));
+            await qm.restoreQuestHints(1);
+
+            // the texts did not arrive, but what the player paid for still counts
+            expect(state.currentQuestHintsUsed).toBe(1);
+            expect(ui.updateHintButtonText).toHaveBeenCalledWith(state.currentQuest, 1, expect.any(String));
+
+            // the next reveal is the second hint, not a second charge for the first
+            await qm.showHint();
+
+            expect(apiMock.fetchQuestHint).toHaveBeenLastCalledWith(PACK_ID, 1, 2);
+            expect(state.currentQuestHintsUsed).toBe(2);
+        });
+
+        it('restores the same reveal record the score was computed from, even when the refetch fails', async () => {
+            const { state, qm } = createFixture([{ id: 1, hints_count: 2, has_solution: false }]);
+            state.enterQuest(1);
+            state.currentQuest = state.quests[0];
+            state.currentQuestHintsUsed = 1;
+            state.completeQuest(1);
+            state.resetQuestState();
+
+            apiMock.fetchQuestHint.mockRejectedValue(new ApiError('boom', 500));
+            await qm.restoreQuestHints(1);
+
+            // score and reveal counters keep describing the same run
+            expect(state.questScores[1].hintsUsed).toBe(1);
+            expect(state.currentQuestHintsUsed).toBe(1);
+        });
+
+        it('settles the reveal overlay back to idle and clears the pending restore', async () => {
+            const { state, qm } = createFixture([{ id: 1, hints_count: 1, has_solution: false }]);
+            state.enterQuest(1);
+            state.currentQuest = state.quests[0];
+            state.currentQuestHintsUsed = 1;
+            state.persistQuestHintState();
+
+            const pending = qm.restoreQuestHints(1);
+
+            expect(qm.revealPhase).toBe('restoring');
+
+            await pending;
+
+            expect(qm.revealPhase).toBe('idle');
+            expect(qm.revealPromise).toBeNull();
+        });
+
+        it('waits for a restore in flight instead of racing it', async () => {
+            const { state, ui, qm } = createFixture([{ id: 1, hints_count: 2, has_solution: false }]);
+            state.enterQuest(1);
+            state.currentQuest = state.quests[0];
+            state.currentQuestHintsUsed = 1;
+            state.persistQuestHintState();
+
+            let settle;
+            apiMock.fetchQuestHint.mockImplementationOnce((packId, questId, hintId) => new Promise(resolve => {
+                settle = () => resolve({ hint: `h${hintId}` });
+            }));
+
+            const restoring = qm.restoreQuestHints(1);
+            const revealing = qm.showHint();
+
+            settle();
+            await Promise.all([restoring, revealing]);
+
+            // one restore fetched hint 1; showHint waited for it and then asked
+            // for the next reveal rather than refetching hint 1
+            expect(apiMock.fetchQuestHint.mock.calls.map(call => call[2])).toEqual([1, 2]);
+            expect(ui.elements.hintsList.children).toHaveLength(2);
+            expect(state.currentQuestHintsUsed).toBe(2);
+        });
+
         it('drops fetched hints when the user navigated away meanwhile', async () => {
             const { state, ui, qm } = createFixture([
                 { id: 1, hints_count: 1, has_solution: false },
@@ -334,6 +498,22 @@ describe('quest-manager', () => {
 
             expect(ui.elements.hintsList.children).toHaveLength(0);
             expect(handleApiError).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('caches of the current pack visit', () => {
+        it('drops the reveal texts it fetched', async () => {
+            const { state, qm } = createFixture([{ id: 1, hints_count: 1, has_solution: false }]);
+            state.currentQuest = state.quests[0];
+            qm.loadQuest(1);
+            await qm.showHint();
+
+            expect(qm.revealCache.size).toBe(1);
+
+            qm.clearCaches();
+
+            expect(qm.revealCache.size).toBe(0);
+            expect(qm.revealPhase).toBe('idle');
         });
     });
 
@@ -372,10 +552,142 @@ describe('quest-manager', () => {
             expect(state.currentQuestId).toBe(2);
             expect(ui.renderQuest.mock.calls.length).toBe(callsBefore + 1);
         });
+
+        it('holds the arrow at the frontier instead of skipping an uncompleted quest', () => {
+            const { state, ui, qm } = createFixture([{ id: 1 }, { id: 2 }, { id: 3 }]);
+            state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            state.activeQuestId = 2;
+            qm.loadQuest(2);
+            const callsBefore = ui.renderQuest.mock.calls.length;
+
+            qm.navigateToNextQuest();
+
+            // quest 3 is not completed and this is not history view, so the
+            // single forward rule refuses the step the button would take
+            expect(state.currentQuestId).toBe(2);
+            expect(ui.renderQuest.mock.calls.length).toBe(callsBefore);
+        });
+
+        it('takes the same forward decision as the guard that enables the button', () => {
+            const cases = [
+                { completed: [], frontier: 1, cursor: 1 },
+                { completed: [1], frontier: 2, cursor: 1 },
+                { completed: [1], frontier: 2, cursor: 2 },
+                { completed: [1, 2], frontier: 3, cursor: 1 },
+                { completed: [1, 2], frontier: 3, cursor: 2 },
+                { completed: [1, 2], frontier: 3, cursor: 3 },
+                { completed: [1, 2, 3], frontier: 4, cursor: 3 },
+                { completed: [1, 2, 3], frontier: 4, cursor: 4 }
+            ];
+
+            for (const testCase of cases) {
+                const { state, qm } = createFixture([{ id: 1 }, { id: 2 }, { id: 3 }]);
+                for (const id of testCase.completed) {
+                    state.questScores[id] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+                }
+                state.activeQuestId = testCase.frontier;
+                qm.loadQuest(testCase.cursor);
+
+                const guardAllows = state.canNavigateForward();
+                const cursorBefore = state.currentQuestId;
+                qm.navigateToNextQuest();
+
+                expect({
+                    case: testCase,
+                    moved: state.currentQuestId !== cursorBefore
+                }).toEqual({ case: testCase, moved: guardAllows });
+            }
+        });
+
+        it('keeps the unlocked frontier when the back arrow is followed by the flow action', () => {
+            const { state, qm } = createFixture([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }]);
+            for (const id of [1, 2, 3]) {
+                qm.loadQuest(id);
+                state.completeQuest(id);
+            }
+            expect(state.activeQuestId).toBe(4);
+
+            qm.navigateToPreviousQuest();
+            qm.proceedToNextQuest();
+
+            // the player stands on quest 3 with quest 4 still unlocked
+            expect(state.currentQuestId).toBe(3);
+            expect(state.activeQuestId).toBe(4);
+        });
+    });
+
+    describe('narrative screens', () => {
+        function createNarrativeFixture() {
+            const quests = [{ id: 1 }, { id: 2 }, { id: 3 }];
+            const fixture = createFixture(quests);
+            for (const id of [1, 2, 3]) {
+                fixture.state.questScores[id] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            }
+            fixture.state.activeQuestId = 4;
+            return fixture;
+        }
+
+        it('renders the epilogue without touching progression state', () => {
+            const { state, qm } = createNarrativeFixture();
+            state.enterQuest(4);
+
+            qm.showEpilogue();
+
+            expect(state.currentQuestId).toBe(4);
+            expect(state.activeQuestId).toBe(4);
+            expect(state.isHistoryMode).toBe(false);
+        });
+
+        it('takes the epilogue transition while loading it, and persists it', () => {
+            const { state, ui, qm } = createNarrativeFixture();
+
+            qm.loadQuest(4);
+
+            expect(state.currentQuestId).toBe(4);
+            expect(state.activeQuestId).toBe(4);
+            expect(state.isHistoryMode).toBe(false);
+            expect(ui.elements.questCounter.textContent).toBe('Epilogue');
+            expect(JSON.parse(getLocalStorage(getPackKey(STORAGE_KEYS.PACK_STATE, PACK_ID))).questId).toBe(4);
+        });
+
+        it('resumes a saved epilogue cursor onto the epilogue', () => {
+            const quests = [{ id: 1 }, { id: 2 }, { id: 3 }];
+
+            // A page that finished the pack and stayed on the epilogue
+            const finished = createFixture(quests);
+            for (const id of [1, 2, 3]) {
+                finished.state.questScores[id] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            }
+            finished.state.visitEpilogue();
+
+            // The next page load resumes from storage, then loads the pack
+            const resumed = new GameState();
+            resumed.setCurrentPack(PACK_ID);
+            resumed.loadPackData({ quests, prologue: ['p'], epilogue: ['e'], meta: null, ui_labels: {} });
+            const ui = createUi();
+            const qm = new QuestManager(resumed, ui, createAutosave());
+
+            expect(resumed.currentQuestId).toBe(4);
+
+            qm.loadQuest(resumed.currentQuestId);
+
+            expect(resumed.currentQuestId).toBe(4);
+            expect(resumed.activeQuestId).toBe(4);
+            expect(ui.elements.questCounter.textContent).toBe('Epilogue');
+        });
+
+        it('normalizes a cursor past the last quest onto the epilogue', () => {
+            const { state, qm } = createNarrativeFixture();
+
+            qm.loadQuest(99);
+
+            expect(state.currentQuestId).toBe(4);
+            expect(state.activeQuestId).toBe(4);
+        });
     });
 
     describe('loadQuest', () => {
-        it('enables history mode and read-only editor for completed quests', () => {
+        it('renders the read-only gate for a completed quest behind the frontier', () => {
             const { state, ui, qm } = createFixture([{ id: 1 }]);
             state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
             state.activeQuestId = 2;
@@ -384,17 +696,123 @@ describe('quest-manager', () => {
             qm.loadQuest(1);
 
             expect(state.isHistoryMode).toBe(true);
-            expect(ui.setEditorReadOnly).toHaveBeenCalledWith(true);
+            expect(ui.renderInteractionGate).toHaveBeenCalledWith({
+                editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: true
+            });
             expect(ui.setEditorValue).toHaveBeenCalledWith('package done');
         });
 
-        it('keeps the active quest editable', () => {
+        it('renders the playable gate for the quest the player may act on', () => {
             const { state, ui, qm } = createFixture([{ id: 1 }]);
 
             qm.loadQuest(1);
 
             expect(state.isHistoryMode).toBe(false);
-            expect(ui.setEditorReadOnly).not.toHaveBeenCalled();
+            expect(ui.renderInteractionGate).toHaveBeenCalledWith({
+                editorReadOnly: false, verifyEnabled: true, hintEnabled: true, editorVisible: true
+            });
+        });
+
+        it('applies the gate after the cursor moved, for prologue and epilogue alike', () => {
+            const quests = [{ id: 1 }];
+            const prologue = createFixture(quests);
+            prologue.qm.loadQuest(0);
+            expect(prologue.ui.renderInteractionGate).toHaveBeenLastCalledWith({
+                editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: false
+            });
+
+            const epilogue = createFixture(quests);
+            epilogue.state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            epilogue.qm.loadQuest(2);
+            expect(epilogue.ui.renderInteractionGate).toHaveBeenLastCalledWith({
+                editorReadOnly: true, verifyEnabled: false, hintEnabled: false, editorVisible: false
+            });
+        });
+    });
+
+    describe('pending editor write', () => {
+        it('drops a pending editor write when a new screen takes the editor', () => {
+            const { qm, autosave } = createFixture([{ id: 1 }]);
+
+            qm.loadQuest(1);
+
+            expect(autosave.cancel).toHaveBeenCalledTimes(1);
+        });
+
+        it('drops a pending editor write on a narrative screen as well', () => {
+            const { qm, autosave } = createFixture([{ id: 1 }]);
+
+            qm.loadQuest(0);
+
+            expect(autosave.cancel).toHaveBeenCalledTimes(1);
+        });
+
+        it('says a narrative screen has nothing to save, rather than reporting the last write', () => {
+            const quests = [{ id: 1 }];
+
+            const questScreen = createFixture(quests);
+            questScreen.ui.renderSaveStatus(SaveStatus.SAVED);
+            questScreen.qm.loadQuest(1);
+            expect(questScreen.ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.SAVED);
+
+            const prologue = createFixture(quests);
+            prologue.qm.loadQuest(0);
+            expect(prologue.ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.IDLE);
+
+            const epilogue = createFixture(quests);
+            epilogue.state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            epilogue.qm.loadQuest(2);
+            expect(epilogue.ui.renderSaveStatus).toHaveBeenLastCalledWith(SaveStatus.IDLE);
+        });
+    });
+
+    describe('perfect score button', () => {
+        /**
+         * Record a run that finished the pack without paying for a reveal.
+         * @param {Object} state - State with one quest loaded
+         */
+        function recordPerfectRun(state) {
+            state.questScores[1] = { hintsUsed: 0, solutionViewed: false, pointsEarned: 10 };
+            state.totalScore = 10;
+        }
+
+        it('appears on the epilogue of a pack finished without reveals', () => {
+            const { state, ui, qm } = createFixture([{ id: 1 }]);
+            recordPerfectRun(state);
+
+            qm.loadQuest(2);
+
+            expect(ui.renderPerfectScoreButton)
+                .toHaveBeenLastCalledWith(true, DEFAULT_TEXT.PERFECT_SCORE_BUTTON);
+        });
+
+        it('stays hidden on an epilogue that is not a perfect score', () => {
+            const { ui, qm } = createFixture([{ id: 1 }]);
+
+            qm.loadQuest(2);
+
+            expect(ui.renderPerfectScoreButton).toHaveBeenLastCalledWith(false);
+        });
+
+        it('is gone from the footer when the player walks back from the epilogue', () => {
+            const { state, ui, qm } = createFixture([{ id: 1 }]);
+            recordPerfectRun(state);
+            qm.loadQuest(2);
+            expect(ui.renderPerfectScoreButton.mock.calls.at(-1)[0]).toBe(true);
+
+            qm.loadQuest(1);
+
+            expect(ui.renderPerfectScoreButton).toHaveBeenLastCalledWith(false);
+        });
+
+        it('is gone from the footer on the prologue of the same pack', () => {
+            const { state, ui, qm } = createFixture([{ id: 1 }]);
+            recordPerfectRun(state);
+            qm.loadQuest(2);
+
+            qm.loadQuest(0);
+
+            expect(ui.renderPerfectScoreButton).toHaveBeenLastCalledWith(false);
         });
     });
 });

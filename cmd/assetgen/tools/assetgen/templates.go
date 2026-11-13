@@ -298,20 +298,6 @@ body.effects-disabled #music-btn.music-playing {
     border-radius: 0;
 }
 
-/* Outcome Area */
-.outcome-area {
-    border: 1px solid var(--accent-color);
-    background-color: rgba(var(--text-rgb), 0.05);
-}
-
-.outcome-area.success {
-    box-shadow: 0 0 12px rgba(var(--success-rgb), 0.35);
-}
-
-.outcome-area.failure {
-    box-shadow: 0 0 12px rgba(var(--error-rgb), 0.35);
-}
-
 /* Test Results */
 .test-result {
     font-family: var(--font-code);
@@ -769,7 +755,7 @@ Use custom.css for unique visual effects:
 
 Replace %bg-music.m4a% with your theme's background music. Recommended:
 - Format: M4A
-- Duration: 2-5 minutes (will loop)
+- Duration: 2-5 minutes (the player starts it per toggle; it does not loop)
 - Style: Atmospheric, non-intrusive
 
 ### 5. Replace Visual Assets

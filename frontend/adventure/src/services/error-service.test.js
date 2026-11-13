@@ -22,9 +22,9 @@ const toastMock = vi.hoisted(() => ({
 
 vi.mock('./toast-service.js', () => ({ showToast: toastMock.showToast }));
 
-import { showError, handleApiError } from './error-service.js';
+import { showError, handleApiError, apiErrorHint } from './error-service.js';
 import { ApiError } from './api-service.js';
-import { ErrorLevel } from './constants.js';
+import { ErrorLevel, AuthFailure } from './constants.js';
 
 describe('error-service', () => {
     beforeEach(() => {
@@ -91,6 +91,28 @@ describe('error-service', () => {
             );
         });
 
+        it('shows the renewal hint when the silent renewal was refused', () => {
+            const failure = new ApiError('unauthorized', 401, { authFailure: AuthFailure.RenewalFailed });
+
+            handleApiError(failure, 'load packs');
+
+            expect(toastMock.showToast).toHaveBeenCalledWith(
+                'Failed to load packs. The session could not be renewed. Please log in again.',
+                ErrorLevel.ERROR
+            );
+        });
+
+        it('shows the session hint when the server rejected a renewed token', () => {
+            const failure = new ApiError('unauthorized', 401, { authFailure: AuthFailure.TokenRejected });
+
+            handleApiError(failure, 'load packs');
+
+            expect(toastMock.showToast).toHaveBeenCalledWith(
+                'Failed to load packs. Your session has expired. Please log in again.',
+                ErrorLevel.ERROR
+            );
+        });
+
         it('shows the server hint on network failures (status 0)', () => {
             handleApiError(new ApiError('Network error: boom', 0), 'load packs');
 
@@ -135,6 +157,24 @@ describe('error-service', () => {
                 'API Error in verify solution:',
                 expect.any(ApiError)
             );
+        });
+    });
+
+    describe('the sentence an API failure is described with', () => {
+        it('names a renewal the issuer refused', () => {
+            const failure = new ApiError('unauthorized', 401, { authFailure: AuthFailure.RenewalFailed });
+
+            expect(apiErrorHint(failure)).toBe('The session could not be renewed. Please log in again.');
+        });
+
+        it('names an expired session when the server rejects the token', () => {
+            expect(apiErrorHint(new ApiError('unauthorized', 401, {
+                authFailure: AuthFailure.TokenRejected
+            }))).toBe('Your session has expired. Please log in again.');
+        });
+
+        it('asks for a retry when the failure came from elsewhere', () => {
+            expect(apiErrorHint(new Error('boom'))).toBe('Please try again.');
         });
     });
 });

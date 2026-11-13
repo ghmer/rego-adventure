@@ -46,7 +46,19 @@ export const TIMING = {
     FADE_DURATION: 250,              // Audio fade in/out duration
     TUTORIAL_SHOW_DELAY: 250,        // Delay before showing tutorial after quest load
     CONFETTI_DURATION: 3000,         // Confetti animation duration
-    CONFETTI_INTERVAL: 250           // Confetti particle spawn interval
+    CONFETTI_INTERVAL: 250,          // Confetti particle spawn interval
+    GRIMOIRE_AUTOSAVE_DELAY: 1500    // Debounce before the editor writes
+};
+
+/**
+ * Editor save indicator states. The colour comes from what the last write
+ * actually did, never from an intention to write.
+ */
+export const SaveStatus = {
+    IDLE: 'idle',        // this screen has no grimoire to write
+    DIRTY: 'dirty',      // a write is pending
+    SAVED: 'saved',      // the last write reached storage
+    FAILED: 'failed'     // storage refused the last write
 };
 
 /**
@@ -57,10 +69,21 @@ export const AUDIO = {
 };
 
 /**
- * API configuration
+ * API configuration. REQUEST_TIMEOUT_MS is the client clock for an API call;
+ * CONFIG_TIMEOUT_MS bounds the initial /config fetch.
  */
 export const API = {
-    BASE_URL: '/api'
+    BASE_URL: '/api',
+    REQUEST_TIMEOUT_MS: 30000,
+    CONFIG_TIMEOUT_MS: 5000
+};
+
+/**
+ * Cause of a 401, carried as ApiError.authFailure. See apiErrorHint.
+ */
+export const AuthFailure = {
+    RenewalFailed: 'renewal_failed',
+    TokenRejected: 'token_rejected'
 };
 
 /**
