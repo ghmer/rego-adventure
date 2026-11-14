@@ -156,7 +156,6 @@ jobs:
           }
           npx playwright install --with-deps chromium
         working-directory: frontend/adventure
-        working-directory: frontend/adventure
 
       - name: Run QA suites
         run: |
