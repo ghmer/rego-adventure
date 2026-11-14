@@ -170,7 +170,7 @@ func TestServeSafeFile_SVGGetsLockdownCSP(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, "/quests/p/assets/art.svg", nil)
 
-	(&Server{}).serveSafeFile(c, dir, "art.svg", isAllowedExtension, "")
+	(&Server{}).serveSafeFile(c, dir, "art.svg", isAllowedExtension, "", "")
 
 	if w.Code != nethttp.StatusOK {
 		t.Fatalf("expected 200 serving an allowed svg, got %d", w.Code)
@@ -195,7 +195,7 @@ func TestServeSafeFile_NonSVGHasNoPerResourceCSP(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, "/quests/p/assets/pic.png", nil)
 
-	(&Server{}).serveSafeFile(c, dir, "pic.png", isAllowedExtension, "")
+	(&Server{}).serveSafeFile(c, dir, "pic.png", isAllowedExtension, "", "")
 
 	if w.Code != nethttp.StatusOK {
 		t.Fatalf("expected 200 serving png, got %d", w.Code)
@@ -220,7 +220,7 @@ func TestServeSafeFile_SymlinkedAssetRejected(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, "/quests/p/assets/escape.png", nil)
 
-	(&Server{}).serveSafeFile(c, dir, "escape.png", isAllowedExtension, "")
+	(&Server{}).serveSafeFile(c, dir, "escape.png", isAllowedExtension, "", "")
 
 	// The symlink itself is rejected before serving (403).
 	if w.Code != nethttp.StatusForbidden {
@@ -233,6 +233,9 @@ func TestServeSafeFile_SymlinkedAssetRejected(t *testing.T) {
 // probePackName is the pack directory the route protection tests
 // materialize under the gitignored frontend/quests directory.
 const probePackName = "probe-pack"
+
+// testOrigin is the CORS origin the protection test servers allow.
+const testOrigin = "https://adventure.example.com"
 
 // createProbePack writes the minimal pack media and stylesheet served by
 // the quest asset routes.
@@ -259,7 +262,7 @@ func newProtectedRoutesServer(t *testing.T) (*Server, string) {
 	createProbePack(t)
 
 	s := newAuthTestServer(t, []string{"RS256"})
-	s.cfg.AllowedOrigin = "https://adventure.example.com"
+	s.cfg.AllowedOrigin = testOrigin
 	srv, err := New(s.cfg, NewHandler(quest.NewQuestRepository(), quest.NewVerifier()))
 	if err != nil {
 		t.Fatalf("New server: %v", err)
@@ -355,9 +358,16 @@ func TestProtectedRoutesRequireBearerToken(t *testing.T) {
 	} {
 		w := httptest.NewRecorder()
 		req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, path, nil)
+		req.Header.Set("Origin", testOrigin)
 		srv.router.ServeHTTP(w, req)
 		if w.Code != nethttp.StatusUnauthorized {
 			t.Errorf("%s: expected 401 without token, got %d", path, w.Code)
+		}
+		// The browser must be able to read the 401 on cross-origin media
+		// requests: CORS headers must reach the auth rejection (the CORS
+		// middleware runs before auth).
+		if w.Header().Get("Access-Control-Allow-Origin") == "" {
+			t.Errorf("%s: 401 carries no Access-Control-Allow-Origin", path)
 		}
 
 		w = httptest.NewRecorder()
@@ -389,13 +399,14 @@ func TestProtectedMediaStaysOutOfSharedCaches(t *testing.T) {
 }
 
 // TestOpenModeKeepsQuestMediaAccessible: with authentication disabled,
-// quest media and the API serve without a token.
+// quest media and the API serve without a token. The private cache scope
+// and rejection behavior hold in every configuration mode.
 func TestOpenModeKeepsQuestMediaAccessible(t *testing.T) {
 	t.Chdir("../..")
 	createProbePack(t)
 
 	cfg := &config.Config{
-		AllowedOrigin: "https://adventure.example.com",
+		AllowedOrigin: testOrigin,
 		Auth:          config.AuthConfig{Enabled: false},
 	}
 	srv, err := New(cfg, NewHandler(quest.NewQuestRepository(), quest.NewVerifier()))
@@ -406,16 +417,43 @@ func TestOpenModeKeepsQuestMediaAccessible(t *testing.T) {
 		t.Fatalf("SetupRoutes: %v", err)
 	}
 
-	for _, path := range []string{
-		"/quests/" + probePackName + "/assets/picture.png",
-		"/quests/" + probePackName + "/theme.css",
-		"/api/packs",
-	} {
+	public := []struct {
+		path string
+		want int
+	}{
+		{"/quests/" + probePackName + "/assets/picture.png", nethttp.StatusOK},
+		{"/quests/" + probePackName + "/theme.css", nethttp.StatusOK},
+		{"/api/packs", nethttp.StatusOK},
+	}
+	for _, tc := range public {
 		w := httptest.NewRecorder()
-		req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, path, nil)
+		req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, tc.path, nil)
 		srv.router.ServeHTTP(w, req)
-		if w.Code != nethttp.StatusOK {
-			t.Errorf("%s: expected 200 in open mode, got %d", path, w.Code)
+		if w.Code != tc.want {
+			t.Errorf("%s: expected %d in open mode, got %d", tc.path, tc.want, w.Code)
+			continue
+		}
+		if cc := w.Header().Get("Cache-Control"); !strings.Contains(cc, "private") {
+			t.Errorf("%s: expected a private Cache-Control, got %q", tc.path, cc)
+		}
+	}
+
+	rejections := []struct {
+		path string
+		want int
+	}{
+		{"/quests/" + probePackName + "/forbidden.ext", nethttp.StatusForbidden},
+		{"/quests/" + probePackName + "/assets/missing.png", nethttp.StatusNotFound},
+	}
+	for _, tc := range rejections {
+		w := httptest.NewRecorder()
+		req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, tc.path, nil)
+		srv.router.ServeHTTP(w, req)
+		if w.Code != tc.want {
+			t.Errorf("%s: expected %d, got %d", tc.path, tc.want, w.Code)
+		}
+		if cc := w.Header().Get("Cache-Control"); cc != "" {
+			t.Errorf("%s: rejection must carry no Cache-Control, got %q", tc.path, cc)
 		}
 	}
 }

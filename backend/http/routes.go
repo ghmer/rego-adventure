@@ -83,13 +83,19 @@ func inlineImportMapScriptHash(indexFile string) (string, error) {
 // publicRoutePaths lists allowlisted route paths served without a bearer
 // token even when authentication is enabled. They are pre-login
 // infrastructure (SPA bootstrap config, container health checks, the OIDC
-// redirect landing) or styling loaded by the public SPA shell; none of
-// them carries game data. Every registered route outside this list
-// requires a valid bearer token (see servePublicly).
+// redirect landing); none of them carries game data. Every registered
+// route outside this list and publicRoutePrefixes requires a valid
+// bearer token (see servePublicly).
 var publicRoutePaths = []string{
 	"/config",
 	"/health",
 	"/callback",
+}
+
+// publicRoutePrefixes lists allowlisted route path prefixes served
+// without a bearer token even when authentication is enabled: styling
+// loaded by the public SPA shell.
+var publicRoutePrefixes = []string{
 	"/shared/css/",
 }
 
@@ -97,7 +103,8 @@ var publicRoutePaths = []string{
 // It returns true for requests that matched no registered route at all
 // (empty FullPath): those are handled by the NoRoute SPA fallback, which
 // serves the public shell, its bundled assets, and client-side deep links.
-// Matched requests are public only when their route path is allowlisted.
+// Matched requests are public only when their route path is allowlisted
+// exactly or by prefix.
 func servePublicly(c *gin.Context) bool {
 	fullPath := c.FullPath()
 	if fullPath == "" {
@@ -106,7 +113,9 @@ func servePublicly(c *gin.Context) bool {
 	if slices.Contains(publicRoutePaths, fullPath) {
 		return true
 	}
-	return strings.HasPrefix(fullPath, "/shared/css/")
+	return slices.ContainsFunc(publicRoutePrefixes, func(prefix string) bool {
+		return strings.HasPrefix(fullPath, prefix)
+	})
 }
 
 // SetupRoutes configures all routes and middleware.
@@ -207,8 +216,7 @@ func (s *Server) serveQuestAssets(c *gin.Context) {
 
 	// Pack media is token-protected under auth; keep it out of shared
 	// caches in every mode.
-	c.Header("Cache-Control", mediaCacheControl)
-	s.serveSafeFile(c, baseDir, requestedPath, validate, "")
+	s.serveSafeFile(c, baseDir, requestedPath, validate, "", mediaCacheControl)
 }
 
 // serveQuestCSS handles serving quest CSS files (theme.css, custom.css, styles.css)
@@ -228,8 +236,7 @@ func (s *Server) serveQuestCSS(c *gin.Context) {
 
 	// Pack stylesheets are token-protected under auth; keep them out of
 	// shared caches in every mode.
-	c.Header("Cache-Control", mediaCacheControl)
-	s.serveSafeFile(c, baseDir, filename, validate, "text/css; charset=utf-8")
+	s.serveSafeFile(c, baseDir, filename, validate, "text/css; charset=utf-8", mediaCacheControl)
 }
 
 // serveSharedCSS handles serving shared CSS files from frontend/shared/css/
@@ -237,8 +244,7 @@ func (s *Server) serveSharedCSS(c *gin.Context) {
 	requestedPath := c.Param("filepath")
 	baseDir := paths.SharedCSSDir
 	validate := validateCSSAsset
-
-	s.serveSafeFile(c, baseDir, requestedPath, validate, "text/css; charset=utf-8")
+	s.serveSafeFile(c, baseDir, requestedPath, validate, "text/css; charset=utf-8", "")
 }
 
 // resolveContained joins requestedPath under baseDir and verifies the
@@ -282,13 +288,17 @@ func resolveContained(baseDir, requested string) (string, bool) {
 	return absPath, true
 }
 
-// serveSafeFile is a helper to serve files safely with path traversal protection and validation
+// serveSafeFile is a helper to serve files safely with path traversal
+// protection and validation. contentType and cacheControl are applied
+// only on the serving path, so rejection responses (403/404) carry no
+// cache directives and stay unstorable; empty values disable a header.
 func (s *Server) serveSafeFile(
 	c *gin.Context,
 	baseDir string,
 	requestedPath string,
 	validate func(string) bool,
-	contentType string) {
+	contentType string,
+	cacheControl string) {
 	// Check for path traversal attempts
 	if containsPathTraversal(requestedPath) {
 		slog.Warn("security: path traversal attempt blocked", "path", requestedPath)
@@ -331,9 +341,13 @@ func (s *Server) serveSafeFile(
 		c.Header("Content-Security-Policy", "default-src 'none'; sandbox; form-action 'none'")
 	}
 
-	// Set Content-Type if provided
+	// Content-Type and cache scope apply to successful responses only;
+	// the rejection paths above answer without cache directives.
 	if contentType != "" {
 		c.Header("Content-Type", contentType)
+	}
+	if cacheControl != "" {
+		c.Header("Cache-Control", cacheControl)
 	}
 
 	// Serve the file
