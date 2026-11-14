@@ -1,8 +1,8 @@
 // Package main generates import maps for frontend dependencies.
 //
 // In addition to rewriting the <script type="importmap"> block from the
-// package.json devDependencies, it keeps cdnjs stylesheet links in sync:
-// for every devDependency whose name matches the cdnjs library slug of a
+// package.json dependencies, it keeps cdnjs stylesheet links in sync:
+// for every dependency whose name matches the cdnjs library slug of a
 // <link> in the document (e.g. "driver.js"), the link's version segment
 // is rewritten to the package.json version. This keeps the imported ES
 // module and its stylesheet aligned without manual edits.
@@ -18,12 +18,12 @@ import (
 )
 
 type PackageJSON struct {
-	DevDependencies map[string]string `json:"devDependencies"`
-	Importmap       ImportmapConfig   `json:"importmap"`
+	Dependencies map[string]string `json:"dependencies"`
+	Importmap    ImportmapConfig   `json:"importmap"`
 }
 
 // ImportmapConfig carries optional import-map hints that cannot be derived
-// from the devDependency list alone. Subpaths maps a devDependency name to
+// from the dependency list alone. Subpaths maps a dependency name to
 // its package subpath modules (without the package name); each entry is
 // emitted as an extra import-map key "<lib>/<subpath>" resolved to
 // "https://esm.sh/<lib>@<version>/<subpath>".
@@ -61,7 +61,7 @@ func cleanVersion(ver string) (string, error) {
 var pkgPath string
 var indexPath string
 
-// buildImportMap renders the import map JSON block from the devDependencies
+// buildImportMap renders the import map JSON block from the dependencies
 // and the optional subpath manifest.
 func buildImportMap(deps map[string]string, subpaths map[string][]string) ([]byte, error) {
 	imports := make(map[string]string)
@@ -89,7 +89,7 @@ func buildImportMap(deps map[string]string, subpaths map[string][]string) ([]byt
 	// the generated key would resolve to a dependency nobody audits
 	for lib := range subpaths {
 		if _, ok := deps[lib]; !ok {
-			return nil, fmt.Errorf("subpaths declared for %q, which is not a devDependency", lib)
+			return nil, fmt.Errorf("subpaths declared for %q, which is not a dependency", lib)
 		}
 	}
 
@@ -97,7 +97,7 @@ func buildImportMap(deps map[string]string, subpaths map[string][]string) ([]byt
 }
 
 // syncCdnJsVersions rewrites the version segment of cdnjs URLs whose
-// library slug matches a devDependency, so stylesheet links track the
+// library slug matches a dependency, so stylesheet links track the
 // versions imported through the import map.
 func syncCdnJsVersions(indexContent []byte, deps map[string]string) []byte {
 	return cdnjsLinkRe.ReplaceAllFunc(indexContent, func(match []byte) []byte {
@@ -145,7 +145,7 @@ func syncCdnJsVersions(indexContent []byte, deps map[string]string) []byte {
 // updateIndexHTML applies the import map and cdnjs version sync to the
 // document. It fails when no import map block is present.
 func updateIndexHTML(indexContent []byte, pkg PackageJSON) ([]byte, error) {
-	mapContent, err := buildImportMap(pkg.DevDependencies, pkg.Importmap.Subpaths)
+	mapContent, err := buildImportMap(pkg.Dependencies, pkg.Importmap.Subpaths)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling import map: %w", err)
 	}
@@ -159,7 +159,7 @@ func updateIndexHTML(indexContent []byte, pkg PackageJSON) ([]byte, error) {
 	}
 
 	newIndexContent := importMapRe.ReplaceAll(indexContent, []byte(newScriptTag))
-	return syncCdnJsVersions(newIndexContent, pkg.DevDependencies), nil
+	return syncCdnJsVersions(newIndexContent, pkg.Dependencies), nil
 }
 
 func main() {
@@ -177,6 +177,14 @@ func main() {
 	var pkg PackageJSON
 	if err := json.Unmarshal(pkgContent, &pkg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", pkgPath, err)
+		os.Exit(1)
+	}
+
+	// Fail fast on an empty shipped surface: zero dependencies would
+	// silently emit an empty import map and strip every synced cdnjs
+	// version from index.html instead of surfacing the broken manifest.
+	if len(pkg.Dependencies) == 0 {
+		fmt.Fprintf(os.Stderr, "%s has no \"dependencies\": cannot generate the import map\n", pkgPath)
 		os.Exit(1)
 	}
 

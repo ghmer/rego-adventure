@@ -10,13 +10,21 @@
     "outdated": "npm outdated",
     "test": "vitest run"
   },
-  "devDependencies": {
+  "dependencies": {
+    "canvas-confetti": "1.9.4",
     "dompurify": "3.4.17",
     "driver.js": "1.14.0",
     "marked": "18.2.0",
-    "canvas-confetti": "1.9.4",
     "oidc-client-ts": "3.5.0",
     "yace": "1.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.15.0",
+    "globals": "17.12.0",
+    "happy-dom": "21.0.4",
+    "playwright": "1.65.1",
+    "vitest": "5.0.5"
   },
   "repository": {
     "type": "git",
@@ -33,15 +41,19 @@
   "license": "Apache-2.0",
   "importmap": {
     "subpaths": {
-      "yace": ["plugins/tab", "plugins/preserveIndent", "plugins/autoClose"]
+      "yace": [
+        "plugins/tab",
+        "plugins/preserveIndent",
+        "plugins/autoClose"
+      ]
     }
   },
   "comments": {
-    "purpose": "This package.json tracks CDN dependencies for security scanning only.",
+    "purpose": "This package.json carries the frontend's two dependency surfaces: \"dependencies\" are the browser libraries the game loads via CDN, \"devDependencies\" are the Node toolchains for tests, lint and QA.",
     "deployment": "Dependencies are loaded via CDN using Import Maps (see index.html/importmap.json).",
-    "security": "Run 'npm audit' to check for vulnerabilities in tracked dependencies.",
+    "security": "Run 'npm audit --omit=dev' to audit the shipped browser libraries (the CI merge gate); 'npm audit --omit=prod' reports advisories for the CI toolchain without gating.",
     "updates": "Use 'npm outdated' to check for available updates, then update versions in package.json and regenerate the import map in index.html with cmd/importmapgen (do not edit the import map by hand).",
-    "importmap": "The optional 'importmap.subpaths' field declares package subpath modules per devDependency; importmapgen emits an extra '<lib>/<subpath>' entry for each. Declare subpaths here when a new import path is used in frontend code.",
-    "testing": "Run 'npm test' with the pinned vitest toolchain installed ephemeral like in CI: npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3"
+    "importmap": "The import map is generated from \"dependencies\" only. The optional 'importmap.subpaths' field declares package subpath modules per dependency; importmapgen emits an extra '<lib>/<subpath>' entry for each. Declare subpaths here when a new import path is used in frontend code.",
+    "testing": "Run 'npm test' after 'npm ci' in this directory: the toolchains are devDependencies pinned by the committed lockfile, the same install every frontend CI job starts from."
   }
 }

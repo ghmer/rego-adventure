@@ -35,5 +35,16 @@ jobs:
       - name: Install dependencies
         run: cd frontend/adventure && npm ci --ignore-scripts
       
-      - name: Run security audit
+      # The merge gate audits the shipped surface only: "dependencies"
+      # are the browser libraries a visitor's browser actually loads.
+      # devDependencies carry the CI toolchain, whose advisories never
+      # reach the browser and must not block shipped-surface fixes.
+      - name: Audit the shipped dependency surface
+        run: cd frontend/adventure && npm audit --omit=dev
+
+      # Toolchain advisories are reported, not gated: CI executes these
+      # tools against trusted code only. Red here is a maintenance signal;
+      # dependabot files the bumps in the toolchain group's own PRs.
+      - name: Report toolchain advisories
         run: cd frontend/adventure && npm audit
+        continue-on-error: true

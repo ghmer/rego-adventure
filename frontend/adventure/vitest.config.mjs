@@ -20,9 +20,8 @@
  * Tests live next to the code they cover as `<name>.test.js`. The
  * happy-dom environment provides the localStorage and DOM APIs the
  * services use, including the animation frames the tour's focus hand-off
- * defers its work to. The vitest toolchain itself is not a committed
- * dependency; it is installed pinned and ephemeral (see CI and the
- * package.json comments).
+ * defers its work to. The vitest toolchain itself is a declared
+ * devDependency, pinned by the committed lockfile (npm ci).
  */
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
