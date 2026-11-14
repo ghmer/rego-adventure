@@ -298,14 +298,30 @@ describe('ui-manager', () => {
          */
         function createPackListUi() {
             document.body.innerHTML = `
-                <template id="quest-pack-card-template">
-                    <div class="quest-pack-card">
-                        <h3 class="pack-title"></h3>
-                        <p class="pack-description"></p>
+                <template id="quest-pack-tile-template">
+                    <button type="button" class="quest-pack-tile" aria-expanded="false">
+                        <span class="pack-title"></span>
                         <span class="genre-badge hidden"></span>
+                        <span class="tile-chevron" aria-hidden="true"></span>
+                    </button>
+                </template>
+                <template id="quest-pack-detail-template">
+                    <div class="quest-pack-detail" role="region">
+                        <div class="detail-inner">
+                            <div class="detail-meta">
+                                <h3 class="detail-title"></h3>
+                                <span class="genre-badge hidden"></span>
+                                <span class="detail-meta-item quest-count hidden"></span>
+                            </div>
+                            <p class="pack-description"></p>
+                            <div class="detail-cta-cell">
+                                <button type="button" class="action-btn primary start-pack-btn">Begin Adventure</button>
+                                <span class="resume-hint hidden"></span>
+                            </div>
+                        </div>
                     </div>
                 </template>
-                <div id="quest-pack-list"></div>
+                <div id="quest-pack-list" class="quest-pack-list"></div>
             `;
             return new UIManager({ textarea: document.createElement('textarea') });
         }
@@ -316,22 +332,134 @@ describe('ui-manager', () => {
             ui.renderPackList([], vi.fn());
 
             const list = ui.elements.questPackList;
-            expect(list.querySelector('.quest-pack-card'), 'no cards').toBe(null);
+            expect(list.querySelector('.quest-pack-tile'), 'no tiles').toBe(null);
             expect(list.textContent).toContain('No adventure packs are loaded');
         });
 
-        it('renders the cards, and no notice, when packs exist', () => {
+        it('renders one tile per pack, exposing title and genre only', () => {
             const ui = createPackListUi();
-            const onPackClick = vi.fn();
 
-            ui.renderPackList([{ id: 'alpha', title: 'Alpha', description: 'first', genre: 'tech' }], onPackClick);
+            ui.renderPackList([
+                { id: 'alpha', title: 'Alpha', description: 'first', genre: 'tech' },
+                { id: 'beta', title: 'Beta', description: 'second' },
+            ], vi.fn());
 
             const list = ui.elements.questPackList;
-            expect(list.querySelectorAll('.quest-pack-card').length).toBe(1);
+            const tiles = list.querySelectorAll('.quest-pack-tile');
+            expect(tiles.length).toBe(2);
             expect(list.textContent).not.toContain('No adventure packs are loaded');
 
-            list.querySelector('.quest-pack-card').click();
-            expect(onPackClick).toHaveBeenCalledWith('alpha');
+            const alpha = tiles[0];
+            expect(alpha.querySelector('.pack-title').textContent).toBe('Alpha');
+            expect(alpha.querySelector('.genre-badge').textContent).toBe('tech');
+            expect(alpha.getAttribute('aria-expanded')).toBe('false');
+
+            // A description only ever lives in the detail panel, never on
+            // the always-visible tile surface.
+            expect(alpha.textContent).not.toContain('first');
+        });
+
+        it('opens the detail panel below the tile\'s row and closes it on a second click', async () => {
+            vi.useFakeTimers();
+            try {
+                const ui = createPackListUi();
+                const onPackClick = vi.fn();
+
+                // Six tiles, three columns per breakpoint default: the
+                // first tile's row ends with the third tile, so the panel
+                // must be inserted as the fourth grid item.
+                ui.renderPackList(Array.from({ length: 6 }, (_, i) => ({
+                    id: `p${i}`, title: `Pack ${i}`, description: `Story ${i}`,
+                })), onPackClick);
+
+                const list = ui.elements.questPackList;
+                const tiles = list.querySelectorAll('.quest-pack-tile');
+                tiles[0].click();
+
+                const panel = list.querySelector('.quest-pack-detail');
+                expect(panel, 'panel opened').not.toBe(null);
+                expect(tiles[2].nextSibling, 'panel below the first row').toBe(panel);
+                expect(tiles[0].getAttribute('aria-expanded')).toBe('true');
+                expect(panel.classList.contains('open')).toBe(true);
+                expect(panel.querySelector('.pack-description').textContent).toBe('Story 0');
+
+                // The panel's CTA enters the pack, not the tile
+                expect(onPackClick).not.toHaveBeenCalled();
+                panel.querySelector('.start-pack-btn').click();
+                expect(onPackClick).toHaveBeenCalledWith('p0');
+
+                // A second click on the open tile closes its panel
+                tiles[0].click();
+                expect(tiles[0].getAttribute('aria-expanded')).toBe('false');
+                vi.advanceTimersByTime(500);
+                expect(list.querySelectorAll('.quest-pack-detail').length).toBe(0);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('keeps one panel open: opening another pack closes the previous panel', () => {
+            vi.useFakeTimers();
+            try {
+                const ui = createPackListUi();
+                ui.renderPackList([
+                    { id: 'alpha', title: 'Alpha', description: 'first' },
+                    { id: 'beta', title: 'Beta', description: 'second' },
+                ], vi.fn());
+
+                const list = ui.elements.questPackList;
+                const tiles = list.querySelectorAll('.quest-pack-tile');
+                tiles[0].click();
+                tiles[1].click();
+
+                vi.advanceTimersByTime(500);
+                const panels = list.querySelectorAll('.quest-pack-detail');
+                expect(panels.length).toBe(1);
+                expect(panels[0].querySelector('.pack-description').textContent).toBe('second');
+                expect(tiles[0].getAttribute('aria-expanded')).toBe('false');
+                expect(tiles[1].getAttribute('aria-expanded')).toBe('true');
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('shows the quest count in the panel when the server knows one', () => {
+            const ui = createPackListUi();
+            ui.renderPackList([
+                { id: 'alpha', title: 'Alpha', description: 'first', quest_count: 12 },
+                { id: 'beta', title: 'Beta', description: 'second' },
+            ], vi.fn());
+
+            const tiles = ui.elements.questPackList.querySelectorAll('.quest-pack-tile');
+            tiles[0].click();
+            let panel = ui.elements.questPackList.querySelector('.quest-pack-detail');
+            expect(panel.querySelector('.quest-count').textContent).toBe('12 quests');
+
+            tiles[1].click();
+            panel = ui.elements.questPackList.querySelector('.quest-pack-detail');
+            expect(panel.querySelector('.quest-count').getAttribute('class')).toContain('hidden');
+        });
+
+        it('closes the open panel on Escape and returns focus to the tile', () => {
+            vi.useFakeTimers();
+            try {
+                const ui = createPackListUi();
+                ui.renderPackList([
+                    { id: 'alpha', title: 'Alpha', description: 'first' },
+                ], vi.fn());
+
+                const tile = ui.elements.questPackList.querySelector('.quest-pack-tile');
+                tile.click();
+                expect(ui.elements.questPackList.querySelector('.quest-pack-detail')).not.toBe(null);
+
+                tile.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+                expect(tile.getAttribute('aria-expanded')).toBe('false');
+                vi.advanceTimersByTime(500);
+                expect(ui.elements.questPackList.querySelector('.quest-pack-detail')).toBe(null);
+                expect(document.activeElement).toBe(tile);
+            } finally {
+                vi.useRealTimers();
+            }
         });
     });
 

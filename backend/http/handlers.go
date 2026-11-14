@@ -116,6 +116,10 @@ func (h *Handler) GetPacks(c *gin.Context) {
 			"title":       p.Meta.Title,
 			"description": p.Meta.Description,
 			"genre":       p.Meta.Genre,
+			// Quest count for the pack selection UI: lets the detail
+			// view state the size of an adventure before it is started
+			// without fetching the full pack client-side.
+			"quest_count": len(p.Quests),
 		})
 	}
 	c.Header("Cache-Control", apiCacheControl)

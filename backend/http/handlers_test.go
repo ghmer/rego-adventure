@@ -187,11 +187,18 @@ func TestGetPacks_WithPacks(t *testing.T) {
 	}
 
 	// Verify required fields are present in each item
-	for _, item := range result {
-		for _, field := range []string{"id", "title", "description", "genre"} {
+	for i, item := range result {
+		for _, field := range []string{"id", "title", "description", "genre", "quest_count"} {
 			if _, ok := item[field]; !ok {
 				t.Errorf("pack item missing field %q", field)
 			}
+		}
+		// The quest count must be a positive number and match the pack
+		// actually loaded under this ID: the pack selection UI shows it
+		// before the full pack is fetched.
+		count, ok := item["quest_count"].(float64)
+		if !ok || count < 1 {
+			t.Errorf("pack item %d has a non-positive quest_count %v", i, item["quest_count"])
 		}
 	}
 }

@@ -23,15 +23,17 @@
    START SCREEN COMPONENTS
    ============================================ */
 
+/* The start screen is a scrollable overlay: short content is centered
+   through the content's auto block margins, tall content scrolls from the
+   top. A fixed overlay without overflow would clip both ends of a long
+   pack list and leave half the selection unreachable. */
 .start-screen {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    overflow-y: auto;
     z-index: var(--z-overlay);
 }
 
@@ -44,13 +46,20 @@
     flex-direction: column;
     align-items: center;
     gap: 1rem;
+    /* Centers the column when it is short; resolves to 0 and lets the
+       overlay scroll when the pack list outgrows the viewport. */
+    margin-block: auto;
 }
 
+/* Pack selection grid. The column count and the fixed tile height are
+   landing tokens (frontend/adventure/styles/theme.css); here only the
+   mechanical parts are set. No grid-auto-rows stretching: every tile
+   owns exactly one row regardless of its neighbours, and the detail
+   panel (grid-column: 1 / -1) opens below the clicked tile's row. */
 .quest-pack-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    grid-auto-rows: 1fr;
-    gap: 1rem;
+    grid-template-columns: repeat(var(--pack-columns, 3), minmax(0, 1fr));
+    gap: var(--pack-grid-gap, 12px);
     width: 100%;
 }
 
@@ -61,54 +70,8 @@
     padding: 1rem 0;
 }
 
-.quest-pack-card {
-    background-color: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--accent-color);
-    border-radius: var(--radius-lg);
-    padding: 1rem;
-    cursor: pointer;
-    transition: transform var(--transition-normal), background-color var(--transition-normal), box-shadow var(--transition-normal);
-    text-align: left;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    display: flex;
-    flex-direction: column;
-}
-
-.quest-pack-card:hover {
-    transform: translateY(-2px);
-    background-color: rgba(0, 0, 0, 0.3);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
-}
-
-.quest-pack-card h3 {
-    font-family: var(--font-heading);
-    color: var(--accent-color);
-    margin-bottom: 0.4rem;
-    font-size: 1.3rem;
-}
-
-.quest-pack-card p {
-    font-size: 0.95rem;
-    color: var(--text-color);
-    margin-bottom: 0.6rem;
-}
-
-.genre-badge {
-    display: inline-block;
-    align-self: flex-start;
-    margin-top: auto;
-    padding: 0.35rem 0.9rem;
-    background: rgba(var(--accent-rgb), 0.1);
-    color: var(--accent-color);
-    font-size: 0.8rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    border-radius: 20px;
-    border: 1px solid var(--accent-color);
-    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
-    font-family: var(--font-heading);
-}
+/* Pack tile and detail panel styling lives in the landing scope,
+   frontend/adventure/styles/theme.css. */
 
 .main-title {
     font-family: var(--font-heading);
