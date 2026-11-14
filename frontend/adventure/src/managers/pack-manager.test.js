@@ -17,6 +17,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PackManager } from './pack-manager.js';
 import { GameState } from '../services/state-service.js';
+import { ConfigService } from '../services/config-service.js';
 import {
     getLocalStorage, setLocalStorage, getPackKey, getCorruptPackKey, STORAGE_KEYS
 } from '../services/storage-service.js';
@@ -88,7 +89,7 @@ function createUi() {
 function createFixture() {
     const state = new GameState();
     const ui = createUi();
-    const audio = { setupMusic: vi.fn(), stopMusic: vi.fn() };
+    const audio = { setupMusic: vi.fn(), stopMusic: vi.fn(), invalidateTrack: vi.fn() };
     const quest = { clearCaches: vi.fn() };
     const modal = { clearCaches: vi.fn() };
     return {
@@ -102,11 +103,34 @@ function createFixture() {
 }
 
 /**
- * Theme links currently in the document head.
- * @returns {Array<string>} Their hrefs
+ * Quest theme style elements currently in the document head.
+ * @returns {Array<HTMLStyleElement>} data-quest-theme tagged elements
  */
-function themeLinks() {
-    return Array.from(document.querySelectorAll('[data-quest-theme]')).map(link => link.getAttribute('href'));
+function themeElements() {
+    return Array.from(document.querySelectorAll('[data-quest-theme]'));
+}
+
+/**
+ * Applied quest theme variants in the document head.
+ * @returns {Array<string>} data-quest-theme values
+ */
+function themeVariants() {
+    return themeElements().map(element => element.getAttribute('data-quest-theme'));
+}
+
+/**
+ * Stub the global fetch for pack requests: stylesheets answer CSS text,
+ * custom.css answers 404. Alpha URLs are marked in the body, so tests can
+ * tell which pack a stylesheet came from.
+ */
+function stubPackStylesheets() {
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+        if (typeof url === 'string' && url.endsWith('custom.css')) {
+            return new Response('not found', { status: 404 });
+        }
+        const body = typeof url === 'string' && url.includes('alpha') ? 'alpha{}' : 'beta{}';
+        return new Response(body, { status: 200 });
+    }));
 }
 
 describe('PackManager', () => {
@@ -121,9 +145,72 @@ describe('PackManager', () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
         document.querySelectorAll('[data-quest-theme]').forEach(link => link.remove());
         document.querySelectorAll('.npc-avatar, .avatar').forEach(el => el.remove());
         document.body.style.backgroundImage = '';
+    });
+
+    describe('authenticated pack media', () => {
+        /** Point a pair of avatar elements at the fixture DOM. */
+        function mountAvatars() {
+            const npc = document.createElement('img');
+            npc.className = 'npc-avatar';
+            const hero = document.createElement('img');
+            hero.className = 'avatar';
+            document.body.append(npc, hero);
+            return { npc, hero };
+        }
+
+        /**
+         * Enable authentication in ConfigService, which AuthService reads,
+         * and stub global fetch plus blob URL creation.
+         */
+        function enableAuth(fetchMock) {
+            vi.stubGlobal('fetch', fetchMock);
+            ConfigService.config = { enabled: true };
+            const createObjectURL = vi.fn(() => 'blob:test-1');
+            const original = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+            Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
+            return () => {
+                if (original) Object.defineProperty(URL, 'createObjectURL', original);
+            };
+        }
+
+        afterEach(() => {
+            ConfigService.config = null;
+        });
+
+        it('paints pack media from blob URLs when authentication is enabled', async () => {
+            const fetchMock = vi.fn(async () => new Response('png-bytes', { status: 200 }));
+            const restore = enableAuth(fetchMock);
+            const { pack } = createFixture();
+            mountAvatars();
+            pack.preloadImage = vi.fn(async src => src);
+
+            await pack.loadPackAssets('alpha', pack.loadSeq);
+
+            expect(fetchMock).toHaveBeenCalledWith('/quests/alpha/assets/npc-questgiver.png',
+                expect.objectContaining({ headers: {} }));
+            expect(document.querySelector('.npc-avatar').getAttribute('src')).toBe('blob:test-1');
+            expect(document.querySelector('.avatar').getAttribute('src')).toBe('blob:test-1');
+            expect(document.body.style.backgroundImage).toContain('blob:test-1');
+            restore();
+        });
+
+        it('keeps the plain path when resolution fails, letting the element error handling decide', async () => {
+            const fetchMock = vi.fn(async () => new Response('denied', { status: 401 }));
+            const restore = enableAuth(fetchMock);
+            const { pack } = createFixture();
+            const { npc } = mountAvatars();
+            pack.preloadImage = vi.fn(async src => src);
+
+            await pack.loadPackAssets('alpha', pack.loadSeq);
+
+            expect(fetchMock).toHaveBeenCalledTimes(3);
+            expect(npc.getAttribute('src')).toBe('/quests/alpha/assets/npc-questgiver.png');
+            restore();
+        });
     });
 
     describe('caches of one pack visit', () => {
@@ -187,11 +274,13 @@ describe('PackManager', () => {
                 .toHaveBeenCalledWith(expect.stringContaining('alpha'), ErrorLevel.WARNING);
         });
 
-        it('applies data, labels, titles, theme links and music', async () => {
+        it('applies data, labels, titles, theme styles and music', async () => {
+            stubPackStylesheets();
             apiMock.fetchPackDetails.mockResolvedValue(packData('alpha'));
             const { state, ui, audio, pack } = createFixture();
 
             const entered = await pack.startAdventure('alpha');
+            await vi.advanceTimersByTimeAsync(0);
 
             expect(entered).toBe(true);
             expect(apiMock.fetchPackDetails).toHaveBeenCalledWith('alpha');
@@ -201,9 +290,8 @@ describe('PackManager', () => {
             expect(ui.elements.verifyBtnLabel.textContent).toBe('alpha verify');
             expect(ui.updateHintButtonText).toHaveBeenCalledWith(null, 0, 'alpha hint');
             expect(ui.updateTitles).toHaveBeenCalledWith('alpha title');
-            expect(themeLinks()).toContain('/quests/alpha/theme.css');
-            expect(themeLinks().every(href => href.startsWith('/quests/alpha/'))).toBe(true);
-            expect(audio.setupMusic).toHaveBeenCalledWith('alpha');
+            expect(themeVariants()).toEqual(['theme']);
+            expect(audio.setupMusic).toHaveBeenCalledWith('alpha', expect.any(Number));
             expect(ui.showScreen).toHaveBeenCalledWith('game');
         });
 
@@ -226,31 +314,28 @@ describe('PackManager', () => {
     });
 
     describe('theming', () => {
-        it('drops the optional custom.css link when that file is missing', () => {
+        it('applies theme.css and skips the optional custom.css when it is missing', async () => {
+            stubPackStylesheets();
             const { pack } = createFixture();
 
-            pack.loadPackTheme('alpha');
-
-            const themeLink = document.querySelector('[data-quest-theme="theme"]');
-            const customLink = document.querySelector('[data-quest-theme="custom"]');
-            expect(themeLink.getAttribute('href')).toBe('/quests/alpha/theme.css');
-            expect(customLink.getAttribute('href')).toBe('/quests/alpha/custom.css');
-
-            customLink.dispatchEvent(new Event('error'));
+            await pack.loadPackTheme('alpha', pack.loadSeq);
 
             // "pack themed" can mean theme.css alone: the optional stylesheet
-            // removes itself and nothing else changes
-            expect(document.contains(customLink)).toBe(false);
-            expect(document.contains(themeLink)).toBe(true);
+            // applies nothing when it is absent, and nothing else changes
+            expect(themeVariants()).toEqual(['theme']);
+            expect(themeElements()[0].textContent).toBe('alpha{}');
         });
 
-        it('replaces the previous pack theme wholesale', () => {
+        it('replaces the previous pack theme wholesale', async () => {
+            vi.stubGlobal('fetch', vi.fn(async url =>
+                new Response(url.includes('alpha') ? 'alpha{}' : 'beta{}', { status: 200 })));
             const { pack } = createFixture();
 
-            pack.loadPackTheme('alpha');
-            pack.loadPackTheme('beta');
+            await pack.loadPackTheme('alpha', pack.loadSeq);
+            await pack.loadPackTheme('beta', pack.loadSeq);
 
-            expect(themeLinks()).toEqual(['/quests/beta/theme.css', '/quests/beta/custom.css']);
+            expect(themeVariants()).toEqual(['theme', 'custom']);
+            expect(themeElements().map(element => element.textContent)).toEqual(['beta{}', 'beta{}']);
         });
     });
 
@@ -264,6 +349,7 @@ describe('PackManager', () => {
                 return Promise.resolve(packData('beta'));
             });
             const { state, ui, pack } = createFixture();
+            stubPackStylesheets();
 
             const alpha = pack.loadPack('alpha');
             const beta = pack.loadPack('beta');
@@ -273,8 +359,9 @@ describe('PackManager', () => {
 
             expect(applied).toBe(false);
             expect(state.quests.map(q => q.title)).toEqual(['beta quest 1', 'beta quest 2']);
-            expect(themeLinks()).toContain('/quests/beta/theme.css');
-            expect(themeLinks().some(href => href.includes('alpha'))).toBe(false);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(themeVariants()).toEqual(['theme']);
+            expect(themeElements().some(element => element.textContent.includes('alpha'))).toBe(false);
             expect(ui.updateTitles).toHaveBeenCalledWith('beta title');
             expect(ui.updateTitles).not.toHaveBeenCalledWith('alpha title');
         });
@@ -290,7 +377,8 @@ describe('PackManager', () => {
 
             expect(await alpha).toBe(false);
             expect(state.quests).toEqual([]);
-            expect(themeLinks()).toEqual([]);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(themeVariants()).toEqual([]);
         });
 
         it('does not take the game screen into when its entry was superseded', async () => {
@@ -331,7 +419,7 @@ describe('PackManager', () => {
             expect(npc.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
             expect(hero.getAttribute('src')).toBe('/public/assets/hero-avatar.png');
             expect(document.body.style.backgroundImage).toBe('');
-            expect(themeLinks()).toEqual([]);
+            expect(themeVariants()).toEqual([]);
 
             await pack.loadPackAssets('alpha', pack.loadSeq);
 

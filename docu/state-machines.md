@@ -501,23 +501,23 @@ stateDiagram-v2
     note right of ThemeLoading
         the token is compared as soon as the
         pack details settle, before any write:
-        data, labels, titles, theme links,
+        data, labels, titles, theme styles,
         background, avatars and music; a
-        custom.css onerror removes its own
-        link, so "pack themed" can mean
+        missing custom.css applies nothing,
+        so "pack themed" can mean
         theme.css only
     end note
 ```
 
-Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:243`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:59`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:64`), before any write it governs. Those writes are quest data, labels, titles, theme `<link>` nodes, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:187`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
+Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:287`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:62`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:65`), before any write it governs. Those writes are quest data, labels, titles, theme `<style>` elements, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:229`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
 
-A `custom.css` failure is an implicit "theme without effects" sub-state: silent, and no flag records it (M#34).
+Theme stylesheets are fetched and applied as inline style elements in both authentication modes: element-external requests cannot carry a bearer token, so `loadPackTheme` (`pack-manager.js:114`) resolves the sheet text through the asset service. A failed or missing stylesheet applies nothing, which is why a `custom.css` absence stays a silent "theme without effects" sub-state and no flag records it (M#34).
 
 When `loadPack` fails, `rollbackPackEntry` clears the pack pointer and every pack-scoped in-memory field without writing anything, so no pack pointer survives an entry that did not load (M#27).
 
 ### M#14 · Dialogs
 
-**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:83`) / `closeDialog` (`modal-manager.js:93`) · **Persisted:** no
+**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:84`) / `closeDialog` (`modal-manager.js:94`) · **Persisted:** no
 
 Seven `<dialog>` elements, each with its own micro-machine, and one open mode.
 
@@ -544,9 +544,9 @@ stateDiagram-v2
     Blocked --> Closed : explicit confirm or cancel
 ```
 
-`openDialog` (`modal-manager.js:83`) and `closeDialog` (`modal-manager.js:93`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:32-52`) and matches the table above.
+`openDialog` (`modal-manager.js:84`) and `closeDialog` (`modal-manager.js:94`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:32-53`) and matches the table above.
 
-Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:125-135`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:138-142`): leaving it takes an explicit click.
+Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:128-134`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:139-143`): leaving it takes an explicit click.
 
 An eighth dialog sits outside the table. The tutorial prompt is created dynamically and follows the same explicit policy: ESC is prevented and forwarded to Decline (`tutorial.js:104-108`; see M#23).
 
@@ -554,7 +554,7 @@ Focus targets differ per dialog and encode an intent: cancel for the destructive
 
 ### M#15 · Result modal
 
-**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:258`); the caller passes points in · **Persisted:** no
+**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:278`); the caller passes points in · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -636,7 +636,7 @@ Three controls, one machine: `lorePrevBtn.disabled`, `loreNextBtn.disabled` and 
 
 ### M#19 · Background music
 
-**Carrier:** one value, `MusicState` (`audio-manager.js:43`); `pauseTimer` is an implementation detail of the two fading states · **Owner:** `transitionTo` (`audio-manager.js:339`), the only writer after construction; `renderMusicButton` (`audio-manager.js:348`) renders from that value and from nothing else · **Persisted:** no
+**Carrier:** one value, `MusicState` (`audio-manager.js:44`); `pauseTimer` is an implementation detail of the two fading states · **Owner:** `transitionTo` (`audio-manager.js:371`), the only writer after construction; `renderMusicButton` (`audio-manager.js:380`) renders from that value and from nothing else · **Persisted:** no
 
 The track plays once per toggle.
 
@@ -660,20 +660,20 @@ stateDiagram-v2
     FadingOut --> Silent : ramp reached 0 and the element pauses; only stopMusic rewinds it
     Playing --> Silent : ended event, rewound and the control returns to off
     Playing --> FadingOut : stopMusic on pack exit, rewound at the end of the fade
-    Silent --> Unavailable : the track fails to load or to decode
+    Silent --> Unavailable : the track fails to resolve, load or decode
     Playing --> Unavailable : the track fails mid-play
     Unavailable --> Silent : a later pack's track loads cleanly
 ```
 
-`setupMusic` (`audio-manager.js:88`) points the element at the pack's `bg-music.m4a`, pauses it, rewinds and enters `silent`; it is the only edge that leaves `unavailable`. A track that then fails to load or decode raises `error` on the element and `handleTrackError` (`audio-manager.js:239`) enters `unavailable`, which disables the button rather than letting it claim a state it cannot deliver. The same handler answers a failure that arrives mid-play: a network failure during playback and a metadata-probe failure at pack entry are rendered identically, because both mean the pack has no playable track from that moment on.
+`setupMusic` (`audio-manager.js:99`) resolves the pack's `bg-music.m4a` for element use, points the element at it, pauses it, rewinds and enters `silent`; it is the only edge that leaves `unavailable`. The resolution is guarded by the load sequence token, and `resetToDefaultTheme` invalidates an in-flight setup (`audio-manager.js:135`), so a superseded pack entry cannot re-arm music after the player went home. A track that then fails to resolve, load or decode raises the failure path into `unavailable` via `handleTrackError` (`audio-manager.js:271`), which disables the button rather than letting it claim a state it cannot deliver. The same handler answers a failure that arrives mid-play: a network failure during playback and a metadata-probe failure at pack entry are rendered identically, because both mean the pack has no playable track from that moment on.
 
-`handleMusicEnded` (`audio-manager.js:223`) rewinds the element and returns to `silent`, so the control and the element agree about where the track stands. `fadeOut(rewind)` (`audio-manager.js:297`) pauses only after the ramp reaches 0, and `stopMusic` (`audio-manager.js:321`) is the rewinding form used when a pack is left.
+`handleMusicEnded` (`audio-manager.js:255`) rewinds the element and returns to `silent`, so the control and the element agree about where the track stands. `fadeOut(rewind)` (`audio-manager.js:329`) pauses only after the ramp reaches 0, and `stopMusic` (`audio-manager.js:353`) is the rewinding form used when a pack is left.
 
 A generated pack ships a valid, silent placeholder track (M#38), so its music control is enabled and reaches `playing`. A 0-byte file is what puts the machine in `unavailable`, the one branch that disables the button.
 
 ### M#20 · Web Audio graph lifecycle
 
-**Carrier:** `audioCtx`, `gainNode`, `audioGraphFallback` (`audio-manager.js:67`) · **Owner:** `audio-manager.js` · **Persisted:** no
+**Carrier:** `audioCtx`, `gainNode`, `audioGraphFallback` (`audio-manager.js:68`) · **Owner:** `audio-manager.js` · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -921,13 +921,13 @@ Two boundaries of this machine matter. `/config` sits outside it: a `fetch` boun
 
 ### M#29 · Lazy reveal caches
 
-**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:61`; dropped by `clearPackCaches` (`pack-manager.js:264`) · **Persisted:** no, exactly one pack visit
+**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:62`; dropped by `clearPackCaches` (`pack-manager.js:308`) · **Persisted:** no, exactly one pack visit
 
 | Cache | Owner | Fetched artifact | Backend `Cache-Control` |
 | ------- | ------- | ------------------ | ------------------------- |
 | `revealCache` | `quest-manager.js:43`, cleared at `quest-manager.js:61` | hint texts, solution | `no-store` |
-| `testPayloadCache` | `modal-manager.js:61`, cleared at `modal-manager.js:70` | test payloads | `private, max-age=300` |
-| `supportModulesCache` | `modal-manager.js:61`, cleared at `modal-manager.js:70` | support module sources | `no-store` |
+| `testPayloadCache` | `modal-manager.js:62`, cleared at `modal-manager.js:73` | test payloads | `private, max-age=300` |
+| `supportModulesCache` | `modal-manager.js:63`, cleared at `modal-manager.js:74` | support module sources | `no-store` |
 
 ```mermaid
 stateDiagram-v2

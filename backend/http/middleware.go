@@ -93,12 +93,16 @@ func SecurityHeaders(cfg *config.Config, inlineImportMapHash string) gin.Handler
 		}
 	}
 
+	// Blob URLs back the img and audio elements that receive pack media
+	// through authenticated fetches; data: keeps the long-standing inline
+	// image sources.
 	csp := strings.Join([]string{
 		"default-src 'self'",
 		"script-src " + strings.Join(scriptSrc, " "),
 		"worker-src 'self' blob: https://esm.sh",
 		"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
-		"img-src 'self' data:",
+		"img-src 'self' data: blob:",
+		"media-src 'self' blob:",
 		"font-src 'self' https://cdnjs.cloudflare.com",
 		"connect-src " + strings.Join(connectSrc, " "),
 		"frame-ancestors 'none'",
