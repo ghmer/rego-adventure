@@ -205,7 +205,8 @@ func (s *Server) serveQuestAssets(c *gin.Context) {
 		return isAllowedExtension(p) && !isSensitiveFile(p)
 	}
 
-	// Token-protected media must not be stored by shared caches.
+	// Pack media is token-protected under auth; keep it out of shared
+	// caches in every mode.
 	c.Header("Cache-Control", mediaCacheControl)
 	s.serveSafeFile(c, baseDir, requestedPath, validate, "")
 }
@@ -225,7 +226,8 @@ func (s *Server) serveQuestCSS(c *gin.Context) {
 	baseDir := filepath.Join(paths.QuestsDir, pack)
 	validate := validateQuestCSSFile
 
-	// Token-protected content must not be stored by shared caches.
+	// Pack stylesheets are token-protected under auth; keep them out of
+	// shared caches in every mode.
 	c.Header("Cache-Control", mediaCacheControl)
 	s.serveSafeFile(c, baseDir, filename, validate, "text/css; charset=utf-8")
 }

@@ -273,7 +273,9 @@ func newProtectedRoutesServer(t *testing.T) (*Server, string) {
 // TestPublicRoutesReachableWithoutAuthentication: the pre-login surface
 // must answer without a bearer token. A want value of -1 asserts any
 // answer except 401: /callback's exact code comes from FileFromFS
-// redirect internals that this test does not pin.
+// redirect internals that this test does not pin. Unknown /api paths
+// must answer a JSON body, because the SPA fallback never serves HTML
+// for API requests.
 func TestPublicRoutesReachableWithoutAuthentication(t *testing.T) {
 	srv, _ := newProtectedRoutesServer(t)
 
@@ -304,7 +306,40 @@ func TestPublicRoutesReachableWithoutAuthentication(t *testing.T) {
 		}
 		if w.Code != tc.want {
 			t.Errorf("%s: expected %d, got %d", tc.path, tc.want, w.Code)
+			continue
 		}
+		if tc.path == "/api/does-not-exist" {
+			var body map[string]any
+			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+				t.Errorf("%s: expected a JSON body, got %q", tc.path, w.Body.String())
+			}
+		}
+	}
+}
+
+// TestNewRegisteredRoutesDefaultToProtected: the deny-by-default
+// property. A route registered outside publicRoutePaths is gated by the
+// global auth middleware without any per-route wiring.
+func TestNewRegisteredRoutesDefaultToProtected(t *testing.T) {
+	srv, token := newProtectedRoutesServer(t)
+
+	srv.router.GET("/future-admin", func(c *gin.Context) {
+		c.Status(nethttp.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, "/future-admin", nil)
+	srv.router.ServeHTTP(w, req)
+	if w.Code != nethttp.StatusUnauthorized {
+		t.Fatalf("expected 401 without token, got %d", w.Code)
+	}
+
+	w = httptest.NewRecorder()
+	req, _ = nethttp.NewRequestWithContext(t.Context(), nethttp.MethodGet, "/future-admin", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	srv.router.ServeHTTP(w, req)
+	if w.Code != nethttp.StatusOK {
+		t.Errorf("expected 200 with token, got %d", w.Code)
 	}
 }
 
