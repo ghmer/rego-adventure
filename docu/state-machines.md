@@ -4,7 +4,7 @@
 | ---- | ---- |
 | Document | `docu/state-machines.md` |
 | What it describes | The 42 implicit state machines that run the Rego Adventure platform |
-| Status | Living reference, kept alongside the code; see git history for the last full audit pass. CI checks every `file:line` citation below against the sources (`cmd/doccite`) |
+| Status | Living reference, kept alongside the code; see git history for the last full audit pass. CI checks every `file:line` citation below against the sources (`cmd/doccite`); `go run ./cmd/doccite -update . docu/state-machines.md` re-anchors the ones whose identifier has exactly one declaration near the cited line and reports the rest for a person |
 | Audience | Maintainers, reviewers, contributors; planning documents that point at machines |
 | Related | [`README.md`](../README.md) (system overview), [`docu/quests.md`](quests.md) (pack format), [`docu/deploy/`](deploy/) (deployment) |
 
@@ -147,9 +147,9 @@ Everything from a blank page to a signed-in player. Three machines take part, an
 
 ### M#1 · Application boot
 
-**Carrier:** control flow plus `beginQuestInFlight` (`frontend/adventure/src/app.js:70`) · **Owner:** `app.js` (`init()`) · **Persisted:** no
+**Carrier:** control flow plus `beginQuestInFlight` (`frontend/adventure/src/app.js:75`) · **Owner:** `app.js` (`init()`) · **Persisted:** no
 
-`init()` runs as a straight-line script with four exits, and each exit leaves the UI in a different persistent condition. `beginQuestInFlight` (`frontend/adventure/src/app.js:70`) is a mutex over pack entry: the pack cards are clickable while the resume path is still running.
+`init()` runs as a straight-line script with four exits, and each exit leaves the UI in a different persistent condition. `beginQuestInFlight` (`frontend/adventure/src/app.js:75`) is a mutex over pack entry: the pack cards are clickable while the resume path is still running.
 
 | State | Carried by |
 | ------- | ----------- |
@@ -231,7 +231,7 @@ stateDiagram-v2
     SignedOut --> [*] : page leaves to issuer
 ```
 
-`ConfigNotLoaded` behaves like `OpenMode` for `isEnabled()`: a missing config is indistinguishable from auth-disabled except inside `init()`. A request made in that window would go out without `Authorization` (`api-service.js:61-64`). None is made there: `ConfigService.load()` is awaited before auth setup, before the listeners that could trigger a request and before `fetchPacks()` (`frontend/adventure/src/app.js:98-139`). `/config` is fetched with `API.CONFIG_TIMEOUT_MS` (`config-service.js:33`) and never carries a token.
+`ConfigNotLoaded` behaves like `OpenMode` for `isEnabled()`: a missing config is indistinguishable from auth-disabled except inside `init()`. A request made in that window would go out without `Authorization` (`api-service.js:61-64`). None is made there: `ConfigService.load()` is awaited before auth setup, before the listeners that could trigger a request and before `fetchPacks()` (`frontend/adventure/src/app.js:144`). `/config` is fetched with `API.CONFIG_TIMEOUT_MS` (`config-service.js:33`) and never carries a token.
 
 Three details the diagram leaves out:
 
@@ -273,7 +273,7 @@ The central machine. Three integers encode the whole game:
 
 | Variable | Domain | Meaning |
 | ---------- | -------- | --------- |
-| `currentQuestId` | `0 … N+1` | `0` = prologue, `1…N` = quest, `N+1` = epilogue; `isEpilogueCursor` (`state-service.js:486`) defines the upper sentinel |
+| `currentQuestId` | `0 … N+1` | `0` = prologue, `1…N` = quest, `N+1` = epilogue; `isEpilogueCursor` (`state-service.js:488`) defines the upper sentinel |
 | `activeQuestId` | `0 … N+1` | the unlocked frontier; sentinel `N+1` = "epilogue visited" |
 | `questScores[questId]` | present/absent | quest completed |
 
@@ -342,7 +342,7 @@ stateDiagram-v2
 Details:
 
 * `activeQuestId` has three writers and one restorer. `completeQuest` grows it at `state-service.js:462`, `advanceQuest` grows it at `state-service.js:273`, `visitEpilogue` sets it at `state-service.js:305`, and `loadPackState` (`state-service.js:103`) restores it from storage, falling back to `currentQuestId`. None of them lowers it, and navigating never touches it.
-* Reaching the epilogue is a transition. `visitEpilogue` lands cursor and frontier on `N+1` (`state-service.js:303-305`); `showEpilogue` (`quest-manager.js:322`) renders and writes nothing, and `loadQuest` performs the transition before it renders. That is what makes the epilogue the resume target of a pack, and `isEpilogueCursor` (`state-service.js:486`) is the single definition of where it begins; the interaction gate reads the same predicate (M#6).
+* Reaching the epilogue is a transition. `visitEpilogue` lands cursor and frontier on `N+1` (`state-service.js:303-305`); `showEpilogue` (`quest-manager.js:322`) renders and writes nothing, and `loadQuest` performs the transition before it renders. That is what makes the epilogue the resume target of a pack, and `isEpilogueCursor` (`state-service.js:488`) is the single definition of where it begins; the interaction gate reads the same predicate (M#6).
 * Within a session the epilogue is reached by a passing verification of quest `N`: `canNavigateForward` bounds the forward arrow at the last quest. Once the epilogue has been visited, the `N+1` cursor is persisted, so a reload resumes straight onto it.
 * `isHistoryMode` is not persisted (`savePackState`, `state-service.js:190`); every transition recomputes it, so derived state never sits in storage (M#5).
 * The tour's first popover names its own controls: "Move through the tour with its Next and Previous buttons, the Left and Right arrow keys, or Enter; press Esc to leave the tour at any point" (`tutorial.js:137`). driver.js binds those keys and the popover focuses the Next button, so Enter advances the tour. Quest movement has no key binding: the arrows are buttons, and the only global shortcuts are Ctrl/Cmd+Enter and Ctrl/Cmd+S (`event-manager.js:170-184`).
@@ -509,15 +509,15 @@ stateDiagram-v2
     end note
 ```
 
-Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:297`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:62`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:65`), before any write it governs. Those writes are quest data, labels, titles, theme `<style>` elements, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:239`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
+Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:297`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:63`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:65`), before any write it governs. Those writes are quest data, labels, titles, theme `<style>` elements, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:240`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
 
-Theme stylesheets are fetched and applied as inline style elements in both authentication modes: element-external requests cannot carry a bearer token, so `loadPackTheme` (`pack-manager.js:114`) resolves the sheet text through the asset service. A failed or missing stylesheet applies nothing, which is why a `custom.css` absence stays a silent "theme without effects" sub-state and no flag records it (M#34).
+Theme stylesheets are fetched and applied as inline style elements in both authentication modes: element-external requests cannot carry a bearer token, so `loadPackTheme` (`pack-manager.js:115`) resolves the sheet text through the asset service. A failed or missing stylesheet applies nothing, which is why a `custom.css` absence stays a silent "theme without effects" sub-state and no flag records it (M#34).
 
 When `loadPack` fails, `rollbackPackEntry` clears the pack pointer and every pack-scoped in-memory field without writing anything, so no pack pointer survives an entry that did not load (M#27).
 
 ### M#14 · Dialogs
 
-**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:84`) / `closeDialog` (`modal-manager.js:94`) · **Persisted:** no
+**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:85`) / `closeDialog` (`modal-manager.js:95`) · **Persisted:** no
 
 Seven `<dialog>` elements, each with its own micro-machine, and one open mode.
 
@@ -544,9 +544,9 @@ stateDiagram-v2
     Blocked --> Closed : explicit confirm or cancel
 ```
 
-`openDialog` (`modal-manager.js:84`) and `closeDialog` (`modal-manager.js:94`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:32-53`) and matches the table above.
+`openDialog` (`modal-manager.js:85`) and `closeDialog` (`modal-manager.js:95`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:32-53`) and matches the table above.
 
-Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:128-134`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:139-143`): leaving it takes an explicit click.
+Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:129-135`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:139-143`): leaving it takes an explicit click.
 
 An eighth dialog sits outside the table. The tutorial prompt is created dynamically and follows the same explicit policy: ESC is prevented and forwarded to Decline (`tutorial.js:104-108`; see M#23).
 
@@ -554,7 +554,7 @@ Focus targets differ per dialog and encode an intent: cancel for the destructive
 
 ### M#15 · Result modal
 
-**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:287`); the caller passes points in · **Persisted:** no
+**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:288`); the caller passes points in · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -636,7 +636,7 @@ Three controls, one machine: `lorePrevBtn.disabled`, `loreNextBtn.disabled` and 
 
 ### M#19 · Background music
 
-**Carrier:** one value, `MusicState` (`audio-manager.js:44`); `pauseTimer` is an implementation detail of the two fading states · **Owner:** `transitionTo` (`audio-manager.js:376`), the only writer after construction; `renderMusicButton` (`audio-manager.js:385`) renders from that value and from nothing else · **Persisted:** no
+**Carrier:** one value, `MusicState` (`audio-manager.js:45`); `pauseTimer` is an implementation detail of the two fading states · **Owner:** `transitionTo` (`audio-manager.js:389`), the only writer after construction; `renderMusicButton` (`audio-manager.js:398`) renders from that value and from nothing else · **Persisted:** no
 
 The track plays once per toggle.
 
@@ -665,15 +665,15 @@ stateDiagram-v2
     Unavailable --> Silent : a later pack's track loads cleanly
 ```
 
-`setupMusic` (`audio-manager.js:99`) resolves the pack's `bg-music.m4a` for element use, points the element at it, pauses it, rewinds and enters `silent`; it is the only edge that leaves `unavailable`. The resolution is guarded by the load sequence token, and `resetToDefaultTheme` invalidates an in-flight setup (`audio-manager.js:140`), so a superseded pack entry cannot re-arm music after the player went home. A track that then fails to resolve, load or decode raises the failure path into `unavailable` via `handleTrackError` (`audio-manager.js:276`), which disables the button rather than letting it claim a state it cannot deliver. The same handler answers a failure that arrives mid-play: a network failure during playback and a metadata-probe failure at pack entry are rendered identically, because both mean the pack has no playable track from that moment on.
+`setupMusic` (`audio-manager.js:106`) resolves the pack's `bg-music.m4a` for element use, points the element at it, pauses it, rewinds and enters `silent`; it is the only edge that leaves `unavailable`. The resolution is guarded by the load sequence token, and `resetToDefaultTheme` invalidates an in-flight setup (`audio-manager.js:140`), so a superseded pack entry cannot re-arm music after the player went home. A track that then fails to resolve, load or decode raises the failure path into `unavailable` via `handleTrackError` (`audio-manager.js:288`), which disables the button rather than letting it claim a state it cannot deliver. The same handler answers a failure that arrives mid-play: a network failure during playback and a metadata-probe failure at pack entry are rendered identically, because both mean the pack has no playable track from that moment on.
 
-`handleMusicEnded` (`audio-manager.js:260`) rewinds the element and returns to `silent`, so the control and the element agree about where the track stands. `fadeOut(rewind)` (`audio-manager.js:334`) pauses only after the ramp reaches 0, and `stopMusic` (`audio-manager.js:358`) is the rewinding form used when a pack is left.
+`handleMusicEnded` (`audio-manager.js:267`) rewinds the element and returns to `silent`, so the control and the element agree about where the track stands. `fadeOut(rewind)` (`audio-manager.js:334`) pauses only after the ramp reaches 0, and `stopMusic` (`audio-manager.js:371`) is the rewinding form used when a pack is left.
 
 A generated pack ships a valid, silent placeholder track (M#38), so its music control is enabled and reaches `playing`. A 0-byte file is what puts the machine in `unavailable`, the one branch that disables the button.
 
 ### M#20 · Web Audio graph lifecycle
 
-**Carrier:** `audioCtx`, `gainNode`, `audioGraphFallback` (`audio-manager.js:68`) · **Owner:** `audio-manager.js` · **Persisted:** no
+**Carrier:** `audioCtx`, `gainNode`, `audioGraphFallback` (`audio-manager.js:75`) · **Owner:** `audio-manager.js` · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -746,7 +746,7 @@ stateDiagram-v2
     Restoring --> [*] : focus handed to Start Adventure one frame later
 ```
 
-`startTutorial` (`tutorial.js:373`) is a transaction. `temporarilyUnhideElements` (`tutorial.js:346`) records the selectors it un-hid in `hiddenElementsState`, and a `finally` block restores them unless a driver is running, so a driver that fails to build or start leaves the screen as it was found. `undoTour()` is the undo of a tour that ran, and both destroy hooks call it: `onDestroyStarted` (`tutorial.js:436`) and `onDestroyed` (`tutorial.js:441`). It returns immediately when nothing was hidden and no driver is held, so a destroy arriving twice, or an exit from a tour that never started, are both safe.
+`startTutorial` (`tutorial.js:375`) is a transaction. `temporarilyUnhideElements` (`tutorial.js:348`) records the selectors it un-hid in `hiddenElementsState`, and a `finally` block restores them unless a driver is running, so a driver that fails to build or start leaves the screen as it was found. `undoTour()` is the undo of a tour that ran, and both destroy hooks call it: `onDestroyStarted` (`tutorial.js:438`) and `onDestroyed` (`tutorial.js:443`). It returns immediately when nothing was hidden and no driver is held, so a destroy arriving twice, or an exit from a tour that never started, are both safe.
 
 `onDestroyStarted` exists because driver.js restores its own focus after running the destroy hooks. The hand-off of focus to `#start-adventure` is deferred by one frame (`requestAnimationFrame`, `tutorial.js:468`) so the tour's teardown cannot win the race.
 
@@ -766,7 +766,7 @@ stateDiagram-v2
     Removed --> [*]
 ```
 
-Durations encode the severity machine (`info` 3 s … `critical` 6 s, `toast-service.js:25-30`), and `aria-live` switches from `polite` to `assertive` only at `critical` (`toast-service.js:59`). The `ErrorLevel` machine also gates `showError`: only `error`/`critical` reach a toast, `info`/`warning` are console-only (`services/error-display.js:26-34`).
+Durations encode the severity machine (`info` 3 s … `critical` 6 s, `toast-service.js:25-30`), and `aria-live` switches from `polite` to `assertive` only at `critical` (`toast-service.js:64`). The `ErrorLevel` machine also gates `showError`: only `error`/`critical` reach a toast, `info`/`warning` are console-only (`services/error-display.js:26-34`).
 
 The toast container is a lazily created singleton (`toast-service.js:37-45`), so "no container yet" is a pre-state of every toast machine.
 
@@ -889,7 +889,7 @@ stateDiagram-v2
 
 `loadPackState` (`state-service.js:103`) and `setCurrentPack` (`state-service.js:136`) return `{ resumed, corrupt }`, so reading a saved adventure reports what it found instead of signalling through a null body, and pack entry turns `corrupt` into a warning toast. An entry that then fails is rolled back by `rollbackPackEntry` (`state-service.js:178`), which clears the pointer and every pack-scoped in-memory field without writing anything (M#3). `clearCurrentPack` (`state-service.js:162`) leaves the loaded quests alone and only flushes the state of a pack that is being left.
 
-A third micro-machine runs before any of this. `migrateStorageKeys()` (`frontend/adventure/src/app.js:173`) moves `adventureTutorialCompleted` → `rego_tutorial_completed` once at startup (`storage-service.js:112`), before any manager reads persisted state and before `init()` runs. That legacy-key state decides whether the tutorial machine (M#23) starts `Eligible` or `Skipped`.
+A third micro-machine runs before any of this. `migrateStorageKeys()` (`frontend/adventure/src/app.js:52`) moves `adventureTutorialCompleted` → `rego_tutorial_completed` once at startup (`storage-service.js:112`), before any manager reads persisted state and before `init()` runs. That legacy-key state decides whether the tutorial machine (M#23) starts `Eligible` or `Skipped`.
 
 A fourth wrinkle: the *body* is also read from the `GameState` constructor (`state-service.js:54`). On a reload with a pointer set, the state is already loaded before any pointer/body transition in the diagram above gets a chance to run.
 
@@ -913,7 +913,7 @@ stateDiagram-v2
 
 `status` on `ApiError` is the machine's observable state, and on a 401 `authFailure` says which session path it came from. The UI branches on those rather than on message text (`error-service.js:33-54`): `401` with `renewal_failed` → the session could not be renewed, `401` otherwise → session expired, `0` → server down, `408` → policy timeout, `>=500` → server error. The same sentence is what the start screen writes when the failure happens during `init()`.
 
-Two boundaries of this machine matter. `/config` sits outside it: a `fetch` bounded by `AbortSignal.timeout(API.CONFIG_TIMEOUT_MS)` (`config-service.js:31-47`), carrying no token and throwing plain errors instead of `ApiError`s. The answer is bounded, and a timeout or an error status leaves `get()` returning null, which is what the start screen's "configuration could not be loaded" message keys on. The client's own 30 s `AbortSignal.timeout` (`api-service.js:69`, `:94`) is longer than every server clock on the same request (section 12.2), so a stalled verify is always decided server-side first.
+Two boundaries of this machine matter. `/config` sits outside it: a `fetch` bounded by `AbortSignal.timeout(API.CONFIG_TIMEOUT_MS)` (`config-service.js:31-47`), carrying no token and throwing plain errors instead of `ApiError`s. The answer is bounded, and a timeout or an error status leaves `get()` returning null, which is what the start screen's "configuration could not be loaded" message keys on. The client's own 30 s `AbortSignal.timeout` (`api-service.js:70`, `api-service.js:94`) is longer than every server clock on the same request (section 12.2), so a stalled verify is always decided server-side first.
 
 * Renewal is reached from two places, `getToken` before the request (`auth-service.js:124-135`) and the 401 path after it (`api-service.js:96-104`), and both wait on the one in-flight attempt (M#2). A refused renewal is remembered, so an expired token costs one silent renewal and one round trip.
 * A 401 whose renewal could not be attempted and a 401 that outlived a renewed token are different outcomes and carry different `authFailure` values, which is what the two sentences of `apiErrorHint` branch on.
@@ -921,7 +921,7 @@ Two boundaries of this machine matter. `/config` sits outside it: a `fetch` boun
 
 ### M#29 · Lazy reveal caches
 
-**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:62`; dropped by `clearPackCaches` (`pack-manager.js:318`) · **Persisted:** no, exactly one pack visit
+**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:62`; dropped by `clearPackCaches` (`pack-manager.js:319`) · **Persisted:** no, exactly one pack visit
 
 | Cache | Owner | Fetched artifact | Backend `Cache-Control` |
 | ------- | ------- | ------------------ | ------------------------- |
