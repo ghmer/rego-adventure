@@ -47,6 +47,19 @@ function sources(dir = SRC_DIR, found = []) {
 }
 
 /**
+ * Parse the index page without its cross-origin resources. Resolving the
+ * CDN stylesheet links opens real connections on the parser window, and
+ * the environment teardown aborts them noisily; the DOM contracts under
+ * test do not include remote resources.
+ * @returns {Document} Parsed index page without cross-origin links
+ */
+function parsePageFixture() {
+    const html = readFileSync(join(globalThis.process.cwd(), 'index.html'), 'utf8')
+        .replace(/<link\b[^>]*\bhref=(['"])(?:https?:)?\/\/[^"']*\1[^>]*>/gi, '');
+    return new DOMParser().parseFromString(html, 'text/html');
+}
+
+/**
  * Find a pattern across the given sources.
  * @param {RegExp} pattern - Pattern with the global flag
  * @param {Array<Object>} files - Sources to search
@@ -70,7 +83,7 @@ function matches(pattern, files) {
  * @returns {string} The method source, empty when the method is absent
  */
 function methodSource(text, name) {
-    const definition = new RegExp(`^\\s+${name}\\(`, 'm').exec(text);
+    const definition = new RegExp(`^\\s+(?:async )?${name}\\(`, 'm').exec(text);
     if (!definition) return '';
 
     const start = text.indexOf('{', definition.index);
@@ -133,6 +146,26 @@ describe('progression source boundaries', () => {
         // how a result screen re-created reveal state and lowered the frontier.
         expect(matches(/\.show\(\)/g, all)).toEqual([]);
         expect(matches(/openDialog\([^)]*,/g, all)).toEqual([]);
+    });
+
+    it('resolves pack media for element use through the asset service only', () => {
+        // Element-external requests cannot authenticate: <img>, <audio> and
+        // stylesheet links never carry a bearer token, so a pack path must
+        // never reach an element source unfiltered. The local eslint rule
+        // local/no-bare-pack-media fails the assignment forms themselves
+        // (direct literals and variables carrying a pack path); this
+        // assertion pins the element-source owners: each loader resolves
+        // through the asset service, which decides between a blob URL and
+        // the plain path.
+        const owners = [
+            ['pack-manager.js', 'loadPackAssets'],
+            ['audio-manager.js', 'setupMusic'],
+            ['modal-manager.js', 'setPackImage']
+        ];
+        for (const [fileName, method] of owners) {
+            const manager = all.find(file => file.path.endsWith(fileName));
+            expect(methodSource(manager.text, method), method).toContain('mediaURL');
+        }
     });
 
     it('writes the perfect-score button visibility in one renderer', () => {
@@ -203,9 +236,7 @@ describe('progression source boundaries', () => {
     });
 
     it('gives the adventure button one DOM home, in the quest footer', () => {
-        const page = new DOMParser().parseFromString(
-            readFileSync(join(globalThis.process.cwd(), 'index.html'), 'utf8'), 'text/html'
-        );
+        const page = parsePageFixture();
 
         const footers = page.querySelectorAll('.quest-footer');
         expect(footers.length, 'quest footers').toBe(1);

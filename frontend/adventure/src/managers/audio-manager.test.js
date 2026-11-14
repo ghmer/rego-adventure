@@ -17,6 +17,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioManager } from './audio-manager.js';
 import { AUDIO, TIMING } from '../services/constants.js';
+import { ConfigService } from '../services/config-service.js';
 
 const RING_RADIUS = 20;
 const RING_CIRCUMFERENCE = 2 * RING_RADIUS * Math.PI;
@@ -134,10 +135,10 @@ describe('AudioManager', () => {
     });
 
     describe('pack setup', () => {
-        it('points the element at the pack track and probes it', () => {
+        it('points the element at the pack track and probes it', async () => {
             const { audio, music } = createFixture();
 
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
 
             expect(music.getAttribute('src')).toBe('/quests/packA/assets/bg-music.m4a');
             expect(music.load).toHaveBeenCalledTimes(1);
@@ -145,24 +146,46 @@ describe('AudioManager', () => {
             expect(renderedButton(audio.ui).disabled).toBe(false);
         });
 
-        it('re-arms the control when the next pack does have a track', () => {
+        it('re-arms the control when the next pack does have a track', async () => {
             const { audio, ui, music } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
             music.dispatchEvent(new Event('error'));
             expect(renderedButton(ui).disabled).toBe(true);
 
-            audio.setupMusic('packB');
+            await audio.setupMusic('packB', 1);
 
             expect(audio.musicState).toBe(MusicState.Silent);
             expect(renderedButton(ui).disabled).toBe(false);
             expect(music.getAttribute('src')).toBe('/quests/packB/assets/bg-music.m4a');
+        });
+
+        it('releases the resolved track blob when the setup was superseded', async () => {
+            let release;
+            const gate = new Promise(resolve => { release = resolve; });
+            const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+            const original = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+            Object.defineProperty(URL, 'createObjectURL', { value: () => 'blob:track-1', configurable: true });
+            vi.stubGlobal('fetch', vi.fn(() => gate));
+            ConfigService.config = { enabled: true };
+            const { audio, music } = createFixture();
+
+            const inFlight = audio.setupMusic('packA', 1);
+            audio.invalidateTrack();
+            release(new Response('m4a-bytes', { status: 200 }));
+            await inFlight;
+
+            expect(revokeSpy).toHaveBeenCalledTimes(1);
+            expect(music.getAttribute('src')).not.toBe('blob:track-1');
+
+            if (original) Object.defineProperty(URL, 'createObjectURL', original);
+            ConfigService.config = null;
         });
     });
 
     describe('toggle', () => {
         it('reports playing only once play has resolved', async () => {
             const { audio, ui } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
 
             audio.toggleMusic();
             expect(audio.musicState).toBe(MusicState.FadingIn);
@@ -179,7 +202,7 @@ describe('AudioManager', () => {
 
         it('fades out before pausing, then renders silent', async () => {
             const { audio, ui, music } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
             audio.toggleMusic();
             await settle();
 
@@ -198,7 +221,7 @@ describe('AudioManager', () => {
 
         it('resumes when toggled again during the fade-out', async () => {
             const { audio, music } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
             audio.toggleMusic();
             await settle();
 
@@ -219,7 +242,7 @@ describe('AudioManager', () => {
             const { audio, ui } = createFixture({
                 playImpl: async () => { throw new Error('NotSupportedError: nothing to decode'); }
             });
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
 
             audio.toggleMusic();
             await settle();
@@ -243,7 +266,7 @@ describe('AudioManager', () => {
                     await realPlay();
                 }
             });
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
 
             audio.toggleMusic();
             await settle();
@@ -261,7 +284,7 @@ describe('AudioManager', () => {
             const { audio, ui, music } = createFixture({
                 playImpl: async () => { throw new Error('NotSupportedError'); }
             });
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
 
             audio.toggleMusic();
             music.dispatchEvent(new Event('error'));
@@ -273,10 +296,10 @@ describe('AudioManager', () => {
     });
 
     describe('track availability', () => {
-        it('disables the control when the track fails to load', () => {
+        it('disables the control when the track fails to load', async () => {
             const { audio, ui, music } = createFixture();
 
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
             music.dispatchEvent(new Event('error'));
 
             expect(audio.musicState).toBe(MusicState.Unavailable);
@@ -288,19 +311,19 @@ describe('AudioManager', () => {
             expect(console.warn).toHaveBeenCalledTimes(1);
         });
 
-        it('disables the control from the setup probe alone, before any click', () => {
+        it('disables the control from the setup probe alone, before any click', async () => {
             const { audio, ui, music } = createFixture();
             music.load = vi.fn(() => music.dispatchEvent(new Event('error')));
 
-            audio.setupMusic('emptyPack');
+            await audio.setupMusic('emptyPack', 1);
 
             expect(audio.musicState).toBe(MusicState.Unavailable);
             expect(renderedButton(ui).disabled).toBe(true);
         });
 
-        it('ignores toggle attempts while no track is available', () => {
+        it('ignores toggle attempts while no track is available', async () => {
             const { audio, music } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
             music.dispatchEvent(new Event('error'));
 
             audio.toggleMusic();
@@ -309,9 +332,9 @@ describe('AudioManager', () => {
             expect(audio.musicState).toBe(MusicState.Unavailable);
         });
 
-        it('keeps the control disabled when the player leaves a pack without music', () => {
+        it('keeps the control disabled when the player leaves a pack without music', async () => {
             const { audio, ui, music } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
             music.dispatchEvent(new Event('error'));
 
             audio.stopMusic();
@@ -325,7 +348,7 @@ describe('AudioManager', () => {
     describe('track end', () => {
         it('rewinds the element and returns to silent, so ended and paused-at-end are equal', async () => {
             const { audio, ui, music } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
             audio.toggleMusic();
             await settle();
 
@@ -343,7 +366,7 @@ describe('AudioManager', () => {
     describe('stop on leaving the pack', () => {
         it('fades, pauses and rewinds', async () => {
             const { audio, music } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
             audio.toggleMusic();
             await settle();
             music.currentTime = 30;
@@ -356,9 +379,9 @@ describe('AudioManager', () => {
             expect(audio.musicState).toBe(MusicState.Silent);
         });
 
-        it('leaves an already silent player silent', () => {
+        it('leaves an already silent player silent', async () => {
             const { audio, music } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
 
             audio.stopMusic();
             vi.advanceTimersByTime(TIMING.FADE_DURATION);
@@ -373,7 +396,7 @@ describe('AudioManager', () => {
         it('records the element-volume fallback and still plays', async () => {
             vi.stubGlobal('AudioContext', undefined);
             const { audio, ui } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
 
             audio.toggleMusic();
             await settle();
@@ -388,7 +411,7 @@ describe('AudioManager', () => {
             const { Constructor, gainParam } = createAudioContextStub();
             vi.stubGlobal('AudioContext', Constructor);
             const { audio } = createFixture();
-            audio.setupMusic('packA');
+            await audio.setupMusic('packA', 1);
 
             audio.toggleMusic();
             await settle();

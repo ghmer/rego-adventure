@@ -21,6 +21,7 @@
 
 import { showConfetti, triggerResultEffect, cleanupEffects } from '../effects.js';
 import { fetchTestPayload, fetchSupportModules } from '../services/api-service.js';
+import { AssetService } from '../services/asset-service.js';
 import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
 import { SCORING, ErrorLevel } from '../services/constants.js';
@@ -248,6 +249,34 @@ export class ModalManager {
     }
 
     /**
+     * Point an image at pack media. The source is resolved for element
+     * use first (a blob URL when pack media is token-protected, the
+     * plain path otherwise); a failed resolution applies the fallback
+     * when one is given, and leaves the element untouched otherwise.
+     * @param {HTMLImageElement} img - Target image element
+     * @param {string} url - Primary pack image URL
+     * @param {string} [fallbackUrl] - Applied when the primary fails
+     */
+    setPackImage(img, url, fallbackUrl) {
+        AssetService.mediaURL(url).then((source) => {
+            // The plain path (open mode) can fail on a missing asset; a
+            // blob URL cannot fail after the resolution. The handler
+            // clears itself before applying the fallback: a missing
+            // fallback asset renders broken once, and never re-runs the
+            // image algorithm on the next src assignment.
+            if (fallbackUrl) {
+                img.onerror = () => {
+                    img.onerror = null;
+                    this.setPackImage(img, fallbackUrl, undefined);
+                };
+            }
+            img.src = source;
+        }).catch(() => {
+            if (fallbackUrl) this.setPackImage(img, fallbackUrl, undefined);
+        });
+    }
+
+    /**
      * Show the result dialog with test results. The dialog is modal, so the
      * verify button, the reveals and the navigation behind it cannot be
      * reached while a result is on screen.
@@ -262,7 +291,7 @@ export class ModalManager {
 
         // Set icon
         const iconPath = `/quests/${this.state.currentPackId}/assets/${isSuccess ? 'icon-success.png' : 'icon-failure.png'}`;
-        this.ui.elements.resultIcon.src = iconPath;
+        this.setPackImage(this.ui.elements.resultIcon, iconPath);
         this.ui.elements.resultIcon.alt = isSuccess ? 'Success - Quest completed' : 'Failure - Quest not completed';
 
         // Set title and message
@@ -352,10 +381,12 @@ export class ModalManager {
      * effects off.
      */
     showPerfectScore() {
-        this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/perfect_score.png`;
-        this.ui.elements.perfectScoreImage.onerror = () => {
-            this.ui.elements.perfectScoreImage.src = `/quests/${this.state.currentPackId}/assets/icon-success.png`;
-        };
+        const packAssets = `/quests/${this.state.currentPackId}/assets/`;
+        this.setPackImage(
+            this.ui.elements.perfectScoreImage,
+            `${packAssets}perfect_score.png`,
+            `${packAssets}icon-success.png`
+        );
         
         this.ui.elements.perfectScoreMessage.innerHTML = parseMarkdown(this.state.label('perfectScoreMessage'));
         this.openDialog(this.ui.elements.perfectScoreModal);

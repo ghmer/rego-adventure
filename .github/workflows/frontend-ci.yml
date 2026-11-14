@@ -42,10 +42,10 @@ jobs:
         with:
           node-version: '26.13.0'
 
-      # Ephemeral, pinned toolchain: installed on the runner only
-      # (--no-save leaves package.json untouched), never committed.
-      - name: Install pinned eslint toolchain
-        run: npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0
+      # The toolchain is a declared devDependency, pinned by the committed
+      # lockfile; npm ci reproduces the exact set CI has always run.
+      - name: Install frontend toolchain
+        run: npm ci
         working-directory: frontend/adventure
 
       - name: Run eslint
@@ -64,10 +64,12 @@ jobs:
         with:
           node-version: '26.13.0'
 
-      # Ephemeral, pinned toolchain: installed on the runner only
-      # (--no-save leaves package.json untouched), never committed.
-      - name: Install pinned vitest toolchain
-        run: npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3
+      # The toolchain is a declared devDependency, pinned by the committed
+      # lockfile; npm ci reproduces the exact set CI has always run, now
+      # including the lint rule pin (src/local-lint-rules.test.js imports
+      # eslint's Linter).
+      - name: Install frontend toolchain
+        run: npm ci
         working-directory: frontend/adventure
 
       - name: Run vitest
@@ -140,18 +142,20 @@ jobs:
           go-version: "1.27.3"
 
       # The QA suites resolve Playwright from the machine rather than as a
-      # declared dependency (docu/qa/qa-lib.cjs), so a pinned install at the
-      # repository root puts it into their direct search path. The next step
-      # fails the job when the two pins drift, so a qa-lib change without
-      # the matching workflow update cannot pass.
-      - name: Install pinned Playwright and Chromium
+      # direct import (docu/qa/qa-lib.cjs); npm ci puts the manifest-pinned
+      # copy into frontend/adventure/node_modules, the first candidate the
+      # harness searches. The gate below keeps qa-lib.cjs's constant and the
+      # manifest in lockstep, so the browser binaries match the driver.
+      - name: Install browser QA toolchain
         run: |
-          npm install --no-save --no-audit --no-fund playwright@1.65.0
-          grep -qx "const PLAYWRIGHT_VERSION = '1.65.0';" docu/qa/qa-lib.cjs || {
-            echo "::error::docu/qa/qa-lib.cjs no longer pins Playwright 1.65.0; update the browser-qa install step in the same change."
+          npm ci
+          playwrightVersion=$(node -p "require('./package.json').devDependencies.playwright")
+          grep -qx "const PLAYWRIGHT_VERSION = '${playwrightVersion}';" ../../docu/qa/qa-lib.cjs || {
+            echo "::error::docu/qa/qa-lib.cjs does not pin the manifest Playwright version (${playwrightVersion}); update qa-lib.cjs and the manifest in the same change."
             exit 1
           }
           npx playwright install --with-deps chromium
+        working-directory: frontend/adventure
 
       - name: Run QA suites
         run: |

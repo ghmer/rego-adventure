@@ -31,13 +31,13 @@ sequenceDiagram
     B->>F: 4. Redirect with code
     F->>I: 5. Exchange code for tokens (PKCE, via oidc-client-ts)
     I-->>F: 5. Return tokens
-    F->>Be: 6. API calls with Bearer token
+    F->>Be: 6. API and pack media requests with Bearer token
     Be->>I: 7. Fetch JWKS (via OIDC discovery)
     Be->>Be: 7. Validate JWT (signature, issuer, audience, expiration)
     Be-->>F: 8. Response
 ```
 
-Note: the backend never exchanges the authorization code. The code-for-token exchange happens directly between the frontend SPA and the IDP in the browser. The backend only receives and validates Bearer JWTs on API calls.
+Note: the backend never exchanges the authorization code. The code-for-token exchange happens directly between the frontend SPA and the IDP in the browser. The backend only receives and validates Bearer JWTs on API calls and on quest pack requests (pack media and pack stylesheets); configuration, health checks, the OIDC redirect landing and the SPA itself are served without authentication.
 
 ## Environment Variables
 

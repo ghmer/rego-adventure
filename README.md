@@ -182,21 +182,22 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | Backend unit, handler and loader tests | `go test -race -count=1 ./backend/... ./cmd/... .` | `go-ci.yml` |
 | Backend lint | `golangci-lint run ./backend/... ./cmd/... .` | `go-ci.yml` |
 | Backend static analysis | `gosec -quiet ./backend/... ./cmd/... .` | run locally |
-| Frontend unit tests | `npm test` in `frontend/adventure`, with the pinned toolchain installed ephemerally as CI does: `npm install --no-save --no-audit --no-fund vitest@5.0.0 happy-dom@20.14.3` | `frontend-ci.yml` |
-| Frontend lint | `npx eslint src` in `frontend/adventure` after `npm install --no-save --no-audit --no-fund eslint@10.10.0 @eslint/js@10.0.1 globals@17.12.0` | `frontend-ci.yml` |
+| Frontend unit tests | `npm ci` then `npm test` in `frontend/adventure` (toolchain = devDependencies, pinned by the committed lockfile) | `frontend-ci.yml` |
+| Frontend lint | `npm ci` then `npx eslint src` in `frontend/adventure` | `frontend-ci.yml` |
 | Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
 | Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
 | Browser and command-line QA suites | `node docu/qa/<suite>.cjs` | `frontend-ci.yml` (`browser-qa` job) |
 | Clone gate | `npx --yes jscpd@4.0.5 --min-tokens 60 --threshold 0 ... backend cmd main.go frontend/adventure/src docu/quest-editor` (tests and test fixtures excluded) | `go-ci.yml`, `frontend-ci.yml` (`clone-gate` job) |
 
 The QA suites in `docu/qa/` start their own server on a free port and drive a real browser through
-Playwright, which is resolved from the machine rather than declared as a dependency. Six suites:
+Playwright, which is resolved from the installed toolchain (a devDependency pinned in the manifest
+and lockfile). Six suites:
 `spa-qa` (the adventure interface), `dialog-qa` (the seven dialogs), `editor-qa` (the quest editor),
 `save-compat` (saved-state compatibility), `cli-qa` (the command-line tools) and `session-qa` (a
 signed session token that expires during a quest, on the start screen and inside a quest). They run by
 hand against the change they test: each removes the quest packs it generates and reports any tree
 change it did not make itself. In CI the six suites run in the `browser-qa` job of `frontend-ci.yml`
-against pinned Playwright 1.65.0 and its matching Chromium.
+against the manifest-pinned Playwright and its matching Chromium.
 
 ## Utilities
 
@@ -372,6 +373,12 @@ That endpoint is a convenience layer, not a secrecy boundary. It answers every t
 five minutes (`Cache-Control: private, max-age=300`). A pack's tests are readable by anyone who can
 reach the server; the projection keeps the startup payload small, it does not hide the truth table
 the player is coding against.
+
+When authentication is enabled, every registered route requires a valid bearer token except the
+pre-login surface: `/config`, `/health`, `/callback`, the SPA files, and `/shared/css`. Pack media
+and pack stylesheets under `/quests/` are token-protected and answered with
+`Cache-Control: private, max-age=3600`, so shared caches never store them. With authentication
+disabled, all routes serve without a token.
 
 ### Asset Generator
 

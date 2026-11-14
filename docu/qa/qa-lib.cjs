@@ -33,12 +33,15 @@ const scratchRoot = path.join(os.tmpdir(), 'rego-qa');
 // PLAYWRIGHT
 // ============================================================================
 
-// The repo declares no Playwright dependency: the harness runs against whatever
-// is installed on the machine. Each place it may live is tried in turn.
-const PLAYWRIGHT_VERSION = '1.65.0';
+// Playwright is a declared devDependency in frontend/adventure/package.json
+// and pinned by the committed lockfile with it. The harness still resolves
+// whatever copy is installed on the machine: each place it may live is
+// tried in turn.
+const PLAYWRIGHT_VERSION = '1.65.1';
 
 function playwrightCandidates() {
     const direct = [
+        path.join(repoRoot, 'frontend', 'adventure', 'node_modules'),
         repoRoot,
         path.join(os.homedir(), 'node_modules'),
         '/opt/homebrew/lib/node_modules',
@@ -72,8 +75,7 @@ function requirePlaywright() {
         }
     }
     throw new Error(
-        `Playwright was not found. Install it with "npx playwright@${PLAYWRIGHT_VERSION} install chromium" ` +
-        'or point npm at an existing copy; the harness reads no dependency from package.json.'
+        `Playwright was not found. Run "npm ci" in frontend/adventure, then "npx playwright install chromium" there; the harness reads the installed copy (pinned to ${PLAYWRIGHT_VERSION} by the manifest).`
     );
 }
 

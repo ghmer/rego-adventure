@@ -403,6 +403,19 @@ func TestSecurityHeaders_ScriptSrcCarriesImportMapHash(t *testing.T) {
 	}
 }
 
+// TestSecurityHeaders_MediaSourcesAllowBlobs: authenticated pack media
+// reaches img and audio elements as blob URLs, so img-src and media-src
+// must allow them.
+func TestSecurityHeaders_MediaSourcesAllowBlobs(t *testing.T) {
+	csp := securityHeadersResponse(t, &config.Config{}, "").Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "img-src 'self' data: blob:;") {
+		t.Errorf("expected img-src to allow blob URLs, got CSP: %s", csp)
+	}
+	if !strings.Contains(csp, "media-src 'self' blob:;") {
+		t.Errorf("expected media-src to allow blob URLs, got CSP: %s", csp)
+	}
+}
+
 func TestInlineImportMapScriptHash_ExactBytes(t *testing.T) {
 	dir := t.TempDir()
 	// Whitespace inside the block is part of the hashed content; the

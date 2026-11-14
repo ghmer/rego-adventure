@@ -32,8 +32,8 @@ var testDeps = map[string]string{
 // buildPkg assembles a PackageJSON for tests.
 func buildPkg(deps map[string]string, subpaths map[string][]string) PackageJSON {
 	return PackageJSON{
-		DevDependencies: deps,
-		Importmap:       ImportmapConfig{Subpaths: subpaths},
+		Dependencies: deps,
+		Importmap:    ImportmapConfig{Subpaths: subpaths},
 	}
 }
 
@@ -47,7 +47,7 @@ func TestUpdateIndexHTMLRewritesImportMap(t *testing.T) {
 		t.Errorf("import map should contain bumped driver.js version, got:\n%s", out)
 	}
 	if !strings.Contains(string(out), `"marked": "https://esm.sh/marked@18.0.11"`) {
-		t.Errorf("import map should contain all devDependencies, got:\n%s", out)
+		t.Errorf("import map should contain all dependencies, got:\n%s", out)
 	}
 }
 
@@ -68,7 +68,7 @@ func TestUpdateIndexHTMLLeavesUnrelatedCdnJsLinks(t *testing.T) {
 		t.Fatalf("updateIndexHTML returned error: %v", err)
 	}
 
-	// font-awesome is not a devDependency and must not be touched
+	// font-awesome is not a dependency and must not be touched
 	if !strings.Contains(string(out), "ajax/libs/font-awesome/7.0.1/") {
 		t.Errorf("unrelated cdnjs links must keep their version, got:\n%s", out)
 	}
@@ -226,6 +226,6 @@ func TestBuildImportMapErrorsOnUnknownDependency(t *testing.T) {
 	deps := map[string]string{"driver.js": "1.9.0"}
 	subpaths := map[string][]string{"yace": {"plugins/tab"}}
 	if _, err := buildImportMap(deps, subpaths); err == nil {
-		t.Fatal("expected error when subpaths are declared for a missing devDependency")
+		t.Fatal("expected error when subpaths are declared for a missing dependency")
 	}
 }

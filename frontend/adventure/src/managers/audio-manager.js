@@ -25,6 +25,7 @@
  */
 
 import { AUDIO, TIMING } from '../services/constants.js';
+import { AssetService } from '../services/asset-service.js';
 
 /**
  * Background music states. One value carries the whole machine; the
@@ -71,6 +72,11 @@ export class AudioManager {
         this.gainNode = null;
         this.pauseTimer = null;
 
+        // Sequence token of the track setup in flight or current; compared
+        // by the async setup before it writes, so a superseded pack entry
+        // or a return home cannot re-arm music afterwards.
+        this.trackSeq = null;
+
         // Store bound functions once to avoid memory leaks from repeated .bind() calls
         this.boundHandleMusicEnded = this.handleMusicEnded.bind(this);
         this.boundUpdateMusicProgress = this.updateMusicProgress.bind(this);
@@ -78,18 +84,22 @@ export class AudioManager {
     }
 
     /**
-     * Setup music for a pack: point the element at that pack's track, reset
-     * playback and re-arm loading. The element preloads metadata, which is
-     * what makes a missing or undecodable track visible before the player
-     * clicks: the load attempt fires an error event on the element, and
-     * listeners are attached first so that event cannot be missed.
+     * Setup music for a pack: resolve that pack's track for element use
+     * (a blob URL when pack media is token-protected, the plain path
+     * otherwise), point the element at it, reset playback and re-arm
+     * loading. The element preloads metadata, which is what makes a
+     * missing or undecodable track visible before the player clicks: the
+     * load attempt fires an error event on the element, and listeners are
+     * attached first so that event cannot be missed. A track that cannot
+     * be resolved leaves the control unavailable; the sequence token
+     * aborts a superseded setup before it writes.
      * @param {string} packId - Pack identifier
+     * @param {number} seq - Load sequence token from loadPack
      */
-    setupMusic(packId) {
+    async setupMusic(packId, seq) {
         this.clearPauseTimer();
 
         const music = this.ui.elements.bgMusic;
-        music.src = `/quests/${packId}/assets/bg-music.m4a`;
         // The element feeds the gain node; loudness is controlled there
         music.volume = 1;
         music.pause();
@@ -98,10 +108,37 @@ export class AudioManager {
         this.setupMusicListeners();
         this.initMusicProgress();
         this.setGain(AUDIO.DEFAULT_VOLUME);
+        this.trackSeq = seq;
+
+        let source;
+        try {
+            source = await AssetService.mediaURL(`/quests/${packId}/assets/bg-music.m4a`);
+        } catch {
+            console.warn('Background music unavailable for this pack: the track failed to resolve');
+            if (seq === this.trackSeq) this.transitionTo(MusicState.Unavailable);
+            return;
+        }
+        if (seq !== this.trackSeq) {
+            // A superseded setup that already resolved its track blob
+            // releases it here instead of waiting for the next release.
+            AssetService.revoke(source);
+            return;
+        }
+
+        music.src = source;
         this.transitionTo(MusicState.Silent);
 
         // Changing src does not restart the loading algorithm on its own
         music.load();
+    }
+
+    /**
+     * End the current track's lifetime. A pack transition that is not
+     * followed by a new setupMusic (returning home) cancels an in-flight
+     * setup so it cannot re-arm music afterwards.
+     */
+    invalidateTrack() {
+        this.trackSeq = null;
     }
 
     /**

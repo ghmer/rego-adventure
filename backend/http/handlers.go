@@ -66,6 +66,13 @@ const apiCacheControl = "private, max-age=300"
 // their delivery is part of the game's scoring semantics.
 const revealCacheControl = "no-store"
 
+// mediaCacheControl keeps token-protected pack media and pack CSS out of
+// shared caches; per-user (browser) caching remains allowed. Open mode
+// applies it as well, so cache scope does not depend on configuration.
+// Applied only on serving responses, never on rejections (403/404),
+// so they stay unstorable.
+const mediaCacheControl = "private, max-age=3600"
+
 // Handler handles HTTP requests for quest operations.
 type Handler struct {
 	questRepo *quest.QuestRepository

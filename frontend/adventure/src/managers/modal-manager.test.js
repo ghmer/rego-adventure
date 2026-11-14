@@ -410,4 +410,45 @@ describe('modal-manager', () => {
             expect(cancel).toHaveBeenCalledTimes(1);
         });
     });
+
+    describe('pack images', () => {
+        /**
+         * Let one mediaURL resolution promise settle.
+         */
+        async function flushImageResolution() {
+            await Promise.resolve();
+            await Promise.resolve();
+        }
+
+        it('assigns the resolved source for the result icon', async () => {
+            modal.showResult({ passed: true, results: [] }, 10);
+            await flushImageResolution();
+
+            expect(ui.elements.resultIcon.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/icon-success.png');
+        });
+
+        it('falls back to the success icon when the perfect score image fails to load, once', async () => {
+            modal.showPerfectScore();
+            await flushImageResolution();
+
+            expect(ui.elements.perfectScoreImage.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/perfect_score.png');
+
+            ui.elements.perfectScoreImage.dispatchEvent(new Event('error'));
+            await flushImageResolution();
+
+            expect(ui.elements.perfectScoreImage.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/icon-success.png');
+            // the handler cleared itself: a missing fallback asset cannot
+            // re-run the image algorithm on the next error
+            expect(ui.elements.perfectScoreImage.onerror).toBeNull();
+
+            ui.elements.perfectScoreImage.dispatchEvent(new Event('error'));
+            await flushImageResolution();
+
+            expect(ui.elements.perfectScoreImage.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/icon-success.png');
+        });
+    });
 });
