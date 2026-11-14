@@ -21,7 +21,11 @@ import globals from 'globals';
 // and stylesheet elements cannot send a bearer token. An element source
 // assigned a pack path directly re-breaks authenticated mode silently:
 // the URL must be resolved through the asset service, which issues a
-// blob URL or hands back the plain path.
+// blob URL or hands back the plain path. Taint propagates from a
+// pack-path initialization through concatenations and template
+// interpolations; a later reassignment of an already-initialized
+// variable is not tracked, so reassign-and-read flows stay outside this
+// rule's reach.
 const PACK_MEDIA_MARKER = '/quests/';
 const MEDIA_TARGETS = ['src', 'href', 'backgroundImage'];
 
@@ -41,7 +45,8 @@ function stringText(node, tainted) {
         case 'Literal':
             return typeof node.value === 'string' ? node.value : '';
         case 'TemplateLiteral':
-            return node.quasis.map(quasi => quasi.value.cooked ?? quasi.value.raw).join('');
+            return node.quasis.map(quasi => quasi.value.cooked ?? quasi.value.raw).join('') +
+                node.expressions.map(expression => stringText(expression, tainted)).join('');
         case 'BinaryExpression':
             return node.operator === '+' ? stringText(node.left, tainted) + stringText(node.right, tainted) : '';
         case 'Identifier':
