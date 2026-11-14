@@ -119,8 +119,10 @@ class TutorialSystem {
             declineBtn.click();
         });
 
-        // Focus on accept button
-        setTimeout(() => acceptBtn.focus(), 100);
+        // Focus on accept button. showModal() focuses the first focusable
+        // element (the checkbox); the accept button carries the positive
+        // intent, so focus is handed to it directly — no timing guesswork.
+        acceptBtn.focus();
     }
 
     /**
@@ -323,7 +325,7 @@ class TutorialSystem {
                 element: '#quest-counter',
                 popover: {
                     title: 'Quest Counter',
-                    description: 'Wondering on wich quest you currently are on? This is where you get answers!',
+                    description: 'Wondering which quest you currently are on? This is where you get answers!',
                     side: 'bottom',
                     align: 'center'
                 }

@@ -26,6 +26,7 @@ import { handleApiError } from '../services/error-service.js';
 import { showToast } from '../services/toast-service.js';
 import { SCORING, ErrorLevel } from '../services/constants.js';
 import { show, hide, setHidden } from '../services/visibility.js';
+import { encodePathSegment } from '../services/safe-url.js';
 import { formatPolicyError, formatActualValue, buildHintConfirmationText } from './dialog-text.js';
 import { parseMarkdown } from '../services/markdown.js';
 
@@ -290,7 +291,7 @@ export class ModalManager {
         const isSuccess = !result.error && result.passed;
 
         // Set icon
-        const iconPath = `/quests/${this.state.currentPackId}/assets/${isSuccess ? 'icon-success.png' : 'icon-failure.png'}`;
+        const iconPath = `/quests/${encodePathSegment(this.state.currentPackId)}/assets/${isSuccess ? 'icon-success.png' : 'icon-failure.png'}`;
         this.setPackImage(this.ui.elements.resultIcon, iconPath);
         this.ui.elements.resultIcon.alt = isSuccess ? 'Success - Quest completed' : 'Failure - Quest not completed';
 
@@ -341,9 +342,10 @@ export class ModalManager {
                     `Test ${test.test_id}: ${test.passed ? 'Passed' : 'Failed'} (Expected: ${JSON.stringify(test.expected)}, Got: ${formatActualValue(test)})`;
                 testItem.querySelector('.test-icon').textContent = icon;
                 
-                // Show payload for failed tests
+                // Show payload for failed tests. A zero, false or empty input
+                // is a legitimate payload: only an absent one is skipped.
                 const payloadDiv = testItem.querySelector('.test-payload');
-                if (!test.passed && test.input) {
+                if (!test.passed && test.input !== undefined) {
                     payloadDiv.classList.add('visible');
                     payloadDiv.querySelector('pre').textContent = JSON.stringify(test.input, null, 2);
                 }
@@ -381,7 +383,7 @@ export class ModalManager {
      * effects off.
      */
     showPerfectScore() {
-        const packAssets = `/quests/${this.state.currentPackId}/assets/`;
+        const packAssets = `/quests/${encodePathSegment(this.state.currentPackId)}/assets/`;
         this.setPackImage(
             this.ui.elements.perfectScoreImage,
             `${packAssets}perfect_score.png`,

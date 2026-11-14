@@ -22,6 +22,7 @@
 import { fetchPackDetails } from '../services/api-service.js';
 import { AssetService } from '../services/asset-service.js';
 import { handleApiError } from '../services/error-service.js';
+import { encodePathSegment } from '../services/safe-url.js';
 import { DEFAULT_TEXT, ErrorLevel, TIMING } from '../services/constants.js';
 import { showToast } from '../services/toast-service.js';
 import { tutorial } from '../tutorial.js';
@@ -132,7 +133,7 @@ export class PackManager {
      * @param {boolean} [optional=false] - Treat a missing sheet as absent
      */
     async applyPackStylesheet(packId, seq, variant, filename, optional = false) {
-        const url = `/quests/${packId}/${filename}`;
+        const url = `/quests/${encodePathSegment(packId)}/${filename}`;
         let text;
         try {
             text = await AssetService.styleSheetText(url, optional);
@@ -176,7 +177,7 @@ export class PackManager {
      */
     async loadPackAssets(packId, seq) {
         if (seq !== this.loadSeq) return;
-        const basePath = `/quests/${packId}/assets/`;
+        const basePath = `/quests/${encodePathSegment(packId)}/assets/`;
 
         // Resolve and preload all assets in parallel
         const loadOne = async (name) => {

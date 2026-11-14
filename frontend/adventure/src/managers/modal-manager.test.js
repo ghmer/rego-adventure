@@ -390,6 +390,31 @@ describe('modal-manager', () => {
             expect(cleanupEffects).toHaveBeenCalledTimes(1);
         });
 
+        it('shows the payload of a failed test whose input is a legitimate falsy value', () => {
+            document.body.insertAdjacentHTML('beforeend', `
+                <template id="test-result-template">
+                    <li>
+                        <div class="test-result">
+                            <span class="test-icon"></span>
+                            <span class="test-text"></span>
+                        </div>
+                        <div class="test-payload">
+                            <div>Test Payload:</div>
+                            <pre></pre>
+                        </div>
+                    </li>
+                </template>`);
+
+            modal.showResult({
+                passed: false,
+                results: [{ test_id: 1, passed: false, expected: false, input: 0 }]
+            });
+
+            const payload = ui.elements.resultTestList.querySelector('.test-payload');
+            expect(payload.classList.contains('visible')).toBe(true);
+            expect(payload.querySelector('pre').textContent).toBe('0');
+        });
+
         it('stops the effects when the perfect-score dialog closes', () => {
             modal.showPerfectScore();
 

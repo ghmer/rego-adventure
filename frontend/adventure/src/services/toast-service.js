@@ -31,6 +31,11 @@ const TOAST_DURATION = {
 
 let toastContainer = null;
 
+/** Maximum toasts on screen at once. A burst of failures (e.g. several
+ * rejected requests in one interaction) stacks role="alert" otherwise,
+ * and screen readers would announce an unbounded run of toasts. */
+const MAX_TOASTS = 5;
+
 /**
  * Initialize the toast container
  */
@@ -82,7 +87,13 @@ export function showToast(message, level = ErrorLevel.INFO) {
     
     // Add to container
     toastContainer.appendChild(toast);
-    
+
+    // Cap the stack: when a burst arrives, remove the oldest toasts
+    // immediately (their own auto-dismiss timers then find them gone).
+    while (toastContainer.children.length > MAX_TOASTS) {
+        toastContainer.firstElementChild.remove();
+    }
+
     // Trigger animation
     setTimeout(() => toast.classList.add('toast-show'), 10);
     

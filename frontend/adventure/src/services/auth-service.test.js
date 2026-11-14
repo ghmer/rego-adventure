@@ -108,12 +108,14 @@ describe('auth-service', () => {
 
     describe('without authentication', () => {
         it('reports disabled when no config is loaded', () => {
-            expect(AuthService.isEnabled()).toBeFalsy();
+            // Strictly false, not a falsy null: callers pass the value as
+            // a boolean (updateAuthUI's authEnabled parameter).
+            expect(AuthService.isEnabled()).toBe(false);
         });
 
         it('reports disabled when the config disables auth', () => {
             configServiceMock.get.mockReturnValue({ enabled: false });
-            expect(AuthService.isEnabled()).toBeFalsy();
+            expect(AuthService.isEnabled()).toBe(false);
         });
 
         it('resolves no token when auth is disabled', async () => {

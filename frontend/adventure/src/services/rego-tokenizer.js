@@ -26,7 +26,9 @@ const TOKEN_RULES = [
     ['string', /\$"(?:\\.|[^"\\\n])*"?/y],
     ['string', /`[^`\n]*`?/y],
     ['string', /"(?:\\.|[^"\\\n])*"?/y],
-    ['number', /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y],
+    // A '-' starts a number only when the preceding character cannot close
+    // a value; after such a character ('x' in `x-1`) it is a binary operator.
+    ['number', /(?<![A-Za-z0-9_)\]"'`$}])-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y],
     ['keyword', /\b(?:package|import|default|not|as|with|else|some|in|every|if|contains)\b/y],
     ['constant', /\b(?:true|false|null)\b/y],
     ['root', /(?<!\.)\b(?:input|data)\b/y],

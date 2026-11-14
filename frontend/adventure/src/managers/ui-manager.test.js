@@ -461,6 +461,104 @@ describe('ui-manager', () => {
                 vi.useRealTimers();
             }
         });
+
+        it('moves focus one grid row down and up with ArrowDown and ArrowUp', () => {
+            const ui = createPackListUi();
+            ui.renderPackList([
+                { id: 'a', title: 'A', description: '' },
+                { id: 'b', title: 'B', description: '' },
+                { id: 'c', title: 'C', description: '' },
+                { id: 'd', title: 'D', description: '' },
+                { id: 'e', title: 'E', description: '' },
+            ], vi.fn());
+
+            const tiles = ui.elements.questPackList.querySelectorAll('.quest-pack-tile');
+            // The fixture carries no grid token, so the row height falls
+            // back to the breakpoint default of three columns.
+            tiles[0].focus();
+            tiles[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+            expect(document.activeElement).toBe(tiles[3]);
+
+            tiles[3].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+            expect(document.activeElement).toBe(tiles[0]);
+
+            // A row past the last tile wraps around from the far end.
+            tiles[4].focus();
+            tiles[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+            expect(document.activeElement).toBe(tiles[2]);
+        });
+
+        it('keeps the plain arrows and Home/End shortcuts working', () => {
+            const ui = createPackListUi();
+            ui.renderPackList([
+                { id: 'a', title: 'A', description: '' },
+                { id: 'b', title: 'B', description: '' },
+                { id: 'c', title: 'C', description: '' },
+                { id: 'd', title: 'D', description: '' },
+                { id: 'e', title: 'E', description: '' },
+            ], vi.fn());
+
+            const tiles = ui.elements.questPackList.querySelectorAll('.quest-pack-tile');
+            tiles[1].focus();
+            tiles[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+            expect(document.activeElement).toBe(tiles[2]);
+
+            tiles[2].dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+            expect(document.activeElement).toBe(tiles[0]);
+
+            tiles[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+            expect(document.activeElement).toBe(tiles[4]);
+        });
+    });
+
+    describe('renderTestPayload', () => {
+        /**
+         * Build a UIManager over the test-case template chrome.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createPayloadUi() {
+            document.body.innerHTML = `
+                <template id="test-case-template">
+                    <div class="test-case-card">
+                        <div class="test-case-header">
+                            <h4 class="test-case-title"></h4>
+                            <span class="test-case-expected"></span>
+                        </div>
+                        <div class="test-case-input">
+                            <pre class="test-case-input-data"></pre>
+                        </div>
+                        <div class="test-case-data hidden">
+                            <pre class="test-case-data-content"></pre>
+                        </div>
+                    </div>
+                </template>
+                <div id="test-payload-data"></div>
+            `;
+            return new UIManager({ textarea: document.createElement('textarea') });
+        }
+
+        it('renders a zero input as itself instead of hiding it', () => {
+            const ui = createPayloadUi();
+
+            ui.renderTestPayload([
+                { expected_value: false, payload: { input: 0 } },
+            ]);
+
+            const card = ui.elements.testPayloadData.firstElementChild;
+            expect(card.querySelector('.test-case-input-data').textContent).toBe('0');
+        });
+
+        it('renders an absent payload as null instead of crashing', () => {
+            const ui = createPayloadUi();
+
+            ui.renderTestPayload([
+                { expected_value: true, payload: null },
+            ]);
+
+            const card = ui.elements.testPayloadData.firstElementChild;
+            expect(card.querySelector('.test-case-input-data').textContent).toBe('null');
+            expect(card.querySelector('.test-case-data').classList.contains('hidden')).toBe(true);
+        });
     });
 
     describe('updateAuthUI', () => {
