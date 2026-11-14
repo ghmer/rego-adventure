@@ -340,23 +340,33 @@ class Server {
     // needs. Two suites picking a free port in the same moment can pick the same
     // one, because the probe that finds the port closes it again before this
     // process binds it: with no developer-chosen port to honour, a taken port is
-    // answered by asking for another.
+    // answered by asking for another, and a port that is taken between the probe
+    // and the bind - the server dies on EADDRINUSE - is answered the same way.
     async start({ packs = [] } = {}) {
         const attempts = process.env.QA_PORT ? 1 : 3;
-        for (let attempt = 0; attempt < attempts; attempt += 1) {
+        for (let attempt = 1; attempt <= attempts; attempt += 1) {
             const occupied = await request(this.port, '/health').catch(() => null);
-            if (!occupied) {
-                return this.startOnPort(packs);
+            if (occupied) {
+                if (attempt === attempts) {
+                    throw new Error(
+                        `port ${this.port} already answers; it is not the app under test. ` +
+                        'Free it or set QA_PORT to another port.'
+                    );
+                }
+                this.port = await pickFreePort();
+                continue;
             }
-            if (attempts === 1) {
-                throw new Error(
-                    `port ${this.port} already answers; it is not the app under test. ` +
-                    'Free it or set QA_PORT to another port.'
-                );
+            try {
+                return await this.startOnPort(packs);
+            } catch (error) {
+                // The bind race: the probe saw the port free and the server died
+                // on the bind. Another port, while this call has attempts left.
+                if (attempt === attempts || !/server exited early/.test(error.message)) {
+                    throw error;
+                }
+                this.port = await pickFreePort();
             }
-            this.port = await pickFreePort();
         }
-        throw new Error(`no free port could be claimed after ${attempts} attempts`);
     }
 
     async startOnPort(packs) {
@@ -378,6 +388,8 @@ class Server {
         const deadline = Date.now() + 8000;
         for (;;) {
             if (this.child.exitCode !== null) {
+                // A dead server is not a drain target: stop keeping it reachable.
+                startedServers.delete(this);
                 throw new Error(`server exited early (code ${this.child.exitCode}):\n${this.log}`);
             }
             try {

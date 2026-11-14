@@ -179,7 +179,14 @@ function main() {
     let phase = 'startup';
 
     const watchdog = armWatchdog({ suite: 'command-line QA', baseMs: 90000, phase: () => phase });
+    // SIGTERM is what run-qa.cjs's ceiling sends when the net catches a hung
+    // suite: the servers it spawned live in process groups of their own, so only
+    // this handler can stop them before the process ends.
     process.on('SIGINT', () => {
+        stopServersSync();
+        process.exit(130);
+    });
+    process.on('SIGTERM', () => {
         stopServersSync();
         process.exit(130);
     });

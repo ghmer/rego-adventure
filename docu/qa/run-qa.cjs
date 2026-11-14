@@ -64,12 +64,13 @@ const SUITES = [
 // The default pool: enough suites to keep the cores busy without asking each of
 // them to share a core with two others. A four-core runner runs three at a time,
 // which is the point at which the browser suites stop overlapping on latency and
-// start overlapping on CPU. QA_PARALLEL and --parallel override it, and a machine
-// with few cores is not made to oversubscribe: the floor only applies when there
+// start overlapping on CPU; the floor of two holds from two cores up, so a
+// single core is not made to run a second suite against the one it has.
+// QA_PARALLEL and --parallel override it, and the floor only applies when there
 // are at least that many suites to run.
 function defaultParallel(count) {
     const cores = Math.max(1, os.availableParallelism ? os.availableParallelism() : os.cpus().length);
-    const share = Math.max(2, Math.floor(cores * 0.75));
+    const share = cores >= 2 ? Math.max(2, Math.floor(cores * 0.75)) : 1;
     return Math.max(1, Math.min(count, share));
 }
 
@@ -136,12 +137,25 @@ function checksLine(output) {
     return match ? `${match[2]}/${match[3]} checks` : '';
 }
 
+// queuePrint emits parts through one chain, so two suites that finish in the
+// same instant cannot interleave their lines: every queued part prints whole
+// before the next one starts. The run summary prints after the chains have run
+// out, because every worker awaits its own last part.
+let printTail = Promise.resolve();
+function queuePrint(parts) {
+    printTail = printTail.then(() => {
+        for (const part of parts) {
+            console.log(part);
+        }
+    });
+    return printTail;
+}
+
 // runSuite starts one suite as its own process and hands back what it printed as
 // one block. The suites' output is deliberately not streamed live: concurrent
 // suites would interleave line by line, and a QA report is read as a whole.
-async function runSuite(suite, env, index, total) {
+async function runSuite(suite, env) {
     const started = Date.now();
-    console.log(`  running ${suite.name} (${index + 1}/${total})`);
 
     const child = spawn(process.execPath, [path.join(__dirname, suite.file)], {
         cwd: repoRoot,
@@ -269,9 +283,8 @@ beside another suite's.`);
     console.log(`suites ${parsed.suites.map((suite) => suite.name).join(', ')}`);
     console.log(`concurrency ${parallel} on ${cores} cores`);
 
-    const build = buildFirst();
-    console.log(`build ${build.seconds.toFixed(1)}s (${build.names.join(', ')})`);
-
+    // The probe goes before the build: a machine without a usable Chromium
+    // learns so in a second, not after a full compile.
     if (parsed.suites.some((suite) => suite.kind === 'browser')) {
         const probe = await probeChromium();
         if (!probe.ok) {
@@ -281,6 +294,9 @@ beside another suite's.`);
         }
         console.log(`chromium launch ${probe.seconds.toFixed(1)}s`);
     }
+
+    const build = buildFirst();
+    console.log(`build ${build.seconds.toFixed(1)}s (${build.names.join(', ')})`);
 
     // QA_CONTENTION is what the suites' watchdog budgets scale by: a run that
     // gives this machine more suites than it has cores must not then blame each
@@ -296,14 +312,21 @@ beside another suite's.`);
     let startedCount = 0;
 
     async function worker() {
+        const total = parsed.suites.length;
         while (queue.length > 0) {
             const suite = queue.shift();
             const index = startedCount;
             startedCount += 1;
-            const result = await runSuite(suite, env, index, parsed.suites.length);
+            // The marker and the finished block both go through the print chain,
+            // so a suite's lines are contiguous whatever the other suites do.
+            await queuePrint([`  running ${suite.name} (${index + 1}/${total})`]);
+            const result = await runSuite(suite, env);
             results.push(result);
-            console.log(`\n=== ${suite.name} (${result.failed ? 'FAILED' : 'ok'}, ${format(result.seconds)}, ${result.note})`);
-            console.log(result.output.trimEnd());
+            await queuePrint([
+                '',
+                `=== ${suite.name} (${result.failed ? 'FAILED' : 'ok'}, ${format(result.seconds)}, ${result.note})`,
+                result.output.trimEnd()
+            ]);
         }
     }
 
@@ -320,7 +343,14 @@ beside another suite's.`);
     // server logs and any leftover page state live, and a red CI run is read from
     // a developer's machine by pointing at that directory.
     const anyFailed = results.some((result) => result.failed);
-    const left = gitStatus(repoRoot).filter((line) => !baseline.includes(line));
+    const after = gitStatus(repoRoot);
+    // Both directions count as a change: the removal of a file the tree already
+    // carried never shows up as a new line, and the one-sided comparison of old
+    // against new would miss it.
+    const left = [
+        ...after.filter((line) => !baseline.includes(line)),
+        ...baseline.filter((line) => !after.includes(line))
+    ];
     if (!parsed.keepRun && !anyFailed && left.length === 0) {
         fs.rmSync(runDir, { recursive: true, force: true });
     }
@@ -344,7 +374,7 @@ beside another suite's.`);
         console.log('\nat least one suite failed; the run directory is kept for inspection.');
     }
     if (left.length > 0) {
-        console.log('\nthe run left something in the working tree, which the run roots were meant to prevent.');
+        console.log('\nthe run changed the working tree, which the run roots were meant to prevent.');
     }
 
     process.exit(anyFailed || left.length > 0 ? 1 : 0);

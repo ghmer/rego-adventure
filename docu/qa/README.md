@@ -115,18 +115,10 @@ directory and still rejects a symlinked final component, which is what the run
 root relies on. `Server.start` retries on another port when a concurrently
 picked port turns out to be taken.
 
-**Sprint 3 — the runner.** `run-qa.cjs` builds once, spawns the suites through a
-bounded pool, buffers each suite's output and prints it as one block so the logs
-of concurrent suites do not interleave, and ends with a per-suite timing table.
-Concurrency defaults to `min(suites, max(2, floor(cpus * 0.75)))`: six suites on
-a development machine, three on a four-core runner, where three Chromium
-instances fit without oversubscribing the cores. `--parallel` and `QA_PARALLEL`
-override it. Each suite keeps its own watchdog so a hang names the phase that was
-running; the budget is multiplied by `ceil(concurrency / cpus)`, so a suite is
-never blamed for the CPU pressure the runner chose. The runner also compares the
-working tree before and after the run and fails it if the run changed anything,
-which is the assertion that the isolation holds rather than a suite's own
-bookkeeping. `frontend-ci.yml` runs the runner instead of the loop.
+**Sprint 3 — the runner.** `run-qa.cjs` builds once, probes Chromium before the build (a machine without a usable browser learns so in a second, not after a compile), spawns the suites through a bounded pool, buffers each suite's output and prints it through one queue so the logs of concurrent suites cannot interleave even when two suites finish in the same instant, and ends with a per-suite timing table.
+Concurrency defaults to `min(suites, max(2, floor(cpus * 0.75)))`: six suites on a development machine, three on a four-core runner, where three Chromium
+instances fit without oversubscribing the cores; a single core runs one suite at a time, because the floor of two holds from two cores up. `--parallel` and
+`QA_PARALLEL` override it. Each suite keeps its own watchdog so a hang names the phase that was running; the budget is multiplied by `ceil(concurrency / cpus)`, so a suite is never blamed for the CPU pressure the runner chose. The runner also compares the working tree before and after the run and fails it if the run changed anything, added or removed — a change means the isolation leaked, and the removal of a file the tree already carried shows up on neither side alone. The comparison is the assertion that the isolation holds rather than a suite's own bookkeeping. `frontend-ci.yml` runs the runner instead of the loop.
 
 **Sprint 4 — wait for the signal, not the timeout.** `qa-lib` gains
 `dialogClosed(page, id)`, which waits on the dialog's own `open` property (and then
@@ -148,11 +140,12 @@ test.
 The shared build, the run roots and the pool mean a full run pays one cold
 compile, then six suites whose start-up is a link farm, one `assetgen` call per
 pack and one Chromium. Measured on the same 14-core machine, the whole set of six
-suites went from 47 s in a serial loop to 12 s of wall clock, with the longest
+suites went from 47 s in a serial loop to 11 s of wall clock, with the longest
 suite (`spa-qa`, 4.5 s of which is the app's own 1500 ms autosave debounce three
 times) setting the floor. A four-core runner pays one cold compile instead of six
 warm-plus-cold ones and overlaps the six suites three at a time.
 
 The suites' own `leftoverChanges` report still names anything a run added to the
-working tree, and `run-qa.cjs` fails a run that added anything: with the packs
-inside run roots, a tree change means the isolation leaked.
+working tree, and `run-qa.cjs` fails a run that changed the tree in either
+direction, added or removed: with the packs inside run roots, a tree change
+means the isolation leaked.

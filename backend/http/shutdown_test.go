@@ -361,6 +361,10 @@ func pollDial(addr string, timeout time.Duration, wantUp bool) bool {
 			return true
 		}
 		if errors.Is(err, net.ErrClosed) {
+			// Unreachable for a fresh dialer, which owns no pre-existing
+			// connection; the guard exists so a caller that shares one is
+			// reported as a poll failure instead of spinning on its closed
+			// socket until the deadline.
 			return false
 		}
 		time.Sleep(20 * time.Millisecond)

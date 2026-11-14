@@ -108,11 +108,21 @@ func gitRun(t *testing.T, root string, args ...string) string {
 	return out
 }
 
-// gitIgnored asks git whether the path is excluded by .gitignore.
+// gitIgnored asks git whether the path is excluded by .gitignore. Exit 1 is
+// git's answer for "not ignored"; any other failure is git itself failing, and
+// a classification the test cannot vouch for must fail loudly: the untracked
+// verdict the failure would otherwise imitate fails the suite with the remediation.
 func gitIgnored(t *testing.T, root, path string) bool {
 	t.Helper()
 	_, err := runIn(t, root, "git", "check-ignore", "-q", "--", path)
-	return err == nil
+	if err == nil {
+		return true
+	}
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok && exitErr.ExitCode() == 1 {
+		return false
+	}
+	t.Fatalf("git check-ignore could not classify %s: %v", path, err)
+	return false
 }
 
 // goRun runs go in root and answers with its stdout, failing the test when the
