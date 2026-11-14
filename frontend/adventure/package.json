@@ -1,6 +1,6 @@
 {
   "name": "rego-adventure-frontend",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "Policy-Based Access Control Adventure - Frontend Dependencies",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "canvas-confetti": "1.9.4",
-    "dompurify": "3.4.17",
+    "dompurify": "3.4.18",
     "driver.js": "1.14.0",
     "marked": "18.2.0",
     "oidc-client-ts": "3.5.0",
@@ -55,5 +55,8 @@
     "updates": "Use 'npm outdated' to check for available updates, then update versions in package.json and regenerate the import map in index.html with cmd/importmapgen (do not edit the import map by hand).",
     "importmap": "The import map is generated from \"dependencies\" only. The optional 'importmap.subpaths' field declares package subpath modules per dependency; importmapgen emits an extra '<lib>/<subpath>' entry for each. Declare subpaths here when a new import path is used in frontend code.",
     "testing": "Run 'npm test' after 'npm ci' in this directory: the toolchains are devDependencies pinned by the committed lockfile, the same install every frontend CI job starts from."
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
   }
 }
