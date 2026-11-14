@@ -25,13 +25,15 @@
 // Run: node docu/qa/editor-qa.cjs
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 
 const {
     repoRoot,
     gitStatus,
     leftoverChanges,
+    scratch,
+    armWatchdog,
+    settle,
     withBrowser,
     newPage,
     Report
@@ -116,13 +118,10 @@ async function main() {
     const baseline = gitStatus(repoRoot);
 
     const report = new Report('quest editor browser QA');
-    const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rego-editor-qa-'));
+    const downloadDir = scratch('editor-qa');
 
     let phase = 'startup';
-    const watchdog = setTimeout(() => {
-        console.error(`\nquest editor QA exceeded 30s during "${phase}"`);
-        process.exit(2);
-    }, 30000);
+    const watchdog = armWatchdog({ suite: 'quest editor QA', baseMs: 30000, phase: () => phase });
     const quit = (code) => {
         fs.rmSync(downloadDir, { recursive: true, force: true });
         process.exit(code);
@@ -135,6 +134,12 @@ async function main() {
             phase = 'the editor page';
             const harness = await newPage(browser, 0);
             const { page, context } = harness;
+            // Every download this page announces is recorded from the moment the
+            // page exists: a refused export is judged by what never arrived, and a
+            // watcher armed only around the click could miss one that arrives
+            // early, or force a pause long enough to cover the whole check.
+            const downloads = [];
+            page.on('download', (download) => downloads.push(download));
             // Deleting a quest asks for confirmation through a native confirm().
             page.on('dialog', (dialog) => dialog.accept());
 
@@ -221,9 +226,13 @@ async function main() {
             report.check('the new quest starts empty', (await titleValue(page)) === 'New Quest' && (await questIdValue(page)) === '3', `${await titleValue(page)} / ${await questIdValue(page)}`);
 
             phase = 'export refusal';
-            const refused = page.waitForEvent('download', { timeout: 1200 }).catch(() => null);
             await page.click('#saveBtn');
-            report.check('a pack the backend would refuse is not exported', (await refused) === null);
+            // The validation report is what says the pack was refused; once it is
+            // up and the page has gone quiet again, an export the rules allowed
+            // would have announced itself already.
+            await page.waitForFunction(() => !document.getElementById('validationReport').classList.contains('hidden'), null, { timeout: 1500 }).catch(() => {});
+            await settle(page);
+            report.check('a pack the backend would refuse is not exported', downloads.length === 0, `downloads: ${downloads.length}`);
             const validation = await page.evaluate(() => ({
                 shown: !document.getElementById('validationReport').classList.contains('hidden'),
                 title: document.getElementById('validationReportTitle').textContent.trim(),
@@ -336,7 +345,7 @@ async function main() {
         report.check('the suite ran to the end', false, error.message.split('\n')[0]);
     }
 
-    clearTimeout(watchdog);
+    watchdog.cancel();
     const clean = report.done();
     const left = leftoverChanges(repoRoot, baseline);
     if (left.length > 0) {

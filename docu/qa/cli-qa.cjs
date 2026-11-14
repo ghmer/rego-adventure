@@ -28,7 +28,6 @@
 // Run: node docu/qa/cli-qa.cjs
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 
 const { spawnSync } = require('node:child_process');
@@ -38,9 +37,13 @@ const {
     gitStatus,
     leftoverChanges,
     buildServer,
+    goTool,
     pickFreePort,
+    scratch,
+    suiteRoot,
+    armWatchdog,
+    stopServersSync,
     Server,
-    run,
     Report
 } = require('./qa-lib.cjs');
 
@@ -58,7 +61,13 @@ function sh(command, args, options = {}) {
     };
 }
 
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'rego-cli-qa-'));
+// The suite's own writable area, inside the run directory: an assetgen run that
+// is expected to fail still gets a tree of its own to fail in, so it cannot collide
+// with a suite running at the same time.
+const work = scratch('cli-qa');
+// The run root the servers start in: their quests directory is empty and theirs,
+// which is what the first phase is about.
+const ROOT = suiteRoot('cli-qa');
 
 function writeJSON(file, value) {
     fs.writeFileSync(file, JSON.stringify(value, null, 2));
@@ -80,7 +89,7 @@ function brokenPack() {
 
 async function serverSignals(report, binary) {
     const port = await pickFreePort();
-    const server = new Server({ cwd: repoRoot, port, binary, env: { LOG_LEVEL: 'info' } });
+    const server = new Server({ cwd: ROOT, port, binary, env: { LOG_LEVEL: 'info' } });
     await server.start();
 
     const packs = await server.packs();
@@ -94,7 +103,7 @@ async function serverSignals(report, binary) {
     );
     report.check('a SIGTERM run exits cleanly', drained.code === 0, String(drained.code));
 
-    const interrupted = new Server({ cwd: repoRoot, port: await pickFreePort(), binary, env: { LOG_LEVEL: 'info' } });
+    const interrupted = new Server({ cwd: ROOT, port: await pickFreePort(), binary, env: { LOG_LEVEL: 'info' } });
     await interrupted.start();
     const signalled = await interrupted.stop('SIGINT');
     report.check(
@@ -105,8 +114,10 @@ async function serverSignals(report, binary) {
 }
 
 function solutionVerifier(report) {
-    const packFile = writeJSON(path.join(scratch, 'broken-quests.json'), brokenPack());
-    const output = sh('go', ['run', './cmd/solutionverifier', '-questsfile', packFile]).output;
+    const packFile = writeJSON(path.join(work, 'broken-quests.json'), brokenPack());
+    // The compiled tool, not `go run`: the run directory holds one build of it for
+    // every suite that shells out to it.
+    const output = sh(goTool('solutionverifier'), ['-questsfile', packFile]).output;
 
     report.check(
         'a quest that cannot be evaluated says so',
@@ -128,7 +139,7 @@ function solutionVerifier(report) {
 }
 
 function assetgenRollback(report) {
-    const output = path.join(scratch, 'assetgen');
+    const output = path.join(work, 'assetgen');
     const packDir = path.join(output, 'qacli');
     fs.mkdirSync(packDir, { recursive: true });
     // An authored file that must survive, and a directory where a generated file
@@ -136,7 +147,7 @@ function assetgenRollback(report) {
     fs.writeFileSync(path.join(packDir, 'quests.json'), '{"authored":true}');
     fs.mkdirSync(path.join(packDir, 'theme.css'));
 
-    const result = sh('go', ['run', './cmd/assetgen', '-theme', 'qacli', '-output', output]);
+    const result = sh(goTool('assetgen'), ['-theme', 'qacli', '-output', output]);
     const listing = fs.existsSync(packDir) ? fs.readdirSync(packDir).sort() : [];
 
     report.check('an unwritable step fails the assetgen run', result.status !== 0, `status ${result.status}`);
@@ -152,7 +163,7 @@ function assetgenRollback(report) {
     );
 
     // A clean run into the same tree still works afterwards.
-    const clean = sh('go', ['run', './cmd/assetgen', '-theme', 'qacli-clean', '-output', output]);
+    const clean = sh(goTool('assetgen'), ['-theme', 'qacli-clean', '-output', output]);
     report.check(
         'a complete run afterwards produces a pack',
         clean.status === 0 && fs.existsSync(path.join(output, 'qacli-clean', 'quests.json')),
@@ -167,12 +178,9 @@ function main() {
     const report = new Report('command-line QA');
     let phase = 'startup';
 
-    const watchdog = setTimeout(() => {
-        console.error(`\ncommand-line QA exceeded 90s during "${phase}"`);
-        process.exit(2);
-    }, 90000);
+    const watchdog = armWatchdog({ suite: 'command-line QA', baseMs: 90000, phase: () => phase });
     process.on('SIGINT', () => {
-        fs.rmSync(scratch, { recursive: true, force: true });
+        stopServersSync();
         process.exit(130);
     });
 
@@ -191,13 +199,12 @@ function main() {
             report.check('the suite ran to the end', false, error.message.split('\n')[0]);
         }
 
-        clearTimeout(watchdog);
+        watchdog.cancel();
         const clean = report.done();
         const left = leftoverChanges(repoRoot, baseline);
         if (left.length > 0) {
             console.log(`\nleft behind by the run:\n${left.join('\n')}`);
         }
-        fs.rmSync(scratch, { recursive: true, force: true });
         process.exit(clean ? 0 : 1);
     })();
 }

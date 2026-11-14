@@ -36,6 +36,8 @@ const {
     repoRoot,
     buildServer,
     pickFreePort,
+    suiteRoot,
+    armWatchdog,
     gitStatus,
     leftoverChanges,
     stopServersSync,
@@ -47,6 +49,9 @@ const {
     toastText
 } = require('./qa-lib.cjs');
 
+// The run root this suite's servers start in: the packs it generates are its own,
+// the frontend it serves is the repository's (see suiteRoot in qa-lib.cjs).
+let ROOT = null;
 const CLIENT_ID = 'qa-session-client';
 const AUDIENCE = 'qa-audience';
 const DEAD_AUTHORITY_PATH = 'qa-dead-authority';
@@ -114,12 +119,14 @@ function storedUser(authority, accessToken, expiresAt) {
 async function refusedRenewal(browser, report, binary) {
     console.log('\nan expired token whose renewal is refused');
     const stub = await discoveryStub();
-    const authority = `http://127.0.0.1:${PORT}/${DEAD_AUTHORITY_PATH}`;
-    const server = new Server({ cwd: repoRoot, port: PORT, binary, env: authEnv(authority, stub.port) });
+    const server = new Server({ cwd: ROOT, port: PORT, binary, env: authEnv(`http://127.0.0.1:{PORT}/${DEAD_AUTHORITY_PATH}`, stub.port) });
     await server.start();
+    // What the browser is told about the issuer has to be the origin this server
+    // actually answers on, so it is read back once the port has settled.
+    const authority = server.url(DEAD_AUTHORITY_PATH);
 
     try {
-        const harness = await newPage(browser, PORT);
+        const harness = await newPage(browser, server.port);
         const { page } = harness;
         const requests = [];
         page.on('request', (request) => {
@@ -192,7 +199,7 @@ async function refusedRenewal(browser, report, binary) {
         );
         report.check(
             'the failed login leaves the page on the start screen',
-            page.url().startsWith(`http://127.0.0.1:${PORT}/`),
+            page.url().startsWith(server.url()),
             page.url()
         );
 
@@ -211,7 +218,8 @@ async function refusedRenewal(browser, report, binary) {
 /**
  * Server configuration for both scenarios: auth on, an authority the browser
  * cannot reach, and a discovery document only the server consults.
- * @param {string} authority - The authority handed to the browser
+ * @param {string} authority - The authority handed to the browser, spelled with
+ *   {PORT} for the port the server ends up answering on
  * @param {number} stubPort - Port of the discovery document
  * @returns {Object} Extra environment for the server process
  */
@@ -233,7 +241,12 @@ async function refusedInsideAQuest(browser, report, binary) {
     console.log('\na renewal refused inside a quest');
     const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
     const stub = await discoveryStub(publicKey.export({ format: 'jwk' }));
-    const authority = `http://127.0.0.1:${PORT}/${DEAD_AUTHORITY_PATH}`;
+    const server = new Server({ cwd: ROOT, port: PORT, binary, env: authEnv(`http://127.0.0.1:{PORT}/${DEAD_AUTHORITY_PATH}`, stub.port) });
+    await server.start({ packs: [PACK] });
+    const authority = server.url(DEAD_AUTHORITY_PATH);
+
+    // The token's life starts once the server is up, because that is when the page
+    // that has to outlive it begins.
     const issuedAt = Math.floor(Date.now() / 1000);
     const expiresAt = issuedAt + TOKEN_LIFE_SECONDS;
     const token = signedToken({
@@ -244,11 +257,8 @@ async function refusedInsideAQuest(browser, report, binary) {
         exp: expiresAt
     }, privateKey);
 
-    const server = new Server({ cwd: repoRoot, port: PORT, binary, env: authEnv(authority, stub.port) });
-    await server.start({ packs: [PACK] });
-
     try {
-        const harness = await newPage(browser, PORT);
+        const harness = await newPage(browser, server.port);
         const { page } = harness;
         await page.addInitScript(({ user, tutorial }) => {
             window.sessionStorage.setItem(user.key, user.value);
@@ -330,7 +340,7 @@ async function refusedInsideAQuest(browser, report, binary) {
     } finally {
         await server.stop('SIGTERM');
         stub.server.close();
-        removePack(repoRoot, PACK);
+        removePack(ROOT, PACK);
     }
 }
 
@@ -341,15 +351,12 @@ async function main() {
     if (!PORT) {
         PORT = await pickFreePort();
     }
-    console.log(`port ${PORT}`);
+    ROOT = suiteRoot('session-qa');
+    console.log(`port ${PORT}, run root ${ROOT}`);
     const report = new Report('session machine browser QA');
 
     let phase = 'startup';
-    const watchdog = setTimeout(() => {
-        console.error(`\nsession QA exceeded ${WATCHDOG_MS / 1000}s during "${phase}"`);
-        stopServersSync();
-        process.exit(2);
-    }, WATCHDOG_MS);
+    const watchdog = armWatchdog({ suite: 'session QA', baseMs: WATCHDOG_MS, phase: () => phase });
     process.on('SIGINT', () => {
         stopServersSync();
         process.exit(130);
@@ -386,7 +393,7 @@ async function main() {
         stopServersSync();
     }
 
-    clearTimeout(watchdog);
+    watchdog.cancel();
     const clean = report.done();
     const left = leftoverChanges(repoRoot, baseline);
     if (left.length > 0) {

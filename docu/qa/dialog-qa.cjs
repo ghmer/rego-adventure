@@ -35,7 +35,10 @@ const {
     leftoverChanges,
     buildServer,
     pickFreePort,
-    generatePack,
+    suiteRoot,
+    armWatchdog,
+    dialogClosed,
+    stopServersSync,
     removePack,
     Server,
     withBrowser,
@@ -44,6 +47,9 @@ const {
 } = require('./qa-lib.cjs');
 
 const PACK = 'qadialog';
+// The suite's packs live in its own run root, beside a linked copy of the frontend
+// the server only reads (see suiteRoot in qa-lib.cjs).
+let ROOT = null;
 const TIMING_CONFETTI_INTERVAL_MS = 250;
 
 const CORRECT = {
@@ -208,17 +214,14 @@ async function declinePrompt(page) {
 async function main() {
     // Judged on what the run adds to the tree, not on what was already there.
     const baseline = gitStatus(repoRoot);
+    ROOT = suiteRoot('dialog-qa');
 
     const report = new Report('dialog machine browser QA');
     let phase = 'startup';
 
-    const watchdog = setTimeout(() => {
-        console.error(`\ndialog QA exceeded 60s during "${phase}"`);
-        process.exit(2);
-    }, 60000);
+    const watchdog = armWatchdog({ suite: 'dialog QA', baseMs: 60000, phase: () => phase });
     const quit = (code) => {
-        removePack(repoRoot, PACK);
-        const { stopServersSync } = require('./qa-lib.cjs');
+        removePack(ROOT, PACK);
         stopServersSync();
         process.exit(code);
     };
@@ -227,17 +230,16 @@ async function main() {
 
     try {
         const binary = buildServer(repoRoot);
-        const port = await pickFreePort();
-        const server = new Server({ cwd: repoRoot, port, binary });
+        const server = new Server({ cwd: ROOT, port: await pickFreePort(), binary });
         await server.start({ packs: [PACK] });
-        addSupportModule(path.join(repoRoot, 'frontend', 'quests', PACK));
+        addSupportModule(server.packDir(PACK));
         // The pack must be read again now that it carries a support module.
         await server.stop('SIGTERM');
         await server.start();
 
         await withBrowser(async (browser) => {
             phase = 'the tutorial prompt';
-            const first = await newPage(browser, port);
+            const first = await newPage(browser, server.port);
             const page = first.page;
             const apiPaths = [];
             page.on('request', (request) => {
@@ -246,7 +248,7 @@ async function main() {
                 }
             });
             await watchIntervals(page);
-            await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+            await page.goto(server.url(), { waitUntil: 'domcontentloaded' });
             await page.locator('.quest-pack-tile').first().click();
             await page.locator('.quest-pack-detail .start-pack-btn').first().click();
             await page.waitForSelector('#game-interface:not(.hidden)', { timeout: 3000 });
@@ -316,7 +318,7 @@ async function main() {
                     continue;
                 }
 
-                await page.waitForSelector(`#${item.id}:not([open])`, { timeout: 1500 }).catch(() => {});
+                await dialogClosed(page, item.id);
                 await page.click(item.opener).catch(() => {});
                 await page.waitForSelector(`#${item.id}[open]`, { timeout: 1500 }).catch(() => {});
                 await page.keyboard.press('Escape');
@@ -400,7 +402,7 @@ async function main() {
             const reachArrow = await whatIsAt(page, '#quest-back-btn');
             report.check('navigation behind an open result dialog is unreachable', reachArrow.insideDialog === 'result-modal', JSON.stringify(reachArrow));
             await page.keyboard.press('Escape');
-            await page.waitForSelector('#result-modal:not([open])', { timeout: 1500 }).catch(() => {});
+            await dialogClosed(page, 'result-modal');
 
             phase = 'the effects a player turns on';
             await page.click('#effects-btn');
@@ -417,7 +419,7 @@ async function main() {
             });
             report.check('a player with effects on gets the failure overlay', darkened.overlay === true, JSON.stringify(darkened));
             await page.keyboard.press('Escape');
-            await page.waitForSelector('#result-modal:not([open])', { timeout: 1500 }).catch(() => {});
+            await dialogClosed(page, 'result-modal');
             const overlayAfter = await page.evaluate(() => {
                 const overlay = document.getElementById('dark-overlay');
                 return { overlayActive: overlay ? overlay.classList.contains('active') : false };
@@ -456,7 +458,7 @@ async function main() {
                 JSON.stringify(unparseable)
             );
             await page.keyboard.press('Escape');
-            await page.waitForSelector('#result-modal:not([open])', { timeout: 1500 }).catch(() => {});
+            await dialogClosed(page, 'result-modal');
 
             phase = 'a clean run to the epilogue';
             await verifyWith(page, CORRECT[2]);
@@ -470,7 +472,7 @@ async function main() {
                 JSON.stringify({ scores: scored.questScores, cursor: scored.questId, frontier: scored.activeQuestId })
             );
             await page.keyboard.press('Escape');
-            await page.waitForSelector('#result-modal:not([open])', { timeout: 1500 }).catch(() => {});
+            await dialogClosed(page, 'result-modal');
 
             phase = 'the opt-out honoured at the edge of every effect';
             await page.click('#effects-btn');
@@ -493,7 +495,7 @@ async function main() {
                 JSON.stringify({ before: scored.questScores, after: afterFailure.questScores, frontier: [scored.activeQuestId, afterFailure.activeQuestId] })
             );
             await page.keyboard.press('Escape');
-            await page.waitForSelector('#result-modal:not([open])', { timeout: 1500 }).catch(() => {});
+            await dialogClosed(page, 'result-modal');
 
             // The epilogue is reached with the opt-out still on: the offer is
             // made, but the celebration it would start is not.
@@ -537,7 +539,7 @@ async function main() {
                 JSON.stringify({ before: beforeCelebration, after: afterCelebration })
             );
             await page.click('#close-perfect-score-btn');
-            await page.waitForSelector('#perfect-score-modal:not([open])', { timeout: 1500 }).catch(() => {});
+            await dialogClosed(page, 'perfect-score-modal');
             const afterCelebrationClose = await clearedWithinWindow(page);
             report.check(
                 'the celebration does not outlive the dialog that started it',
@@ -553,10 +555,10 @@ async function main() {
     } catch (error) {
         report.check('the suite ran to the end', false, error.message.split('\n')[0]);
     } finally {
-        removePack(repoRoot, PACK);
+        removePack(ROOT, PACK);
     }
 
-    clearTimeout(watchdog);
+    watchdog.cancel();
     const clean = report.done();
     const left = leftoverChanges(repoRoot, baseline);
     if (left.length > 0) {

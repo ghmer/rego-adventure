@@ -28,10 +28,14 @@ const {
     buildServer,
     gitStatus,
     leftoverChanges,
+    suiteRoot,
+    armWatchdog,
+    settle,
     Server,
     pickFreePort,
     stopServersSync,
     Report,
+    armPageTimeouts,
     withBrowser,
     newPage,
     removePack,
@@ -39,6 +43,9 @@ const {
 } = require('./qa-lib.cjs');
 
 let PORT = Number(process.env.QA_PORT || 0);
+// The suite's own working tree for the servers it starts: the frontend it serves
+// is the repository's, the quest packs are its own (see suiteRoot in qa-lib.cjs).
+let ROOT = null;
 const PACKS = ['qaone', 'qatwo'];
 
 // The placeholder pack's quests are solved with these policies. Rego 1 needs the
@@ -53,9 +60,12 @@ const SOLUTIONS = {
 // page helpers
 // ----------------------------------------------------------------------------
 
+// The start screen arrives after the app's module graph, which the import map
+// resolves through a CDN: the wait is given room, because a run that starts
+// several suites at once shares the network and the browser warm-up.
 async function openStartScreen(harness) {
     await harness.page.goto(harness.url(), { waitUntil: 'domcontentloaded' });
-    await harness.page.waitForSelector('#start-screen');
+    await harness.page.waitForSelector('#start-screen', { timeout: 3000 });
 }
 
 function packTiles(page) {
@@ -167,7 +177,7 @@ async function theTour(browser, report, port, baseUrl) {
 
     const started = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await started.newPage();
-    page.setDefaultTimeout(1500);
+    armPageTimeouts(page);
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.locator('.quest-pack-tile').first().click();
     await page.locator('.quest-pack-detail .start-pack-btn').first().click();
@@ -210,7 +220,7 @@ async function theTour(browser, report, port, baseUrl) {
     // controls showing.
     const broken = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const quiet = await broken.newPage();
-    quiet.setDefaultTimeout(1500);
+    armPageTimeouts(quiet);
     const pageErrors = [];
     quiet.on('pageerror', (error) => pageErrors.push(error.message));
     await quiet.route('**/esm.sh/driver.js*', (route) => route.fulfill({
@@ -224,8 +234,13 @@ async function theTour(browser, report, port, baseUrl) {
     await quiet.waitForSelector('#game-interface:not(.hidden)', { timeout: 3000 });
     await quiet.waitForSelector('.tutorial-prompt-modal', { timeout: 1500 }).catch(() => {});
     const brokenBefore = await borrowedState(quiet);
+    // The accept handler takes the prompt out of the document and then runs the
+    // tour's unhide/restore pair in the same task, so the prompt leaving the page
+    // says the tour attempt is over - including the attempt whose driver throws.
+    const promptGone = quiet.waitForSelector('.tutorial-prompt-modal', { state: 'detached', timeout: 1500 }).catch(() => null);
     await quiet.click('#tutorial-accept-btn');
-    await quiet.waitForTimeout(300);
+    await promptGone;
+    await settle(quiet);
     const brokenAfter = await borrowedState(quiet);
     report.check(
         'a tour whose driver cannot start leaves nothing showing that was borrowed for it',
@@ -272,11 +287,11 @@ async function currentPackState(page) {
 
 async function emptyPackDirectory(browser, report, binary) {
     console.log('\nempty quests directory');
-    const packsOnDisk = fs.readdirSync(path.join(repoRoot, 'frontend', 'quests'))
+    const packsOnDisk = fs.readdirSync(path.join(ROOT, 'frontend', 'quests'))
         .filter((entry) => entry !== '.gitkeep');
     report.expect(`the quests directory starts empty (found: ${packsOnDisk.join(', ') || 'nothing'})`, packsOnDisk.length === 0);
     // INFO level, because the line under test is an INFO line about the drain.
-    const server = new Server({ cwd: repoRoot, port: PORT, binary, env: { LOG_LEVEL: 'info' } });
+    const server = new Server({ cwd: ROOT, port: PORT, binary, env: { LOG_LEVEL: 'info' } });
     await server.start();
 
     const api = await server.packs();
@@ -284,7 +299,7 @@ async function emptyPackDirectory(browser, report, binary) {
     report.check('the server says the quests directory is empty', /no quest packs loaded/i.test(server.log), server.log.trim().split('\n').slice(-1)[0]);
 
     {
-        const harness = await newPage(browser, PORT);
+        const harness = await newPage(browser, server.port);
         await openStartScreen(harness);
         const notice = await harness.page.locator('.pack-list-empty').textContent().catch(() => null);
         report.check(
@@ -306,11 +321,11 @@ async function emptyPackDirectory(browser, report, binary) {
 
 async function playingThePack(browser, report, binary) {
     console.log('\nentering a pack, playing it, leaving it');
-    const server = new Server({ cwd: repoRoot, port: PORT, binary });
+    const server = new Server({ cwd: ROOT, port: PORT, binary });
     await server.start({ packs: PACKS });
 
     {
-        const harness = await newPage(browser, PORT);
+        const harness = await newPage(browser, server.port);
         const { page } = harness;
 
         await openStartScreen(harness);
@@ -483,7 +498,10 @@ async function playingThePack(browser, report, binary) {
         const confirm = await dialogState(page, 'restart-modal');
         report.check('the restart dialog is offered over the second pack', confirm.open === true);
         await page.click('#confirm-restart-btn');
-        await page.waitForFunction(() => /Quest 1\//.test(document.getElementById('quest-counter').textContent), null, { timeout: 2000 }).catch(() => {});
+        // Restarting lands the player on the prologue, which is where a fresh
+        // entry starts; waiting for the first quest's counter alone waits for a
+        // screen this app no longer shows.
+        await page.waitForFunction(() => /^(Prologue|Quest 1\/)/.test(document.getElementById('quest-counter').textContent.trim()), null, { timeout: 2000 }).catch(() => {});
         const afterRestart = await page.evaluate(() => ({
             counter: document.getElementById('quest-counter').textContent.trim(),
             minimized: document.getElementById('game-interface').classList.contains('minimized'),
@@ -576,7 +594,7 @@ async function playingThePack(browser, report, binary) {
         report.check('no page errors during the run', errors.length === 0, errors.slice(0, 4).join(' ;; '));
         await harness.context.close();
 
-        await theTour(browser, report, PORT, page.url());
+        await theTour(browser, report, server.port, page.url());
     }
 
     await server.stop('SIGTERM');
@@ -587,10 +605,10 @@ async function playingThePack(browser, report, binary) {
 // welcome, and gone when it is not.
 async function decorativeMotion(browser, report, binary) {
     console.log('\nreduced motion');
-    const server = new Server({ cwd: repoRoot, port: PORT, binary });
+    const server = new Server({ cwd: ROOT, port: PORT, binary });
     await server.start({ packs: [] });
 
-    const harness = await newPage(browser, PORT);
+    const harness = await newPage(browser, server.port);
     const { page } = harness;
     const SELECTORS = ['#next-quest-btn', '#perfect-score-btn'];
 
@@ -637,20 +655,17 @@ async function main() {
     if (!PORT) {
         PORT = await pickFreePort();
     }
-    console.log(`port ${PORT}`);
+    ROOT = suiteRoot('spa-qa');
+    console.log(`port ${PORT}, run root ${ROOT}`);
     const report = new Report('adventure SPA browser QA');
     // A browser suite that stops making progress must not sit there: the wall
     // clock ends it and names the phase that was running.
     let phase = 'startup';
-    const watchdog = setTimeout(() => {
-        console.error(`\nadventure SPA QA exceeded 45s during "${phase}"`);
-        stopServersSync();
-        process.exit(2);
-    }, 45000);
+    const watchdog = armWatchdog({ suite: 'adventure SPA QA', baseMs: 45000, phase: () => phase });
     const quit = (code) => {
         stopServersSync();
         for (const pack of PACKS) {
-            removePack(repoRoot, pack);
+            removePack(ROOT, pack);
         }
         process.exit(code);
     };
@@ -659,7 +674,7 @@ async function main() {
     const binary = buildServer(repoRoot);
 
     for (const pack of PACKS) {
-        removePack(repoRoot, pack);
+        removePack(ROOT, pack);
     }
     try {
         await withBrowser(async (browser) => {
@@ -681,12 +696,11 @@ async function main() {
     } finally {
         stopServersSync();
         for (const pack of PACKS) {
-            removePack(repoRoot, pack);
+            removePack(ROOT, pack);
         }
-        fs.rmSync(require('node:path').join(require('node:os').tmpdir(), 'rego-qa'), { recursive: true, force: true });
     }
 
-    clearTimeout(watchdog);
+    watchdog.cancel();
     const clean = report.done();
     const left = leftoverChanges(repoRoot, baseline);
     if (left.length > 0) {
