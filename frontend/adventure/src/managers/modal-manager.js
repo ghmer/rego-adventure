@@ -259,6 +259,13 @@ export class ModalManager {
      */
     setPackImage(img, url, fallbackUrl) {
         AssetService.mediaURL(url).then((source) => {
+            // The plain path (open mode) can fail on a missing asset; a
+            // blob URL cannot fail after the resolution. The fallback is
+            // applied without its own fallback, so a missing fallback
+            // renders broken instead of looping.
+            if (fallbackUrl) {
+                img.onerror = () => this.setPackImage(img, fallbackUrl);
+            }
             img.src = source;
         }).catch(() => {
             if (fallbackUrl) this.setPackImage(img, fallbackUrl);

@@ -554,7 +554,7 @@ Focus targets differ per dialog and encode an intent: cancel for the destructive
 
 ### M#15 · Result modal
 
-**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:278`); the caller passes points in · **Persisted:** no
+**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:285`); the caller passes points in · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
