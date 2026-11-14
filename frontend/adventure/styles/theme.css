@@ -111,6 +111,11 @@ body.effects-disabled {
     /* Motion - one shared open/close curve for the detail panel */
     --pack-open-ease: cubic-bezier(0.22, 1, 0.36, 1);
     --pack-open-ms: 260ms;
+    /* Collapse accelerates into the closed state instead of crawling:
+       an ease-out tail leaves the panel as a barely moving sliver, which
+       reads as stuck. */
+    --pack-close-ease: cubic-bezier(0.32, 0, 0.67, 0);
+    --pack-close-ms: 220ms;
 }
 
 /* Start Screen Canvas - quiet, warm paper background.
@@ -384,18 +389,29 @@ body.effects-disabled {
     background-color: #ffffff;
     box-shadow: var(--landing-shadow-md);
     overflow: hidden;
-    transition: grid-template-rows var(--pack-open-ms) var(--pack-open-ease);
+    /* The closed panel is invisible as a whole - border and shadow
+       included - so nothing of it bleeds into the tile grid. */
+    visibility: hidden;
+    transition:
+        grid-template-rows var(--pack-close-ms) var(--pack-close-ease),
+        /* While collapsing, the panel stays visible: the content folds
+           together with its box instead of vanishing upfront. Only once
+           the collapse has finished does the panel turn invisible; the
+           .open state below re-declares an instant one for the way back. */
+        visibility 0s linear var(--pack-close-ms);
 }
 
 .quest-pack-detail.open {
     grid-template-rows: 1fr;
+    visibility: visible;
+    transition:
+        grid-template-rows var(--pack-open-ms) var(--pack-open-ease),
+        visibility 0s;
 }
 
-/* The inner wrapper is what the row animation clips; unreadable while
-   the row is still collapsing. */
+/* The inner wrapper is what the row animation clips. */
 .quest-pack-detail > .detail-inner {
     min-height: 0;
-    visibility: hidden;
     padding: 24px 28px 24px 25px;   /* left = 24px + the 1px accent rule */
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -405,10 +421,6 @@ body.effects-disabled {
     column-gap: 40px;
     row-gap: 14px;
     align-items: center;
-}
-
-.quest-pack-detail.open > .detail-inner {
-    visibility: visible;
 }
 
 .quest-pack-detail .detail-meta {
