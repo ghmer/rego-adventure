@@ -260,14 +260,15 @@ async function refusedInsideAQuest(browser, report, binary) {
         });
         await page.goto(harness.url(), { waitUntil: 'domcontentloaded' });
 
-        const offered = await page.waitForSelector('#quest-pack-list .quest-pack-card', { timeout: 5000 })
+        const offered = await page.waitForSelector('#quest-pack-list .quest-pack-tile', { timeout: 5000 })
             .then(() => true).catch(() => false);
-        report.check('a signed-in player is offered the packs', offered, 'no pack cards: the server refused the token');
+        report.check('a signed-in player is offered the packs', offered, 'no pack tiles: the server refused the token');
         if (!offered) {
             return;
         }
 
-        await page.locator('#quest-pack-list .quest-pack-card').first().click();
+        await page.locator('#quest-pack-list .quest-pack-tile').first().click();
+        await page.locator('#quest-pack-list .quest-pack-detail .start-pack-btn').first().click();
         await page.waitForSelector('#game-interface:not(.hidden)', { timeout: 5000 });
         await page.click('#start-adventure');
         // The hint control is enabled only on a playable quest screen.

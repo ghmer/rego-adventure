@@ -58,12 +58,16 @@ async function openStartScreen(harness) {
     await harness.page.waitForSelector('#start-screen');
 }
 
-function packCards(page) {
-    return page.locator('#quest-pack-list .quest-pack-card');
+function packTiles(page) {
+    return page.locator('#quest-pack-list .quest-pack-tile');
 }
 
+// A pack is entered through its detail panel: the tile opens the panel,
+// and the panel's entry button begins the adventure.
 async function enterPack(page, titleFragment) {
-    await page.locator(`#quest-pack-list .quest-pack-card:has-text("${titleFragment}")`).first().click();
+    await page.locator(`#quest-pack-list .quest-pack-tile:has-text("${titleFragment}")`).first().click();
+    const panel = page.locator(`#quest-pack-list .quest-pack-detail:has-text("${titleFragment}")`).first();
+    await panel.locator('.start-pack-btn').first().click();
     await page.waitForSelector('#game-interface:not(.hidden)');
 }
 
@@ -165,7 +169,8 @@ async function theTour(browser, report, port, baseUrl) {
     const page = await started.newPage();
     page.setDefaultTimeout(1500);
     await page.goto(url, { waitUntil: 'domcontentloaded' });
-    await page.locator('.quest-pack-card').first().click();
+    await page.locator('.quest-pack-tile').first().click();
+    await page.locator('.quest-pack-detail .start-pack-btn').first().click();
     await page.waitForSelector('#game-interface:not(.hidden)', { timeout: 3000 });
     await page.waitForSelector('.tutorial-prompt-modal', { timeout: 1500 }).catch(() => {});
 
@@ -214,7 +219,8 @@ async function theTour(browser, report, port, baseUrl) {
         body: 'export const driver = () => { throw new Error("driver unavailable"); };\nexport default driver;\n'
     }));
     await quiet.goto(url, { waitUntil: 'domcontentloaded' });
-    await quiet.locator('.quest-pack-card').first().click();
+    await quiet.locator('.quest-pack-tile').first().click();
+    await quiet.locator('.quest-pack-detail .start-pack-btn').first().click();
     await quiet.waitForSelector('#game-interface:not(.hidden)', { timeout: 3000 });
     await quiet.waitForSelector('.tutorial-prompt-modal', { timeout: 1500 }).catch(() => {});
     const brokenBefore = await borrowedState(quiet);
@@ -286,7 +292,7 @@ async function emptyPackDirectory(browser, report, binary) {
             Boolean(notice && /no adventure packs are loaded/i.test(notice)),
             `notice: ${notice}`
         );
-        report.check('no pack cards are offered', await packCards(harness.page).count() === 0);
+        report.check('no pack tiles are offered', await packTiles(harness.page).count() === 0);
         await harness.context.close();
     }
 
@@ -308,7 +314,7 @@ async function playingThePack(browser, report, binary) {
         const { page } = harness;
 
         await openStartScreen(harness);
-        report.check('two packs are offered', await packCards(page).count() === PACKS.length, `cards: ${await packCards(page).count()}`);
+        report.check('two packs are offered', await packTiles(page).count() === PACKS.length, `tiles: ${await packTiles(page).count()}`);
 
         await enterPack(page, 'Quest Pack: qaone');
 
@@ -488,14 +494,19 @@ async function playingThePack(browser, report, binary) {
         }));
         report.check('restarting progress returns the interface to normal', afterRestart.minimized === false && afterRestart.label === 'Minimize interface', JSON.stringify(afterRestart));
 
-        // --- a click on another pack while one is loading --------------------
+        // --- a start of another pack while one is loading --------------------
         await page.click('#home-btn');
         await page.waitForSelector('#start-screen:not(.hidden)');
-        await page.route('**/api/packs/qaone*', (route) => setTimeout(() => route.continue(), 700));
-        await page.locator('#quest-pack-list .quest-pack-card:has-text("Quest Pack: qaone")').first().click();
-        await page.locator('#quest-pack-list .quest-pack-card:has-text("Quest Pack: qatwo")').first().click();
+        // The route delay must outlast the whole four-click sequence: the tile
+        // opens the panel, the panel's button starts the pack, and both clicks
+        // for the second pack race the first pack's fetch.
+        await page.route('**/api/packs/qaone*', (route) => setTimeout(() => route.continue(), 1500));
+        await page.locator('#quest-pack-list .quest-pack-tile:has-text("Quest Pack: qaone")').first().click();
+        await page.locator('#quest-pack-list .quest-pack-detail:has-text("Quest Pack: qaone") .start-pack-btn').first().click();
+        await page.locator('#quest-pack-list .quest-pack-tile:has-text("Quest Pack: qatwo")').first().click();
+        await page.locator('#quest-pack-list .quest-pack-detail:has-text("Quest Pack: qatwo") .start-pack-btn').first().click();
         const toast = await toastText(page);
-        report.check('clicking another pack card while an adventure loads says so', Boolean(toast && /already|waiting|loading/i.test(toast)), `toast: ${toast}`);
+        report.check('starting another pack while an adventure loads says so', Boolean(toast && /already|waiting|loading/i.test(toast)), `toast: ${toast}`);
         await page.waitForSelector('#game-interface:not(.hidden)', { timeout: 3000 });
         report.check('the first pack still wins the race', (await currentPackState(page)).packId === 'qaone', JSON.stringify(await currentPackState(page)));
         await page.unroute('**/api/packs/qaone*');

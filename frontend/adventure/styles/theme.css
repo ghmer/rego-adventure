@@ -72,24 +72,50 @@ body.effects-disabled {
    ============================================ */
 
 .start-screen {
-    /* Typography - clean system sans stack (CSP-safe, no external fonts) */
+    /* Typography - clean system sans stack (CSP-safe, no external fonts).
+       Applied to the scope itself as well: the scope defines the tokens,
+       and the font-family declarations put the stack on every surface
+       that does not name its own family. Without it, descendants of the
+       scope inherit the browser's initial serif, because body-level
+       rule reads --font-body outside this scope. */
     --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-body);
 
     /* Palette - warm paper whites, soft ink, restrained amber accent */
     --landing-bg-top: #fffefb;
     --landing-bg-bottom: #f5f2ec;
     --landing-ink: #26200f;
     --landing-ink-secondary: #6f685a;
+    --landing-ink-tertiary: #948b7a;
     --landing-card-border: #e7e1d5;
     --landing-card-border-hover: #d6cbb4;
     --landing-accent: #9d6300;
     --landing-accent-hover: #7d4e00;
     --landing-accent-soft: rgba(199, 125, 0, 0.08);
     --landing-accent-border: rgba(199, 125, 0, 0.25);
+    --landing-accent-border-strong: rgba(199, 125, 0, 0.45);
     --landing-hover-wash: #f1ede4;
+    --landing-active-wash: #faf5ea;
     --landing-shadow-sm: 0 1px 2px rgba(38, 32, 15, 0.04), 0 2px 8px rgba(38, 32, 15, 0.04);
     --landing-shadow-md: 0 2px 4px rgba(38, 32, 15, 0.04), 0 12px 28px rgba(38, 32, 15, 0.08);
+
+    /* Pack selection metrics - a fixed-height tile grid (no row
+       stretching). 1064px = 3 x 340px tiles + 2 x 12px gaps; the tile
+       height absorbs no text, so the list height stays computable: it
+       grows by exactly one row per new pack on desktop. */
+    --pack-columns: 3;
+    --pack-grid-gap: 12px;
+    --pack-tile-height: 76px;
+
+    /* Motion - one shared open/close curve for the detail panel */
+    --pack-open-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --pack-open-ms: 260ms;
+    /* Collapse accelerates into the closed state instead of crawling:
+       an ease-out tail leaves the panel as a barely moving sliver, which
+       reads as stuck. */
+    --pack-close-ease: cubic-bezier(0.32, 0, 0.67, 0);
+    --pack-close-ms: 220ms;
 }
 
 /* Start Screen Canvas - quiet, warm paper background.
@@ -220,99 +246,283 @@ body.effects-disabled {
     color: var(--landing-ink);
 }
 
-/* Quest Pack Grid */
-#start-screen .quest-pack-list {
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
-/* Keep three columns on desktop: the shared 300px minimum only fits
-   three tracks when the gap stays at 1rem, so relax it slightly for
-   a safe fit inside the 1000px container */
-@media (min-width: 1025px) {
-    #start-screen .quest-pack-list {
-        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-    }
-
-    .quest-pack-list {
-        max-width: 100%;
-    }
-}
-
-/* Two columns on tablet, single decision point for the pack list grid */
-@media (min-width: 769px) and (max-width: 1024px) {
-    .start-content {
-        max-width: 900px;
-    }
-
-    .quest-pack-list {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
 /* Loading placeholder while packs are fetched */
 #quest-pack-list > p {
     color: var(--landing-ink-secondary);
     font-size: 0.95rem;
+    font-family: var(--font-body);
 }
 
 /* ============================================
-   QUEST PACK CARDS
+   QUEST PACK TILES - fixed-height, title + genre
+   The tile is a button. It exposes only the pack title and the genre
+   badge; description, quest count and the pack entry live in the
+   detail panel that a click opens below the tile's row.
    ============================================ */
 
-.quest-pack-card {
+.quest-pack-tile {
+    display: flex;
+    align-items: center;
+    height: var(--pack-tile-height);
+    gap: 12px;
+    padding: 0 12px 0 20px;
     background-color: #ffffff;
     border: 1px solid var(--landing-card-border);
-    border-radius: 16px;
-    padding: 1.5rem 1.4rem 1.3rem;
+    border-radius: 12px;
     box-shadow: var(--landing-shadow-sm);
-    transition: transform 0.25s ease, box-shadow 0.25s ease,
-        border-color 0.25s ease;
+    font-family: var(--font-heading);
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color 160ms ease, box-shadow 160ms ease,
+        background-color 160ms ease, transform 160ms ease;
 }
 
-.quest-pack-card:hover {
+.quest-pack-tile:hover {
     background-color: #ffffff;
     border-color: var(--landing-card-border-hover);
-    transform: translateY(-3px);
+    transform: translateY(-1px);
     box-shadow: var(--landing-shadow-md);
 }
 
-.quest-pack-card:focus-visible {
+.quest-pack-tile:focus-visible {
     outline: 2px solid var(--landing-accent);
     outline-offset: 2px;
 }
 
-.quest-pack-card h3 {
+/* The open tile anchors its detail panel: a warmer surface, a stronger
+   border, and the chevron turned to point back at the pack. */
+.quest-pack-tile[aria-expanded="true"] {
+    background-color: var(--landing-active-wash);
+    border-color: var(--landing-accent-border-strong);
+    box-shadow: var(--landing-shadow-sm);
+    transform: none;
+}
+
+.quest-pack-tile .pack-title {
+    flex: 1 1 auto;
+    min-width: 0;
     color: var(--landing-ink);
-    font-family: var(--font-heading);
-    font-size: 1.15rem;
+    font-size: 1rem;
     font-weight: 700;
     letter-spacing: -0.01em;
-    margin-bottom: 0.5rem;
-    text-shadow: none;
+    line-height: 1.2;
+    /* Two lines maximum, then an ellipsis: long titles stay readable
+       instead of being cut mid-word, and the fixed tile height keeps
+       every row on the same rhythm. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-.quest-pack-card p {
-    color: var(--landing-ink-secondary);
-    font-size: 0.95rem;
-    line-height: 1.55;
-    margin-bottom: 1rem;
-    opacity: 1;
+/* Genre Badge - subtle tinted pill, no glow. In a tile it sits right
+   before the chevron; capped so a long genre can never push a title
+   out of the row. */
+.quest-pack-tile .genre-badge {
+    flex: 0 0 auto;
+    max-width: 40%;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Genre Badge - subtle tinted pill, no glow */
 .genre-badge {
     background: var(--landing-accent-soft);
     border: 1px solid var(--landing-accent-border);
     color: var(--landing-accent);
     font-family: var(--font-heading);
-    font-size: 0.72rem;
+    border-radius: 999px;
+    box-shadow: none;
+}
+
+/* Chevron affordance - the tile opens a panel, the chevron says which
+   direction; it turns with the open state. */
+.quest-pack-tile .tile-chevron {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    color: var(--landing-ink-tertiary);
+    background: transparent;
+    transition: background-color 160ms ease, color 160ms ease,
+        transform var(--pack-open-ms) var(--pack-open-ease);
+}
+
+.quest-pack-tile:hover .tile-chevron {
+    color: var(--landing-ink-secondary);
+    background: var(--landing-hover-wash);
+}
+
+.quest-pack-tile[aria-expanded="true"] .tile-chevron {
+    color: var(--landing-accent);
+    background: var(--landing-accent-soft);
+    transform: rotate(180deg);
+}
+
+/* ============================================
+   QUEST PACK DETAIL PANEL
+   Spans the full grid width below the clicked tile's row (inserted by
+   ui-render.js after the last tile of that row). Content, not card
+   size: the description gets a fixed reading measure of its own, so
+   the panel grows with its text but never stretches a neighbour.
+   ============================================ */
+
+.quest-pack-detail {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-rows: 0fr;
+    /* The start screen centers its chrome; the detail panel is prose and
+       form, so it owns the reading alignment again. */
+    text-align: left;
+    border: 1px solid var(--landing-accent-border);
+    border-left: 3px solid var(--landing-accent);
+    border-radius: 14px;
+    background-color: #ffffff;
+    box-shadow: var(--landing-shadow-md);
+    overflow: hidden;
+    /* The closed panel is invisible as a whole - border and shadow
+       included - so nothing of it bleeds into the tile grid. */
+    visibility: hidden;
+    transition:
+        grid-template-rows var(--pack-close-ms) var(--pack-close-ease),
+        /* While collapsing, the panel stays visible: the content folds
+           together with its box instead of vanishing upfront. Only once
+           the collapse has finished does the panel turn invisible; the
+           .open state below re-declares an instant one for the way back. */
+        visibility 0s linear var(--pack-close-ms);
+}
+
+.quest-pack-detail.open {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition:
+        grid-template-rows var(--pack-open-ms) var(--pack-open-ease),
+        visibility 0s;
+}
+
+/* The inner wrapper is what the row animation clips. */
+.quest-pack-detail > .detail-inner {
+    min-height: 0;
+    padding: 24px 28px 24px 25px;   /* left = 24px + the 1px accent rule */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "meta  cta"
+        "desc  cta";
+    column-gap: 40px;
+    row-gap: 14px;
+    align-items: center;
+}
+
+.quest-pack-detail .detail-meta {
+    grid-area: meta;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.quest-pack-detail .detail-title {
+    color: var(--landing-ink);
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quest-pack-detail .genre-badge {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    padding: 0.35rem 0.8rem;
+    padding: 4px 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.quest-pack-detail .quest-count {
+    flex: 0 0 auto;
+    color: var(--landing-ink-tertiary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.quest-pack-detail .pack-description {
+    grid-area: desc;
+    margin: 0;
+    max-width: 62ch;   /* comfortable reading measure in a wide panel */
+    color: var(--landing-ink-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    font-family: var(--font-body);
+    opacity: 1;
+}
+
+.quest-pack-detail .detail-cta-cell {
+    grid-area: cta;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+/* The pack entry carries the login button's tokens - the one strong
+   amber on this screen, so the panel answers the user's click with a
+   single clear action. */
+#start-screen .quest-pack-detail .start-pack-btn {
+    background-color: var(--landing-accent);
+    color: #ffffff;
     border-radius: 999px;
-    box-shadow: none;
+    padding: 0.75rem 1.75rem;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(38, 32, 15, 0.1), 0 4px 14px rgba(157, 99, 0, 0.18);
+    transition: background-color 160ms ease, transform 160ms ease,
+        box-shadow 160ms ease;
+}
+
+#start-screen .quest-pack-detail .start-pack-btn:hover {
+    background-color: var(--landing-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(38, 32, 15, 0.08), 0 8px 22px rgba(157, 99, 0, 0.22);
+}
+
+#start-screen .quest-pack-detail .start-pack-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(38, 32, 15, 0.1);
+}
+
+#start-screen .quest-pack-detail .start-pack-btn:focus-visible {
+    outline: 2px solid var(--landing-accent);
+    outline-offset: 2px;
+}
+
+.quest-pack-detail .resume-hint {
+    color: var(--landing-ink-tertiary);
+    font-size: 0.8rem;
+    font-weight: 500;
 }
 
 /* ============================================
@@ -387,52 +597,100 @@ body.effects-disabled {
     animation-delay: 0.3s;
 }
 
-.quest-pack-card {
+.quest-pack-tile {
     animation: landing-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-.quest-pack-card:nth-child(1) {
+.quest-pack-tile:nth-of-type(1) {
     animation-delay: 0.26s;
 }
 
-.quest-pack-card:nth-child(2) {
+.quest-pack-tile:nth-of-type(2) {
     animation-delay: 0.34s;
 }
 
-.quest-pack-card:nth-child(3) {
+.quest-pack-tile:nth-of-type(3) {
     animation-delay: 0.42s;
 }
 
-.quest-pack-card:nth-child(4) {
+.quest-pack-tile:nth-of-type(4) {
     animation-delay: 0.5s;
 }
 
-.quest-pack-card:nth-child(5) {
+.quest-pack-tile:nth-of-type(5) {
     animation-delay: 0.58s;
 }
 
-.quest-pack-card:nth-child(n + 6) {
+.quest-pack-tile:nth-of-type(n + 6) {
     animation-delay: 0.64s;
 }
 
 /* Respect reduced motion and the effects toggle */
 @media (prefers-reduced-motion: reduce) {
     .start-content > *,
-    .quest-pack-card,
+    .quest-pack-tile,
     .landing-logo {
         animation: none;
+        transition: none;
+    }
+
+    /* The detail panel steps open and closed instead of animating */
+    .quest-pack-detail {
         transition: none;
     }
 }
 
 body.effects-disabled .start-content > *,
-body.effects-disabled .quest-pack-card {
+body.effects-disabled .quest-pack-tile {
     animation: none;
 }
 
 /* ============================================
    RESPONSIVE - LANDING
+   The pack list columns: three on desktop (token in the landing
+   scope), two on tablet, one on a phone. The detail panel stacks
+   meta, description and CTA once the two-column layout becomes too
+   tight to read comfortably.
    ============================================ */
+
+@media (max-width: 1024px) and (min-width: 769px) {
+    .start-content {
+        max-width: 900px;
+    }
+
+    .start-screen {
+        --pack-columns: 2;
+    }
+}
+
+@media (max-width: 700px) {
+    .quest-pack-detail > .detail-inner {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "meta"
+            "desc"
+            "cta";
+        row-gap: 12px;
+        align-items: start;
+        padding: 20px 20px 20px 17px;   /* left = 20px + the 1px accent rule */
+    }
+
+    .quest-pack-detail .detail-cta-cell {
+        align-items: stretch;
+    }
+
+    #start-screen .quest-pack-detail .start-pack-btn {
+        width: 100%;
+        min-height: 48px;   /* comfortable touch target */
+    }
+
+    /* The two-column metarow is too tight on a phone: let the title wrap
+       to a second line instead of spending its space on an ellipsis. */
+    .quest-pack-detail .detail-title {
+        white-space: normal;
+        overflow: visible;
+    }
+}
 
 @media (max-width: 768px) {
     .landing-logo {
@@ -449,9 +707,8 @@ body.effects-disabled .quest-pack-card {
     }
 
     /* Single-column pack list on mobile, owned by the landing page */
-    .quest-pack-list {
-        grid-template-columns: 1fr;
-        grid-auto-rows: auto;
+    .start-screen {
+        --pack-columns: 1;
     }
 
     #start-screen .login-btn {

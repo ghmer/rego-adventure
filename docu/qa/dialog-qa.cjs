@@ -247,7 +247,8 @@ async function main() {
             });
             await watchIntervals(page);
             await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
-            await page.locator('.quest-pack-card').first().click();
+            await page.locator('.quest-pack-tile').first().click();
+            await page.locator('.quest-pack-detail .start-pack-btn').first().click();
             await page.waitForSelector('#game-interface:not(.hidden)', { timeout: 3000 });
             await page.waitForSelector('.tutorial-prompt-modal', { timeout: 1500 }).catch(() => {});
 

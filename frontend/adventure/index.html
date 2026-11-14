@@ -77,8 +77,8 @@
                 <button id="login-btn" class="action-btn login-btn" aria-label="Login to Start Adventure"
                     title="Login to Start Adventure">Login to Start Adventure</button>
             </div>
-            <div id="quest-pack-list" class="quest-pack-list">
-                <!-- Quest packs will be loaded here -->
+            <div id="quest-pack-list" class="quest-pack-list" aria-label="Available adventure packs">
+                <!-- Quest pack tiles will be loaded here -->
                 <p>Loading adventures...</p>
             </div>
             <div id="logout-container-start" class="hidden">
@@ -350,11 +350,40 @@
     </dialog>
 
     <!-- Templates for dynamic content -->
-    <template id="quest-pack-card-template">
-        <div class="quest-pack-card">
-            <h3 class="pack-title"></h3>
-            <p class="pack-description"></p>
+    <!-- Quest pack tile: fixed-height summary of one pack (title + genre).
+         Details open in the separate detail template below; the tile is a
+         real button so keyboard and assistive tech get the semantics. -->
+    <template id="quest-pack-tile-template">
+        <button type="button" class="quest-pack-tile" aria-expanded="false">
+            <span class="pack-title"></span>
             <span class="genre-badge hidden"></span>
+            <span class="tile-chevron" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M3.5 6l4.5 4.5L12.5 6" stroke="currentColor" stroke-width="1.75"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </span>
+        </button>
+    </template>
+
+    <!-- Quest pack detail: opens below the clicked tile's row, spanning the
+         full grid width. The CTA carries the pack entry; the resume hint is
+         a hook for surfacing saved progress in the pack selection. -->
+    <template id="quest-pack-detail-template">
+        <div class="quest-pack-detail" role="region">
+            <div class="detail-inner">
+                <div class="detail-meta">
+                    <h3 class="detail-title"></h3>
+                    <span class="genre-badge hidden"></span>
+                    <span class="detail-meta-item quest-count hidden"></span>
+                </div>
+                <p class="pack-description"></p>
+                <div class="detail-cta-cell">
+                    <button type="button" class="action-btn primary start-pack-btn"
+                        aria-label="Begin Adventure">Begin Adventure</button>
+                    <span class="resume-hint hidden"></span>
+                </div>
+            </div>
         </div>
     </template>
 
