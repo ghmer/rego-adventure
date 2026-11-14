@@ -250,7 +250,8 @@ function wirePackGrid(grid) {
  */
 function moveTileFocus(grid, event) {
     const steps = {
-        ArrowRight: 1, ArrowLeft: -1, Home: 'start', End: 'end',
+        ArrowRight: 1, ArrowLeft: -1, ArrowDown: 'row', ArrowUp: '-row',
+        Home: 'start', End: 'end',
     };
     if (!(event.key in steps)) return;
 
@@ -265,9 +266,8 @@ function moveTileFocus(grid, event) {
     if (steps[event.key] === 'start') next = 0;
     else if (steps[event.key] === 'end') next = tiles.length - 1;
     else {
-        const delta = steps[event.key];
         const stride = (event.key === 'ArrowDown') ? packGridColumns(grid)
-            : (event.key === 'ArrowUp') ? -packGridColumns(grid) : delta;
+            : (event.key === 'ArrowUp') ? -packGridColumns(grid) : steps[event.key];
         // Wrap in both directions: a step past the edge continues from
         // the opposite edge of the tile sequence.
         next = ((index + stride) % tiles.length + tiles.length) % tiles.length;
@@ -418,10 +418,13 @@ export function renderTestPayload(elements, testPayloads) {
         expectedSpan.textContent = `Expected: ${expectedValue}`;
         expectedSpan.classList.add(expectedValue ? 'expected-true' : 'expected-false');
 
+        // A test payload may lack its input or data part; stringify a
+        // present-but-falsy input (0, false, '') as itself, and an absent
+        // payload as null rather than crashing.
         testCase.querySelector('.test-case-input-data').textContent =
-            JSON.stringify(test.payload.input, null, 2);
+            JSON.stringify(test.payload?.input ?? null, null, 2);
 
-        if (test.payload.data) {
+        if (test.payload?.data) {
             const dataSection = testCase.querySelector('.test-case-data');
             show(dataSection);
             testCase.querySelector('.test-case-data-content').textContent =

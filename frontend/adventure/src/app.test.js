@@ -93,7 +93,10 @@ vi.mock('./services/api-service.js', () => {
 vi.mock('./services/error-service.js', () => ({ apiErrorHint: control.apiErrorHint }));
 vi.mock('./services/toast-service.js', () => ({ showToast: control.showToast }));
 vi.mock('./services/storage-service.js', () => ({
-    migrateStorageKeys: vi.fn(function () { control.migrationOrder.push('migrate'); })
+    migrateStorageKeys: vi.fn(function () {
+        control.migrationOrder.push('migrate');
+        control.order.push('migrate');
+    })
 }));
 
 vi.mock('./services/editor-service.js', () => ({
@@ -196,6 +199,10 @@ describe('app init wiring', () => {
         expect(editorIndex).toBeGreaterThan(-1);
         expect(editorIndex).toBeLessThan(uiIndex);
         expect(control.migrationOrder[0]).toBe('migrate');
+        // The GameState constructor reads persisted state at construction
+        // time, so the legacy-key migration must run before the first
+        // manager is constructed at all.
+        expect(control.order[0]).toBe('migrate');
         expect(control.ui.initEffectsState).toHaveBeenCalledTimes(1);
     });
 

@@ -66,6 +66,21 @@ describe('tokenizeRego', () => {
         ]);
     });
 
+    it('tokenizes a minus after a value as an operator, not as a number sign', () => {
+        // `x-1` is subtraction: the '-' must reach the operator rule.
+        expect(tokens('x-1')).toEqual([
+            ['identifier', 'x'],
+            ['operator', '-'],
+            ['number', '1']
+        ]);
+        expect(tokens('count[i]-1')).toEqual([
+            ['identifier', 'count'],
+            ['identifier', 'i'],
+            ['operator', '-'],
+            ['number', '1']
+        ]);
+    });
+
     it('tokenizes assignment before comparison operators', () => {
         expect(tokens('allow := a == b')).toEqual([
             ['identifier', 'allow'],

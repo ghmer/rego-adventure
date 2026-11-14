@@ -583,6 +583,14 @@ describe('state-service', () => {
             expect(state.hasPerfectScore()).toBe(true);
         });
 
+        it('is false for a pack without quests, though the scores compare equal', () => {
+            const state = createState(0);
+            expect(state.totalScore).toBe(0);
+            // 0 of 0 quests is not perfection; the epilogue that would
+            // otherwise guard this is unreachable on an empty pack.
+            expect(state.hasPerfectScore()).toBe(false);
+        });
+
         it('keeps the best result when a quest is replayed', () => {
             const state = createState(2);
             state.completeQuest(1);

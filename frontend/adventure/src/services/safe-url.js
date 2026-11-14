@@ -15,6 +15,17 @@
 */
 
 /**
+ * Percent-encode a value for use as a single URL path segment, so an id
+ * containing '/', '?', '#' or another reserved character cannot rewrite
+ * the route it is interpolated into.
+ * @param {*} value - Raw path value (e.g. a pack or quest identifier)
+ * @returns {string} The encoded segment
+ */
+export function encodePathSegment(value) {
+    return encodeURIComponent(String(value));
+}
+
+/**
  * Validate an external link and return a safe URL, or null if the value is
  * not an absolute http(s) URL (blocks javascript:/data: and relative
  * values, matching the backend pack validation).

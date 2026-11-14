@@ -149,6 +149,6 @@ export const AuthService = {
 
     isEnabled() {
         const config = ConfigService.get();
-        return config && config.enabled;
+        return Boolean(config && config.enabled);
     }
 };

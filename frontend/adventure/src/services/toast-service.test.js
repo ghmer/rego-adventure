@@ -73,6 +73,14 @@ describe('toast-service', () => {
         expect(toasts()).toHaveLength(2);
     });
 
+    it('caps the visible toasts and drops the oldest of a burst', () => {
+        for (let i = 0; i < 7; i += 1) showToast(`burst ${i}`);
+
+        expect(toasts()).toHaveLength(5);
+        expect(toasts()[0].textContent).toContain('burst 2');
+        expect(toasts()[4].textContent).toContain('burst 6');
+    });
+
     it('renders the message as text content', () => {
         showToast('Policy saved locally.');
 

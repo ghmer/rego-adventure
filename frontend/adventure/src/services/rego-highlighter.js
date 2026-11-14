@@ -46,13 +46,6 @@ export function escapeHtml(text) {
 }
 
 /**
- * Token rules in match order. Each entry is [type, stickyRegex]; the sticky
- * flag anchors every probe at the current scan position. Earlier rules win,
- * so comments and strings precede keywords/operators, and keywords precede
- * identifiers.
- * @type {Array<[string, RegExp]>}
- */
-/**
  * Create a Yace-compatible highlighter for Rego.
  *
  * The returned function satisfies Yace's Highlighter contract

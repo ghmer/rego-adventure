@@ -473,8 +473,10 @@ export class GameState {
      * @returns {boolean} True if all quests completed with maximum points
      */
     hasPerfectScore() {
-        const maxPossibleScore = this.quests.length * SCORING.POINTS_PER_QUEST;
-        return this.totalScore === maxPossibleScore;
+        // An empty pack has no quests to perfect: the trivially equal
+        // 0 === 0 must not count as a perfect score.
+        return this.quests.length > 0
+            && this.totalScore === this.quests.length * SCORING.POINTS_PER_QUEST;
     }
     
     /**

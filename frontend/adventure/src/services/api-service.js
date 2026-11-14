@@ -21,6 +21,7 @@
 
 import { API, AuthFailure } from './constants.js';
 import { AuthService } from './auth-service.js';
+import { encodePathSegment } from './safe-url.js';
 
 /**
  * Error thrown by API calls, carrying the HTTP status so error handling
@@ -109,7 +110,8 @@ async function fetchWithAuth(url, message, options = {}, timeout = API.REQUEST_T
 
 /**
  * Ensure a response is successful, otherwise throw an ApiError that
- * preserves the HTTP status and response body.
+ * preserves the HTTP status. The response body is intentionally not
+ * decoded: error handling branches on the status (see error-service).
  * @param {Response} response - The fetch response
  * @param {string} message - Error message to use when the response failed
  * @throws {ApiError} If the response is not ok
@@ -137,7 +139,7 @@ export async function fetchPacks() {
  */
 export async function fetchPackDetails(packId) {
     const response = await fetchWithAuth(
-        `${API.BASE_URL}/packs/${packId}`, 'Failed to fetch pack details'
+        `${API.BASE_URL}/packs/${encodePathSegment(packId)}`, 'Failed to fetch pack details'
     );
     return await response.json();
 }
@@ -151,7 +153,7 @@ export async function fetchPackDetails(packId) {
  */
 export async function fetchTestPayload(packId, questId) {
     const response = await fetchWithAuth(
-        `${API.BASE_URL}/packs/${packId}/quests/${questId}/test-payload`,
+        `${API.BASE_URL}/packs/${encodePathSegment(packId)}/quests/${encodePathSegment(questId)}/test-payload`,
         'Failed to fetch test payload'
     );
     return await response.json();
@@ -168,7 +170,7 @@ export async function fetchTestPayload(packId, questId) {
  */
 export async function fetchQuestHint(packId, questId, hintId) {
     const response = await fetchWithAuth(
-        `${API.BASE_URL}/packs/${packId}/quests/${questId}/hints/${hintId}`,
+        `${API.BASE_URL}/packs/${encodePathSegment(packId)}/quests/${encodePathSegment(questId)}/hints/${encodePathSegment(hintId)}`,
         'Failed to fetch hint'
     );
     return await response.json();
@@ -184,7 +186,7 @@ export async function fetchQuestHint(packId, questId, hintId) {
  */
 export async function fetchQuestSolution(packId, questId) {
     const response = await fetchWithAuth(
-        `${API.BASE_URL}/packs/${packId}/quests/${questId}/solution`,
+        `${API.BASE_URL}/packs/${encodePathSegment(packId)}/quests/${encodePathSegment(questId)}/solution`,
         'Failed to fetch solution'
     );
     return await response.json();
@@ -200,7 +202,7 @@ export async function fetchQuestSolution(packId, questId) {
  */
 export async function fetchSupportModules(packId, questId) {
     const response = await fetchWithAuth(
-        `${API.BASE_URL}/packs/${packId}/quests/${questId}/support-modules`,
+        `${API.BASE_URL}/packs/${encodePathSegment(packId)}/quests/${encodePathSegment(questId)}/support-modules`,
         'Failed to fetch support modules'
     );
     return await response.json();

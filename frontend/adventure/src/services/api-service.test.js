@@ -92,6 +92,16 @@ describe('api-service', () => {
             expect(fetchMock.mock.calls[2][0]).toBe('/api/packs/fantasy/quests/2/support-modules');
         });
 
+        it('percent-encodes path segments so an id cannot rewrite the route', async () => {
+            fetchMock.mockResolvedValue(jsonResponse({}));
+
+            await fetchPackDetails('western/go west');
+            expect(fetchMock.mock.calls[0][0]).toBe('/api/packs/western%2Fgo%20west');
+
+            await fetchQuestHint('fantasy', 2, 1);
+            expect(fetchMock.mock.calls[1][0]).toBe('/api/packs/fantasy/quests/2/hints/1');
+        });
+
         it('sends the solution as a JSON POST body', async () => {
             fetchMock.mockResolvedValue(jsonResponse({ passed: true }));
 

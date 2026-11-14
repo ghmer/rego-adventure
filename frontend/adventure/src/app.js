@@ -46,6 +46,11 @@ import { ModalManager } from './managers/modal-manager.js';
 import { PackManager } from './managers/pack-manager.js';
 import { EventManager } from './managers/event-manager.js';
 
+// Move legacy storage values to the current key scheme before any
+// manager reads persisted state: the GameState constructor reads the pack
+// pointer from localStorage the moment it is constructed below.
+migrateStorageKeys();
+
 // Initialize managers; the editor service mounts the Yace editor before the
 // UI manager so the manager can reference the native textarea inside it
 const editorService = new EditorService('#rego-editor');
@@ -168,7 +173,4 @@ async function init() {
 }
 
 // Start the application
-// Move legacy storage values to the current key scheme before any
-// manager reads persisted state.
-migrateStorageKeys();
 init();

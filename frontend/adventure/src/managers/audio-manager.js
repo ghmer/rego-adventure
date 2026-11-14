@@ -26,6 +26,7 @@
 
 import { AUDIO, TIMING } from '../services/constants.js';
 import { AssetService } from '../services/asset-service.js';
+import { encodePathSegment } from '../services/safe-url.js';
 
 /**
  * Background music states. One value carries the whole machine; the
@@ -49,6 +50,12 @@ const MusicState = {
     FadingOut: 'fading-out',
     PlayRejected: 'play-rejected'
 };
+
+/** MediaError code of a fetch the user agent aborted (HTML spec). A src
+ * swap while a load is in flight reports exactly this error for the
+ * abandoned resource; the constant is inlined because MediaError itself
+ * is not exposed in the test environment. */
+const MEDIA_ERR_ABORTED = 1;
 
 /**
  * Manages audio playback and music controls
@@ -112,7 +119,7 @@ export class AudioManager {
 
         let source;
         try {
-            source = await AssetService.mediaURL(`/quests/${packId}/assets/bg-music.m4a`);
+            source = await AssetService.mediaURL(`/quests/${encodePathSegment(packId)}/assets/bg-music.m4a`);
         } catch {
             console.warn('Background music unavailable for this pack: the track failed to resolve');
             if (seq === this.trackSeq) this.transitionTo(MusicState.Unavailable);
@@ -272,8 +279,14 @@ export class AudioManager {
      * decoder refuses (older packs carry a 0-byte placeholder). The pack has
      * no music to offer, so the control says so instead of offering a button
      * that does nothing.
+     * A stale error from a superseded load is ignored: swapping src for the
+     * new pack's track aborts the previous fetch, and the browser reports the
+     * abandoned resource as MEDIA_ERR_ABORTED — an error that belongs to the
+     * old track, not a failure of the newly armed one.
+     * @param {Event} [event] - The media element's error event
      */
-    handleTrackError() {
+    handleTrackError(event) {
+        if (event?.target?.error?.code === MEDIA_ERR_ABORTED) return;
         console.warn('Background music unavailable for this pack: the track failed to load');
         this.transitionTo(MusicState.Unavailable);
     }
@@ -281,7 +294,7 @@ export class AudioManager {
     /**
      * Toggle music playback (pause/resume keeps the current position).
      * Pausing fades to silence first; stopping the element at full gain
-     * would cut the waveform mid-flight and is heard as a sharp knack.
+     * would cut the waveform mid-flight and is heard as a sharp crack.
      */
     toggleMusic() {
         if (this.musicState === MusicState.Unavailable) return;

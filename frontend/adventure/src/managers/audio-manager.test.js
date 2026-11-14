@@ -311,6 +311,21 @@ describe('AudioManager', () => {
             expect(console.warn).toHaveBeenCalledTimes(1);
         });
 
+        it('ignores the aborted fetch of a superseded src swap', async () => {
+            const { audio, ui, music } = createFixture();
+
+            await audio.setupMusic('packA', 1);
+            // Swapping src aborts an in-flight load, and the browser reports
+            // the abandoned resource as MEDIA_ERR_ABORTED (code 1): the error
+            // belongs to the old track, not to the newly armed one.
+            Object.defineProperty(music, 'error', { value: { code: 1 } });
+            music.dispatchEvent(new Event('error'));
+
+            expect(audio.musicState).toBe(MusicState.Silent);
+            expect(renderedButton(ui).disabled).toBe(false);
+            expect(console.warn).not.toHaveBeenCalled();
+        });
+
         it('disables the control from the setup probe alone, before any click', async () => {
             const { audio, ui, music } = createFixture();
             music.load = vi.fn(() => music.dispatchEvent(new Event('error')));
