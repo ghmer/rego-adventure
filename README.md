@@ -186,7 +186,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | Frontend lint | `npm ci` then `npx eslint src` in `frontend/adventure` | `frontend-ci.yml` |
 | Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
 | Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
-| Browser and command-line QA suites | `node docu/qa/<suite>.cjs` | `frontend-ci.yml` (`browser-qa` job) |
+| Browser and command-line QA suites | `node docu/qa/run-qa.cjs` (all suites, one shared build, running concurrently), or `node docu/qa/<suite>.cjs` for a single suite | `frontend-ci.yml` (`browser-qa` job) |
 | Clone gate | `npx --yes jscpd@4.0.5 --min-tokens 60 --threshold 0 ... backend cmd main.go frontend/adventure/src docu/quest-editor` (tests and test fixtures excluded) | `go-ci.yml`, `frontend-ci.yml` (`clone-gate` job) |
 
 The QA suites in `docu/qa/` start their own server on a free port and drive a real browser through
@@ -195,9 +195,12 @@ and lockfile). Six suites:
 `spa-qa` (the adventure interface), `dialog-qa` (the seven dialogs), `editor-qa` (the quest editor),
 `save-compat` (saved-state compatibility), `cli-qa` (the command-line tools) and `session-qa` (a
 signed session token that expires during a quest, on the start screen and inside a quest). They run by
-hand against the change they test: each removes the quest packs it generates and reports any tree
-change it did not make itself. In CI the six suites run in the `browser-qa` job of `frontend-ci.yml`
-against the manifest-pinned Playwright and its matching Chromium.
+hand against the change they test: each keeps its generated quest packs inside a run root of its own
+instead of beside the frontend, and reports any tree change it did not make itself. In CI the six
+suites run through `docu/qa/run-qa.cjs`, which compiles the server and the Go QA tools once for the
+run and starts the suites concurrently against the manifest-pinned Playwright and its matching
+Chromium. [`docu/qa/README.md`](docu/qa/README.md) documents the harness, what the suites cost, and
+how the pool sizes itself.
 
 ## Utilities
 

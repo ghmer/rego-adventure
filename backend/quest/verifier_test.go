@@ -405,8 +405,9 @@ func TestVerifier_Verify_ContextCancelled(t *testing.T) {
 	verifier := NewVerifier()
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer cancel()
-	// Ensure context is already done
-	time.Sleep(1 * time.Millisecond)
+	// A deadline is delivered asynchronously, so the test waits for the context
+	// to report it. The pause it replaces was a guess at how long the timer takes.
+	<-ctx.Done()
 
 	quest := &Quest{
 		Query: "data.quest.allow",

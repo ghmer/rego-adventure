@@ -135,6 +135,141 @@ func TestCheckRejectsSyntheticDrift(t *testing.T) {
 	}
 }
 
+// TestUpdateReanchorsDriftedCitation shows the repair path: the anchor moved
+// by one line, and the citation's number follows it.
+func TestUpdateReanchorsDriftedCitation(t *testing.T) {
+	doc := "The factory is `createWidget` (`pkg/widget.go:2`).\n"
+	// The comment above the factory grew, so the declaration now sits on line 5
+	// and the citation still says 2.
+	source := "// The file is not a real package doc.\n" +
+		"// A second comment line.\n// A third one.\n" +
+		"func createWidget() int {\n\treturn 7\n}\n"
+
+	root := writeFixtureRepo(t, doc, source)
+	rewritten, failures, err := updateDocument(root, "doc.md", doc, true, updateWindow)
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if len(failures) != 0 {
+		t.Errorf("expected the update to leave no failure, got %v", failures)
+	}
+	if !strings.Contains(rewritten, "pkg/widget.go:5") {
+		t.Errorf("expected the citation to carry line 5, got %q", rewritten)
+	}
+}
+
+// TestUpdateRefusesToGuess covers the three cases the repair leaves alone:
+// two candidate declarations, an anchor too far from the cited line to be
+// assumed the same one, and a citation with no anchor to search by.
+func TestUpdateRefusesToGuess(t *testing.T) {
+	tests := []struct {
+		name        string
+		doc         string
+		source      string
+		wantKept    string // citation text that must survive unchanged
+		wantFailure string
+	}{
+		{
+			name:        "two declarations in the window",
+			doc:         "`createWidget` (`pkg/widget.go:4`).\n",
+			source:      "var createWidget int\n// a note\n// another note\nfunc createWidget() int {\n\treturn 7\n}\n",
+			wantKept:    "pkg/widget.go:4",
+			wantFailure: "does not mention",
+		},
+		{
+			name:        "the only declaration is far away",
+			doc:         "`createWidget` (`pkg/widget.go:2`).\n",
+			source:      "// filler\n" + strings.Repeat("// more filler\n", 13) + "func createWidget() int {\n\treturn 7\n}\n",
+			wantKept:    "pkg/widget.go:2",
+			wantFailure: "does not mention",
+		},
+		{
+			name:        "a citation without an anchor",
+			doc:         "See `pkg/widget.go:2` for the rationale.\n",
+			source:      "func createWidget() int {\n\treturn 7\n}\n",
+			wantKept:    "pkg/widget.go:2",
+			wantFailure: "", // an unanchored citation is not a failure to begin with
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := writeFixtureRepo(t, test.doc, test.source)
+			rewritten, failures, err := updateDocument(root, "doc.md", test.doc, true, updateWindow)
+			if err != nil {
+				t.Fatalf("update failed: %v", err)
+			}
+			if rewritten != test.doc {
+				t.Errorf("expected the document to be left alone, got %q", rewritten)
+			}
+			if !strings.Contains(rewritten, test.wantKept) {
+				t.Errorf("expected %s to survive, got %q", test.wantKept, rewritten)
+			}
+			if test.wantFailure == "" {
+				if len(failures) != 0 {
+					t.Errorf("expected no failure, got %v", failures)
+				}
+				return
+			}
+			if len(failures) != 1 || !strings.Contains(failures[0].Reason, test.wantFailure) {
+				t.Errorf("expected a %q failure, got %v", test.wantFailure, failures)
+			}
+		})
+	}
+}
+
+// TestUpdateKeepsARangeItsExtent: a cited block whose anchor slipped past its
+// end moves as a block instead of collapsing onto the anchor line.
+func TestUpdateKeepsARangeItsExtent(t *testing.T) {
+	doc := "`createWidget` (`pkg/widget.go:2-4`).\n"
+	source := "// intro\n// intro\n// intro\nfunc createWidget() int {\n\treturn 7\n}\n"
+
+	root := writeFixtureRepo(t, doc, source)
+	rewritten, failures, err := updateDocument(root, "doc.md", doc, true, updateWindow)
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if len(failures) != 0 {
+		t.Errorf("expected the update to leave no failure, got %v", failures)
+	}
+	if !strings.Contains(rewritten, "pkg/widget.go:3-5") {
+		t.Errorf("expected the range to move to 3-5, got %q", rewritten)
+	}
+}
+
+// TestDeclaresCoversTheSourceShapes the document's citations meet in
+// practice: a declaration counts, a mention or a comment does not.
+func TestDeclaresCoversTheSourceShapes(t *testing.T) {
+	tests := []struct {
+		line   string
+		name   string
+		wanted bool
+	}{
+		{"func createWidget() int {", "createWidget", true},
+		{"\treturn 7", "createWidget", false},
+		{"const loadPack = require('./pack')", "loadPack", true},
+		{"  async loadPack(theme) {", "loadPack", true},
+		{"  loadPack(theme) {", "loadPack", true},
+		{"\t\tthis.loadPack(theme)", "loadPack", false},
+		{"\t\tif (loadPack) { return }", "loadPack", false},
+		{"// loadPack moves the pack and its theme", "loadPack", false},
+		{" * @param {string} loadPack - the pack name", "loadPack", false},
+		{"loadPackTheme(theme) {", "loadPack", false},
+		{"const musicState = MusicState.STOPPED", "MusicState", true},
+		{"type audioGraphFallback struct {", "audioGraphFallback", true},
+		// The checker compares anchors case-insensitively (the document names in
+		// prose what the sources spell as constants), and this line really does
+		// introduce the state named critical.
+		{"CRITICAL: 'critical',", "critical", true},
+	}
+
+	for _, test := range tests {
+		if got := declares(test.line, test.name); got != test.wanted {
+			t.Errorf("declares(%q, %q) = %v, want %v", test.line, test.name, got, test.wanted)
+		}
+	}
+}
+
 // TestCheckRejectsAmbiguousBareName requires a bare file name to name
 // exactly one file, or the repository root file itself.
 func TestCheckRejectsAmbiguousBareName(t *testing.T) {

@@ -157,11 +157,13 @@ jobs:
           npx playwright install --with-deps chromium
         working-directory: frontend/adventure
 
+      # The harness builds the server and the Go QA tools once per run and gives
+      # every suite a run root of its own, so the suites run concurrently instead
+      # of one after another: three at a time on a four-core runner, six on a
+      # developer's machine (docu/qa/README.md has the measurements and the
+      # isolation the pool depends on).
       - name: Run QA suites
-        run: |
-          for suite in cli-qa dialog-qa editor-qa save-compat session-qa spa-qa; do
-            node "docu/qa/$suite.cjs"
-          done
+        run: node docu/qa/run-qa.cjs
 
   clone-gate:
     runs-on: ubuntu-latest

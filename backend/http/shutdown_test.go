@@ -262,13 +262,25 @@ func TestRunWithGracefulShutdown_TimesOutOnStuckRequests(t *testing.T) {
 // that completes while the shutdown is pending is allowed to finish.
 func TestGracefulShutdown_DrainsInFlightRequests(t *testing.T) {
 	var served atomic.Int32
-	// handlerEntered signals that the slow request is in flight; no fixed
-	// sleep is used to schedule the shutdown against it.
-	handlerEntered := make(chan struct{}, 1)
-	server := newTestServer(t, nethttp.HandlerFunc(func(w nethttp.ResponseWriter, _ *nethttp.Request) {
-		handlerEntered <- struct{}{}
-		// Simulate work long enough that Shutdown must wait for it.
-		time.Sleep(200 * time.Millisecond)
+	// entered signals that the slow request is in flight, and listenerSaw tells
+	// what that request observed before it finished.
+	entered := make(chan struct{}, 1)
+	listenerSaw := make(chan bool, 1)
+	// Built the way newTestServer builds one, because the handler needs the
+	// address to poll.
+	addr := freePort(t)
+	server := NewServer(addr, nethttp.HandlerFunc(func(w nethttp.ResponseWriter, _ *nethttp.Request) {
+		select {
+		case entered <- struct{}{}:
+		default:
+		}
+		// The handler waits for the listener to go away rather than for a slice
+		// of time. Shutdown closes the listener before it waits for the requests
+		// in flight, so this guarantees the request is still running when the
+		// drain begins: a fixed sleep could let the request finish before
+		// GracefulShutdown was ever called, and the test would pass having
+		// drained nothing.
+		listenerSaw <- listenerGone(addr, 5*time.Second)
 		served.Add(1)
 		w.WriteHeader(nethttp.StatusOK)
 	}))
@@ -293,7 +305,7 @@ func TestGracefulShutdown_DrainsInFlightRequests(t *testing.T) {
 		reqDone <- err
 	}()
 	select {
-	case <-handlerEntered:
+	case <-entered:
 	case <-time.After(5 * time.Second):
 		t.Fatal("request never reached the handler")
 	}
@@ -314,21 +326,45 @@ func TestGracefulShutdown_DrainsInFlightRequests(t *testing.T) {
 	if served.Load() != 1 {
 		t.Fatalf("expected handler to complete exactly once, got %d", served.Load())
 	}
+	if !<-listenerSaw {
+		t.Error("the request was never in flight against a closed listener: " +
+			"the run finished without exercising the drain it claims to test")
+	}
 }
 
 // waitUntilListening polls the address until a TCP connection succeeds.
 func waitUntilListening(t *testing.T, addr string, timeout time.Duration) bool {
 	t.Helper()
+	return pollDial(addr, timeout, true)
+}
+
+// listenerGone polls the address until a TCP connection stops succeeding, which
+// is what Shutdown does to the listener before it waits for the requests in
+// flight. It answers whether that happened within the timeout; it carries no
+// testing.T because a handler goroutine calls it, and a handler cannot fail a
+// test.
+func listenerGone(addr string, timeout time.Duration) bool {
+	return pollDial(addr, timeout, false)
+}
+
+// pollDial dials the address until the outcome asked for shows up, or the
+// timeout runs out.
+func pollDial(addr string, timeout time.Duration, wantUp bool) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		conn, err := (&net.Dialer{Timeout: 100 * time.Millisecond}).DialContext(context.Background(), "tcp", addr)
-		if err == nil {
-			if cerr := conn.Close(); cerr != nil {
-				t.Errorf("failed to close probe connection: %v", cerr)
-			}
+		up := err == nil
+		if up {
+			_ = conn.Close()
+		}
+		if up == wantUp {
 			return true
 		}
 		if errors.Is(err, net.ErrClosed) {
+			// Unreachable for a fresh dialer, which owns no pre-existing
+			// connection; the guard exists so a caller that shares one is
+			// reported as a poll failure instead of spinning on its closed
+			// socket until the deadline.
 			return false
 		}
 		time.Sleep(20 * time.Millisecond)

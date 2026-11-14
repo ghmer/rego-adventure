@@ -27,7 +27,6 @@
 //       node docu/qa/save-compat.cjs --capture  (re-records it, a few minutes)
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 
 const {
@@ -38,9 +37,15 @@ const {
     pickFreePort,
     Server,
     generatePack,
+    packDir,
     removePack,
+    scratch,
+    suiteRoot,
+    armWatchdog,
+    stopServersSync,
     withBrowser,
     newPage,
+    armPageTimeouts,
     Report
 } = require('./qa-lib.cjs');
 
@@ -48,6 +53,9 @@ const { execFileSync } = require('node:child_process');
 
 // The refactor's base commit: the last state of the app before any sprint.
 const BASE_COMMIT = '6ee2d94';
+// The run root the current app's servers start in; the pre-refactor app keeps
+// running in a worktree of its own (see capture).
+let ROOT = null;
 const SAVE_FIXTURE = path.join(repoRoot, 'docu', 'qa', 'testdata', 'base-save.json');
 const PACK = 'qasave';
 const POLICY = 'package play\n\ndefault allow = false\n\nallow if {\n    input.password = "secret"\n}\n';
@@ -102,14 +110,14 @@ async function solveQuestOne(page, port) {
 
 // capture plays the pack on the app at the base commit and records its save.
 async function capture(report) {
-    const worktree = path.join(os.tmpdir(), 'rego-qa-base-worktree');
+    const worktree = path.join(scratch('save-compat'), 'base-worktree');
     fs.rmSync(worktree, { recursive: true, force: true });
     git(['worktree', 'add', '--detach', worktree, BASE_COMMIT], repoRoot);
 
     // The pack is copied, not generated twice: both apps must serve the same
     // bytes, or the save belongs to a different adventure.
-    generatePack(repoRoot, PACK);
-    const packSource = path.join(repoRoot, 'frontend', 'quests', PACK);
+    generatePack(ROOT, PACK);
+    const packSource = packDir(ROOT, PACK);
     const packTarget = path.join(worktree, 'frontend', 'quests', PACK);
     fs.mkdirSync(path.dirname(packTarget), { recursive: true });
     fs.cpSync(packSource, packTarget, { recursive: true });
@@ -122,8 +130,8 @@ async function capture(report) {
         await base.start();
 
         await withBrowser(async (browser) => {
-            const harness = await newPage(browser, basePort);
-            const keys = await solveQuestOne(harness.page, basePort);
+            const harness = await newPage(browser, base.port);
+            const keys = await solveQuestOne(harness.page, base.port);
             const packState = keys[`rego_pack_state_${PACK}`];
             report.check(
                 'the pre-refactor app wrote a pack state to storage',
@@ -142,7 +150,7 @@ async function capture(report) {
         if (base) {
             await base.stop();
         }
-        removePack(repoRoot, PACK);
+        removePack(ROOT, PACK);
         fs.rmSync(packTarget, { recursive: true, force: true });
         git(['worktree', 'remove', '--force', worktree], repoRoot);
     }
@@ -154,7 +162,7 @@ async function capture(report) {
 async function seededPage(browser, port, keys) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
-    page.setDefaultTimeout(1500);
+    armPageTimeouts(page);
     await page.addInitScript((payload) => {
         for (const [key, value] of Object.entries(payload)) {
             localStorage.setItem(key, value);
@@ -230,7 +238,10 @@ async function saveVariants(report, browser, port, keys) {
     await reveal.page.route('**/api/packs/*/quests/*/hints/*', (route) => route.fulfill({ status: 500, body: 'nope' }));
     await reveal.page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
     await reveal.page.waitForSelector('#game-interface:not(.hidden)', { timeout: 3000 });
-    await reveal.page.waitForTimeout(400);
+    // The failed reveal is announced with a toast, and the check below reads that
+    // toast: the wait is for the announcement, not a pause guessing at how long a
+    // stubbed fetch takes to answer.
+    await reveal.page.waitForSelector('.toast, .toast-message', { timeout: 1500 }).catch(() => {});
     const revealState = await reveal.page.evaluate(() => ({
         counter: document.getElementById('quest-counter').textContent.trim(),
         hintsShown: document.querySelectorAll('#hints-list .hint-item, #hints-list code').length,
@@ -255,9 +266,11 @@ async function resume(report, binary) {
     const recorded = JSON.parse(fs.readFileSync(SAVE_FIXTURE, 'utf8'));
     report.check('the recorded save belongs to the pack under test', recorded.pack === PACK, recorded.pack);
 
-    const server = new Server({ cwd: repoRoot, port: await pickFreePort(), binary });
-    const port = server.port;
+    const server = new Server({ cwd: ROOT, port: await pickFreePort(), binary });
     await server.start({ packs: [PACK] });
+    // The port the server answers on is only settled once it is up: a port that
+    // turned out to be taken is answered by binding another.
+    const port = server.port;
 
     try {
         await withBrowser(async (browser) => {
@@ -358,7 +371,7 @@ async function resume(report, binary) {
             // A save from before the storage-key rename is migrated, not ignored.
             const legacyContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
             const legacyPage = await legacyContext.newPage();
-            legacyPage.setDefaultTimeout(1500);
+            armPageTimeouts(legacyPage);
             await legacyPage.addInitScript(() => {
                 localStorage.setItem('adventureTutorialCompleted', 'true');
             });
@@ -388,17 +401,24 @@ async function resume(report, binary) {
 async function main() {
     // Judged on what the run adds to the tree, not on what was already there.
     const baseline = gitStatus(repoRoot);
+    ROOT = suiteRoot('save-compat');
 
     const captureRun = process.argv.includes('--capture');
     const report = new Report(`save compatibility${captureRun ? ' (capture)' : ''}`);
     let phase = 'startup';
 
-    const watchdog = setTimeout(() => {
-    console.error(`\nsave compatibility QA exceeded ${captureRun ? 240 : 45}s during "${phase}"`);
-        process.exit(2);
-    }, captureRun ? 240000 : 45000);
+    const watchdog = armWatchdog({
+        suite: 'save compatibility QA',
+        baseMs: captureRun ? 240000 : 45000,
+        phase: () => phase
+    });
     process.on('SIGINT', () => {
-        removePack(repoRoot, PACK);
+        removePack(ROOT, PACK);
+        stopServersSync();
+        process.exit(130);
+    });
+    process.on('SIGTERM', () => {
+        stopServersSync();
         process.exit(130);
     });
 
@@ -422,10 +442,10 @@ async function main() {
     } catch (error) {
         report.check('the suite ran to the end', false, error.message.split('\n')[0]);
     } finally {
-        removePack(repoRoot, PACK);
+        removePack(ROOT, PACK);
     }
 
-    clearTimeout(watchdog);
+    watchdog.cancel();
     const clean = report.done();
     const left = leftoverChanges(repoRoot, baseline);
     if (left.length > 0) {
