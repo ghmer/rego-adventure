@@ -25,15 +25,31 @@
  * package.json comments).
  */
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
     test: {
         environment: 'happy-dom',
         environmentOptions: {
-            'happy-dom': {
+            happyDOM: {
                 // The tour defers its focus hand-off to an animation frame,
                 // which is what a browser gives it.
-                pretendToBeVisual: true
+                pretendToBeVisual: true,
+                settings: {
+                    fetch: {
+                        // A fetch that reaches the environment fetch must not
+                        // open a real socket against the default window
+                        // location: happy-dom aborts pending connections at
+                        // teardown, which litters the run log with connection
+                        // errors. Same-origin requests are answered from the
+                        // package root instead, so every path the suite does
+                        // not stub deterministically gets a 404.
+                        virtualServers: [{
+                            url: 'http://localhost:3000',
+                            directory: fileURLToPath(new URL('.', import.meta.url))
+                        }]
+                    }
+                }
             }
         },
         include: ['src/**/*.test.js']

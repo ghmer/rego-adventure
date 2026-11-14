@@ -139,6 +139,12 @@ describe('PackManager', () => {
         apiMock.fetchPackDetails.mockReset();
         handleApiError.mockReset();
         tutorialMock.showTutorialPrompt.mockReset();
+        // Completed pack loads fetch their stylesheets; tests that do not
+        // name their own fetch behavior get a stub that answers 404, so no
+        // load ever touches the real network (happy-dom otherwise aborts
+        // the in-flight request at teardown and spams the log).
+        vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 404 })));
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
         vi.useFakeTimers();
     });
 
@@ -169,7 +175,8 @@ describe('PackManager', () => {
         function enableAuth(fetchMock) {
             vi.stubGlobal('fetch', fetchMock);
             ConfigService.config = { enabled: true };
-            const createObjectURL = vi.fn(() => 'blob:test-1');
+            let issued = 0;
+            const createObjectURL = vi.fn(() => `blob:test-${++issued}`);
             const original = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
             Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
             return () => {
@@ -193,8 +200,8 @@ describe('PackManager', () => {
             expect(fetchMock).toHaveBeenCalledWith('/quests/alpha/assets/npc-questgiver.png',
                 expect.objectContaining({ headers: {} }));
             expect(document.querySelector('.npc-avatar').getAttribute('src')).toBe('blob:test-1');
-            expect(document.querySelector('.avatar').getAttribute('src')).toBe('blob:test-1');
-            expect(document.body.style.backgroundImage).toContain('blob:test-1');
+            expect(document.querySelector('.avatar').getAttribute('src')).toBe('blob:test-2');
+            expect(document.body.style.backgroundImage).toContain('blob:test-3');
             restore();
         });
 
@@ -209,6 +216,47 @@ describe('PackManager', () => {
 
             expect(fetchMock).toHaveBeenCalledTimes(3);
             expect(npc.getAttribute('src')).toBe('/quests/alpha/assets/npc-questgiver.png');
+            restore();
+        });
+
+        it('clears the public fallback handler before applying it', async () => {
+            const fetchMock = vi.fn(async () => new Response('denied', { status: 401 }));
+            const restore = enableAuth(fetchMock);
+            const { pack } = createFixture();
+            const { npc } = mountAvatars();
+            pack.preloadImage = vi.fn(async src => src);
+
+            await pack.loadPackAssets('alpha', pack.loadSeq);
+            npc.dispatchEvent(new Event('error'));
+
+            expect(npc.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
+            expect(npc.onerror).toBeNull();
+
+            npc.dispatchEvent(new Event('error'));
+
+            expect(npc.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
+            restore();
+        });
+
+        it('releases resolved blobs when another generation superseded the load', async () => {
+            const deferreds = [];
+            const fetchMock = vi.fn(() => new Promise(resolve => deferreds.push(resolve)));
+            const restore = enableAuth(fetchMock);
+            const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+            const { pack } = createFixture();
+            mountAvatars();
+            pack.preloadImage = vi.fn(async src => src);
+
+            const inFlight = pack.loadPackAssets('alpha', pack.loadSeq);
+            for (let flush = 0; flush < 20 && deferreds.length < 3; flush++) {
+                await Promise.resolve();
+            }
+            deferreds.forEach(resolve => resolve(new Response('png-bytes', { status: 200 })));
+            pack.loadSeq++;
+            await inFlight;
+
+            expect(revokeSpy).toHaveBeenCalledTimes(3);
+            revokeSpy.mockRestore();
             restore();
         });
     });

@@ -17,6 +17,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioManager } from './audio-manager.js';
 import { AUDIO, TIMING } from '../services/constants.js';
+import { ConfigService } from '../services/config-service.js';
 
 const RING_RADIUS = 20;
 const RING_CIRCUMFERENCE = 2 * RING_RADIUS * Math.PI;
@@ -156,6 +157,28 @@ describe('AudioManager', () => {
             expect(audio.musicState).toBe(MusicState.Silent);
             expect(renderedButton(ui).disabled).toBe(false);
             expect(music.getAttribute('src')).toBe('/quests/packB/assets/bg-music.m4a');
+        });
+
+        it('releases the resolved track blob when the setup was superseded', async () => {
+            let release;
+            const gate = new Promise(resolve => { release = resolve; });
+            const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+            const original = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+            Object.defineProperty(URL, 'createObjectURL', { value: () => 'blob:track-1', configurable: true });
+            vi.stubGlobal('fetch', vi.fn(() => gate));
+            ConfigService.config = { enabled: true };
+            const { audio, music } = createFixture();
+
+            const inFlight = audio.setupMusic('packA', 1);
+            audio.invalidateTrack();
+            release(new Response('m4a-bytes', { status: 200 }));
+            await inFlight;
+
+            expect(revokeSpy).toHaveBeenCalledTimes(1);
+            expect(music.getAttribute('src')).not.toBe('blob:track-1');
+
+            if (original) Object.defineProperty(URL, 'createObjectURL', original);
+            ConfigService.config = null;
         });
     });
 

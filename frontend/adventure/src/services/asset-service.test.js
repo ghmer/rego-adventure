@@ -43,9 +43,11 @@ function stubFetchOnce(body, status = 200) {
 describe('AssetService', () => {
     let createObjectURL;
     let revokeObjectURL;
+    let issuedCount;
 
     beforeEach(() => {
-        createObjectURL = vi.fn(() => 'blob:issued-1');
+        issuedCount = 0;
+        createObjectURL = vi.fn(() => `blob:issued-${++issuedCount}`);
         revokeObjectURL = vi.fn();
         Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
         Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true });
@@ -168,6 +170,31 @@ describe('AssetService', () => {
 
         it('is a no-op without issued URLs', () => {
             AssetService.releaseMedia();
+            expect(revokeObjectURL).not.toHaveBeenCalled();
+        });
+
+        it('revoke releases a single issued URL without touching the rest', async () => {
+            authMock.isEnabled.mockReturnValue(true);
+            authMock.getToken.mockResolvedValue('token-1');
+            stubFetchOnce('png-bytes');
+            stubFetchOnce('more-bytes');
+            const first = await AssetService.mediaURL(MEDIA_URL);
+            const second = await AssetService.mediaURL(`${MEDIA_URL}?v=2`);
+
+            AssetService.revoke(second);
+
+            expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+            expect(revokeObjectURL).toHaveBeenCalledWith(second);
+
+            // the released URL is unregistered, the other one stays issued
+            AssetService.releaseMedia();
+            expect(revokeObjectURL).toHaveBeenCalledTimes(2);
+            expect(revokeObjectURL).toHaveBeenLastCalledWith(first);
+        });
+
+        it('revoke ignores sources that were never issued here', async () => {
+            AssetService.revoke('/quests/pack/assets/picture.png');
+            AssetService.revoke('blob:unknown');
             expect(revokeObjectURL).not.toHaveBeenCalled();
         });
     });

@@ -116,5 +116,19 @@ export const AssetService = {
             URL.revokeObjectURL(url);
         }
         issuedURLs.clear();
+    },
+
+    /**
+     * Revoke one blob URL this service issued, and nothing else. A
+     * continuation that resolved a source but lost its generation race
+     * releases the blob immediately instead of leaving it registered
+     * until the next releaseMedia; sources not issued here (plain paths
+     * or unknown URLs) pass through untouched.
+     * @param {string} source - Source previously returned by mediaURL
+     */
+    revoke(source) {
+        if (!issuedURLs.has(source)) return;
+        URL.revokeObjectURL(source);
+        issuedURLs.delete(source);
     }
 };

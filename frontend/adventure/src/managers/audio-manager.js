@@ -118,7 +118,12 @@ export class AudioManager {
             if (seq === this.trackSeq) this.transitionTo(MusicState.Unavailable);
             return;
         }
-        if (seq !== this.trackSeq) return;
+        if (seq !== this.trackSeq) {
+            // A superseded setup that already resolved its track blob
+            // releases it here instead of waiting for the next release.
+            AssetService.revoke(source);
+            return;
+        }
 
         music.src = source;
         this.transitionTo(MusicState.Silent);

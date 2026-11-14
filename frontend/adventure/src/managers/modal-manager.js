@@ -260,22 +260,24 @@ export class ModalManager {
     setPackImage(img, url, fallbackUrl) {
         AssetService.mediaURL(url).then((source) => {
             // The plain path (open mode) can fail on a missing asset; a
-            // blob URL cannot fail after the resolution. The fallback is
-            // applied without its own fallback, so a missing fallback
-            // renders broken instead of looping.
+            // blob URL cannot fail after the resolution. The handler
+            // clears itself before applying the fallback: a missing
+            // fallback asset renders broken once, and never re-runs the
+            // image algorithm on the next src assignment.
             if (fallbackUrl) {
-                img.onerror = () => this.setPackImage(img, fallbackUrl);
+                img.onerror = () => {
+                    img.onerror = null;
+                    this.setPackImage(img, fallbackUrl, undefined);
+                };
             }
             img.src = source;
         }).catch(() => {
-            if (fallbackUrl) this.setPackImage(img, fallbackUrl);
+            if (fallbackUrl) this.setPackImage(img, fallbackUrl, undefined);
         });
     }
 
     /**
      * Show the result dialog with test results. The dialog is modal, so the
-     * verify button, the reveals and the navigation behind it cannot be
-     * reached while a result is on screen. The dialog is modal, so the
      * verify button, the reveals and the navigation behind it cannot be
      * reached while a result is on screen.
      * @param {Object} result - Verification result from API

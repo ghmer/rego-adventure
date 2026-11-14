@@ -198,13 +198,22 @@ export class PackManager {
             loadOne('bg-adventure.jpg')
         ]);
 
-        if (seq !== this.loadSeq) return;
+        if (seq !== this.loadSeq) {
+            // Continuations that lose the race can already hold resolved
+            // blob URLs; releasing them here keeps the leak bounded to the
+            // next handover's releaseMedia sweep.
+            for (const source of [npcSource, heroSource, backgroundSource]) {
+                AssetService.revoke(source);
+            }
+            return;
+        }
 
         // Update NPC avatar (now guaranteed to be loaded)
         const npcAvatar = document.querySelector('.npc-avatar');
         if (npcAvatar) {
             npcAvatar.src = npcSource;
             npcAvatar.onerror = () => {
+                npcAvatar.onerror = null;
                 npcAvatar.src = '/public/assets/npc-questgiver.png';
             };
         }
@@ -214,6 +223,7 @@ export class PackManager {
         if (heroAvatar) {
             heroAvatar.src = heroSource;
             heroAvatar.onerror = () => {
+                heroAvatar.onerror = null;
                 heroAvatar.src = '/public/assets/hero-avatar.png';
             };
         }

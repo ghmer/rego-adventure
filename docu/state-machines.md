@@ -509,7 +509,7 @@ stateDiagram-v2
     end note
 ```
 
-Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:287`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:62`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:65`), before any write it governs. Those writes are quest data, labels, titles, theme `<style>` elements, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:229`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
+Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:297`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:62`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:65`), before any write it governs. Those writes are quest data, labels, titles, theme `<style>` elements, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:239`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
 
 Theme stylesheets are fetched and applied as inline style elements in both authentication modes: element-external requests cannot carry a bearer token, so `loadPackTheme` (`pack-manager.js:114`) resolves the sheet text through the asset service. A failed or missing stylesheet applies nothing, which is why a `custom.css` absence stays a silent "theme without effects" sub-state and no flag records it (M#34).
 
@@ -554,7 +554,7 @@ Focus targets differ per dialog and encode an intent: cancel for the destructive
 
 ### M#15 · Result modal
 
-**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:285`); the caller passes points in · **Persisted:** no
+**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:287`); the caller passes points in · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -636,7 +636,7 @@ Three controls, one machine: `lorePrevBtn.disabled`, `loreNextBtn.disabled` and 
 
 ### M#19 · Background music
 
-**Carrier:** one value, `MusicState` (`audio-manager.js:44`); `pauseTimer` is an implementation detail of the two fading states · **Owner:** `transitionTo` (`audio-manager.js:371`), the only writer after construction; `renderMusicButton` (`audio-manager.js:380`) renders from that value and from nothing else · **Persisted:** no
+**Carrier:** one value, `MusicState` (`audio-manager.js:44`); `pauseTimer` is an implementation detail of the two fading states · **Owner:** `transitionTo` (`audio-manager.js:376`), the only writer after construction; `renderMusicButton` (`audio-manager.js:385`) renders from that value and from nothing else · **Persisted:** no
 
 The track plays once per toggle.
 
@@ -665,9 +665,9 @@ stateDiagram-v2
     Unavailable --> Silent : a later pack's track loads cleanly
 ```
 
-`setupMusic` (`audio-manager.js:99`) resolves the pack's `bg-music.m4a` for element use, points the element at it, pauses it, rewinds and enters `silent`; it is the only edge that leaves `unavailable`. The resolution is guarded by the load sequence token, and `resetToDefaultTheme` invalidates an in-flight setup (`audio-manager.js:135`), so a superseded pack entry cannot re-arm music after the player went home. A track that then fails to resolve, load or decode raises the failure path into `unavailable` via `handleTrackError` (`audio-manager.js:271`), which disables the button rather than letting it claim a state it cannot deliver. The same handler answers a failure that arrives mid-play: a network failure during playback and a metadata-probe failure at pack entry are rendered identically, because both mean the pack has no playable track from that moment on.
+`setupMusic` (`audio-manager.js:99`) resolves the pack's `bg-music.m4a` for element use, points the element at it, pauses it, rewinds and enters `silent`; it is the only edge that leaves `unavailable`. The resolution is guarded by the load sequence token, and `resetToDefaultTheme` invalidates an in-flight setup (`audio-manager.js:140`), so a superseded pack entry cannot re-arm music after the player went home. A track that then fails to resolve, load or decode raises the failure path into `unavailable` via `handleTrackError` (`audio-manager.js:276`), which disables the button rather than letting it claim a state it cannot deliver. The same handler answers a failure that arrives mid-play: a network failure during playback and a metadata-probe failure at pack entry are rendered identically, because both mean the pack has no playable track from that moment on.
 
-`handleMusicEnded` (`audio-manager.js:255`) rewinds the element and returns to `silent`, so the control and the element agree about where the track stands. `fadeOut(rewind)` (`audio-manager.js:329`) pauses only after the ramp reaches 0, and `stopMusic` (`audio-manager.js:353`) is the rewinding form used when a pack is left.
+`handleMusicEnded` (`audio-manager.js:260`) rewinds the element and returns to `silent`, so the control and the element agree about where the track stands. `fadeOut(rewind)` (`audio-manager.js:334`) pauses only after the ramp reaches 0, and `stopMusic` (`audio-manager.js:358`) is the rewinding form used when a pack is left.
 
 A generated pack ships a valid, silent placeholder track (M#38), so its music control is enabled and reaches `playing`. A 0-byte file is what puts the machine in `unavailable`, the one branch that disables the button.
 
@@ -688,7 +688,7 @@ stateDiagram-v2
     end note
 ```
 
-The graph outlives pack switches. `setupMusic` changes the element `src` but never re-creates `createMediaElementSource`, which may only be called once per element. `audioGraphFallback` records which half of the machine owns volume: it is set when `AudioContext` construction or `createMediaElementSource` throws (`audio-manager.js:135`), and `setGain`/`rampGain` then act on the element's own volume instead of the node, leaving the ramps immediate. The flag is not reset per pack, because the failure is about the browser, not the pack.
+The graph outlives pack switches. `setupMusic` changes the element `src` but never re-creates `createMediaElementSource`, which may only be called once per element. `audioGraphFallback` records which half of the machine owns volume: it is set when `AudioContext` construction or `createMediaElementSource` throws (`audio-manager.js:172`), and `setGain`/`rampGain` then act on the element's own volume instead of the node, leaving the ramps immediate. The flag is not reset per pack, because the failure is about the browser, not the pack.
 
 ### M#21 · Visual effects toggle
 
@@ -921,7 +921,7 @@ Two boundaries of this machine matter. `/config` sits outside it: a `fetch` boun
 
 ### M#29 · Lazy reveal caches
 
-**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:62`; dropped by `clearPackCaches` (`pack-manager.js:308`) · **Persisted:** no, exactly one pack visit
+**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:62`; dropped by `clearPackCaches` (`pack-manager.js:318`) · **Persisted:** no, exactly one pack visit
 
 | Cache | Owner | Fetched artifact | Backend `Cache-Control` |
 | ------- | ------- | ------------------ | ------------------------- |

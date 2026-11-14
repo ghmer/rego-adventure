@@ -70,7 +70,7 @@ function matches(pattern, files) {
  * @returns {string} The method source, empty when the method is absent
  */
 function methodSource(text, name) {
-    const definition = new RegExp(`^\\s+${name}\\(`, 'm').exec(text);
+    const definition = new RegExp(`^\\s+(?:async )?${name}\\(`, 'm').exec(text);
     if (!definition) return '';
 
     const start = text.indexOf('{', definition.index);
@@ -133,6 +133,29 @@ describe('progression source boundaries', () => {
         // how a result screen re-created reveal state and lowered the frontier.
         expect(matches(/\.show\(\)/g, all)).toEqual([]);
         expect(matches(/openDialog\([^)]*,/g, all)).toEqual([]);
+    });
+
+    it('resolves pack media for element use through the asset service only', () => {
+        // Element-external requests cannot authenticate: <img>, <audio> and
+        // stylesheet links never carry a bearer token, so a pack path must
+        // never reach an element source unfiltered. The regression this pins
+        // is a bare `img.src = '/quests/...'` that re-breaks authenticated
+        // mode silently.
+        const barePackSources = /\.(?:src|href|backgroundImage)\s*=[^;\n]*\/quests\//g;
+        expect(matches(barePackSources, all)).toEqual([]);
+
+        // The element-source owners (pack assets, the music track and the
+        // result icons) resolve through the asset service, which decides
+        // between a blob URL and the plain path.
+        const owners = [
+            ['pack-manager.js', 'loadPackAssets'],
+            ['audio-manager.js', 'setupMusic'],
+            ['modal-manager.js', 'setPackImage']
+        ];
+        for (const [fileName, method] of owners) {
+            const manager = all.find(file => file.path.endsWith(fileName));
+            expect(methodSource(manager.text, method), method).toContain('mediaURL');
+        }
     });
 
     it('writes the perfect-score button visibility in one renderer', () => {
