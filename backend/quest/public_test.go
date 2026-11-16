@@ -111,6 +111,14 @@ func TestQuestPack_PublicView_MapsAllQuests(t *testing.T) {
 	if view.ID != pack.ID || view.Meta.Title != pack.Meta.Title {
 		t.Errorf("expected pack metadata to be preserved, got id=%q title=%q", view.ID, view.Meta.Title)
 	}
+	// The frontend resolves each lore entry's speaker through the npcs map,
+	// so the public view must carry it and the format marker verbatim.
+	if view.Version != pack.Version {
+		t.Errorf("expected version %d in the public view, got %d", pack.Version, view.Version)
+	}
+	if len(view.NPCs) != len(pack.NPCs) || view.NPCs[DefaultNPCKey] != pack.NPCs[DefaultNPCKey] {
+		t.Errorf("expected the npc roster to be preserved, got %v", view.NPCs)
+	}
 	if len(view.Prologue) != len(pack.Prologue) || len(view.Epilogue) != len(pack.Epilogue) {
 		t.Error("expected narrative lists to be preserved")
 	}
@@ -200,7 +208,9 @@ func TestQuestPack_PublicView_KeysMatchAllowlist(t *testing.T) {
 		t.Fatalf("failed to marshal public pack view: %v", err)
 	}
 
-	want := []string{"epilogue", "id", "meta", "prologue", "quests", "ui_labels"}
+	want := []string{"background_image", "epilogue", "hero_avatar",
+		"icon_failure_image", "icon_success_image",
+		"id", "meta", "npcs", "perfect_score_image", "prologue", "quests", "ui_labels", "version"}
 	got := sortedJSONKeys(t, data)
 	if !slices.Equal(got, want) {
 		t.Errorf("public pack key set drifted: got %v, want %v", got, want)

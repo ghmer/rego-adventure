@@ -224,6 +224,7 @@ function buildFirst() {
     const artifacts = [
         ['rego-server', () => buildServer(repoRoot)],
         ['assetgen', () => goTool('assetgen')],
+        ['questmigrate', () => goTool('questmigrate')],
         ['solutionverifier', () => goTool('solutionverifier')]
     ];
     for (const [name, build] of artifacts) {

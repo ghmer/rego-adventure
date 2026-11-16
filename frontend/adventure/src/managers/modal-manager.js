@@ -31,7 +31,7 @@ import { formatPolicyError, formatActualValue, buildHintConfirmationText } from 
 import { parseMarkdown } from '../services/markdown.js';
 
 /**
- * Manages the seven dialogs of the game interface.
+ * Manages the eight dialogs of the game interface.
  *
  * Dismissal policy. Every dialog opens with showModal(), so the page behind
  * it is unreachable while it is open, and focuses the control that states the
@@ -43,6 +43,7 @@ import { parseMarkdown } from '../services/markdown.js';
  * | manual            | closes   | closes   | close button        | -               |
  * | test payload      | closes   | closes   | close button        | -               |
  * | support modules   | closes   | closes   | close button        | -               |
+ * | portrait          | closes   | closes   | close button        | -               |
  * | hint confirmation | closes   | closes   | cancel button       | -               |
  * | restart           | blocked  | blocked  | cancel button       | -               |
  * | result            | closes   | closes   | Next Quest / Close  | effects cleanup |
@@ -106,6 +107,7 @@ export class ModalManager {
             this.ui.elements.manualModal,
             this.ui.elements.testPayloadModal,
             this.ui.elements.supportModulesModal,
+            this.ui.elements.portraitModal,
             this.ui.elements.resultModal,
             this.ui.elements.perfectScoreModal,
             this.ui.elements.hintModal
@@ -250,6 +252,34 @@ export class ModalManager {
     }
 
     /**
+     * Show a larger view of a clicked avatar. The pane boxes (and the header
+     * hero box) show an impression of the artwork at 56-64px; the dialog
+     * shows the same asset larger. The source is copied from the clicked
+     * element, not refetched: it is already the pack asset as resolved for
+     * this pack visit (a blob URL when pack media is token-protected, the
+     * plain path otherwise), and the dialog only lives while that visit -
+     * and the resolved source with it - is current.
+     * @param {HTMLImageElement} source - The avatar image that was clicked
+     */
+    showPortrait(source) {
+        if (!source || !source.src) {
+            return;
+        }
+        const image = this.ui.elements.portraitModalImage;
+        image.src = source.src;
+        image.alt = source.alt || 'Character portrait';
+        this.openDialog(this.ui.elements.portraitModal);
+        this.ui.elements.closePortraitBtn.focus();
+    }
+
+    /**
+     * Close the portrait dialog
+     */
+    closePortrait() {
+        this.closeDialog(this.ui.elements.portraitModal);
+    }
+
+    /**
      * Point an image at pack media. The source is resolved for element
      * use first (a blob URL when pack media is token-protected, the
      * plain path otherwise); a failed resolution applies the fallback
@@ -290,8 +320,12 @@ export class ModalManager {
 
         const isSuccess = !result.error && result.passed;
 
-        // Set icon
-        const iconPath = `/quests/${encodePathSegment(this.state.currentPackId)}/assets/${isSuccess ? 'icon-success.png' : 'icon-failure.png'}`;
+        // Set icon: the pack may declare its own image (icon_success_image /
+        // icon_failure_image); the shipped filename is the fallback.
+        const iconPath = this.packImagePath(
+            isSuccess ? this.state.iconSuccessImage : this.state.iconFailureImage,
+            isSuccess ? 'icon-success.png' : 'icon-failure.png'
+        );
         this.setPackImage(this.ui.elements.resultIcon, iconPath);
         this.ui.elements.resultIcon.alt = isSuccess ? 'Success - Quest completed' : 'Failure - Quest not completed';
 
@@ -310,21 +344,8 @@ export class ModalManager {
             }
 
             hide(this.ui.elements.scoreSummary);
-        } else if (isSuccess) {
-            this.ui.elements.resultTitle.textContent = this.state.label('messageSuccess');
-            this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
-
-            const pointsPossible = SCORING.POINTS_PER_QUEST;
-
-            this.ui.elements.pointsEarned.textContent = pointsEarned;
-            this.ui.elements.pointsPossible.textContent = pointsPossible;
-            show(this.ui.elements.scoreSummary);
-
-            this.ui.updateScoreDisplay(this.state.totalScore);
         } else {
-            this.ui.elements.resultTitle.textContent = this.state.label('messageFailure');
-            this.ui.elements.resultMessage.textContent = "Some tests did not pass. Review the results below.";
-            hide(this.ui.elements.scoreSummary);
+            this.renderResultOutcome(isSuccess, pointsEarned);
         }
         
         // Render test results
@@ -371,10 +392,51 @@ export class ModalManager {
     }
 
     /**
+     * Render the non-error outcome of the verify dialog: title, message and
+     * the score summary the earned points feed.
+     * @param {boolean} isSuccess - true when every test passed
+     * @param {number|null} pointsEarned - Points earned on this attempt
+     */
+    renderResultOutcome(isSuccess, pointsEarned) {
+        if (!isSuccess) {
+            this.ui.elements.resultTitle.textContent = this.state.label('messageFailure');
+            this.ui.elements.resultMessage.textContent = "Some tests did not pass. Review the results below.";
+            hide(this.ui.elements.scoreSummary);
+            return;
+        }
+
+        this.ui.elements.resultTitle.textContent = this.state.label('messageSuccess');
+        this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
+
+        const pointsPossible = SCORING.POINTS_PER_QUEST;
+
+        this.ui.elements.pointsEarned.textContent = pointsEarned;
+        this.ui.elements.pointsPossible.textContent = pointsPossible;
+        show(this.ui.elements.scoreSummary);
+
+        this.ui.updateScoreDisplay(this.state.totalScore);
+    }
+
+    /**
      * Close result modal
      */
     closeResult() {
         this.closeDialog(this.ui.elements.resultModal);
+    }
+
+    /**
+     * The URL of a pack image from its pack-relative declaration.
+     * An empty declaration keeps the shipped filename the frontend
+     * carries for packs that do not declare the image.
+     * @param {string|null} declaredPath - The pack's declared
+     *   assets-relative path, or null
+     * @param {string} fallbackName - The shipped filename
+     * @returns {string} The URL the pack image loads from
+     */
+    packImagePath(declaredPath, fallbackName) {
+        const packPath = declaredPath || `assets/${fallbackName}`;
+        return `/quests/${encodePathSegment(this.state.currentPackId)}/` +
+            packPath.split('/').map(encodePathSegment).join('/');
     }
 
     /**
@@ -383,11 +445,10 @@ export class ModalManager {
      * effects off.
      */
     showPerfectScore() {
-        const packAssets = `/quests/${encodePathSegment(this.state.currentPackId)}/assets/`;
         this.setPackImage(
             this.ui.elements.perfectScoreImage,
-            `${packAssets}perfect_score.png`,
-            `${packAssets}icon-success.png`
+            this.packImagePath(this.state.perfectScoreImage, 'perfect_score.png'),
+            this.packImagePath(this.state.iconSuccessImage, 'icon-success.png')
         );
         
         this.ui.elements.perfectScoreMessage.innerHTML = parseMarkdown(this.state.label('perfectScoreMessage'));

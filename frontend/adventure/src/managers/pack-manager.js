@@ -177,60 +177,96 @@ export class PackManager {
      */
     async loadPackAssets(packId, seq) {
         if (seq !== this.loadSeq) return;
-        const basePath = `/quests/${encodePathSegment(packId)}/assets/`;
 
-        // Resolve and preload all assets in parallel
-        const loadOne = async (name) => {
-            const source = basePath + name;
-            try {
-                const resolved = await AssetService.mediaURL(source);
-                await this.preloadImage(resolved);
-                return resolved;
-            } catch (error) {
-                console.warn(`Pack asset ${source} could not be resolved:`, error);
-                await this.preloadImage(source);
-                return source;
-            }
-        };
-
-        const [npcSource, heroSource, backgroundSource] = await Promise.all([
-            loadOne('npc-questgiver.png'),
-            loadOne('hero-avatar.png'),
-            loadOne('bg-adventure.jpg')
+        // Resolve and preload all assets in parallel: the pack's declared
+        // background plus every portrait the npc roster declares — the
+        // hero's own among them, since hero_avatar names a roster entry.
+        const [backgroundSource, npcImages] = await Promise.all([
+            this.loadPackImage(packId, this.packBackgroundName()),
+            this.loadNpcImages(packId)
         ]);
 
         if (seq !== this.loadSeq) {
             // Continuations that lose the race can already hold resolved
             // blob URLs; releasing them here keeps the leak bounded to the
             // next handover's releaseMedia sweep.
-            for (const source of [npcSource, heroSource, backgroundSource]) {
+            for (const source of [backgroundSource, ...Object.values(npcImages)]) {
                 AssetService.revoke(source);
             }
             return;
         }
 
-        // Update NPC avatar (now guaranteed to be loaded)
-        const npcAvatar = document.querySelector('.npc-avatar');
-        if (npcAvatar) {
-            npcAvatar.src = npcSource;
-            npcAvatar.onerror = () => {
-                npcAvatar.onerror = null;
-                npcAvatar.src = '/public/assets/npc-questgiver.png';
-            };
-        }
+        // The lore renderer resolves speakers against this map.
+        this.state.npcImages = npcImages;
 
-        // Update hero avatar (now guaranteed to be loaded)
-        const heroAvatar = document.querySelector('.avatar');
-        if (heroAvatar) {
-            heroAvatar.src = heroSource;
-            heroAvatar.onerror = () => {
-                heroAvatar.onerror = null;
-                heroAvatar.src = '/public/assets/hero-avatar.png';
-            };
-        }
-        
+        // The header avatar: the hero's roster image, resolved like any
+        // other portrait (renderHeroAvatar owns the element).
+        this.ui.renderHeroAvatar(this.state.heroNPC, npcImages);
+
+        // The speaker portrait belongs to the lore screen: repaint it now
+        // that the roster resolved (renderNpcAvatar owned the element all
+        // along; this is the late-arrival repaint).
+        this.ui.renderNpcAvatar(this.state.currentLoreSpeaker(), npcImages);
+
         // Update background (now guaranteed to be loaded)
         document.body.style.backgroundImage = `url('${backgroundSource}')`;
+    }
+
+    /**
+     * The pack's background image filename, from background_image (an
+     * assets-relative path reduced to the file part); the shipped
+     * filename covers packs that predate the declaration.
+     * @returns {string} The background filename in the pack's assets
+     */
+    packBackgroundName() {
+        return (this.state.backgroundImage || 'assets/bg-adventure.jpg')
+            .replace(/^assets\//, '');
+    }
+
+    /**
+     * Resolve and preload one pack image (the background).
+     * @param {string} packId - Pack identifier
+     * @param {string} filename - Image file in the pack's assets directory
+     * @returns {Promise<string>} The source to paint with (a blob URL when
+     *   pack media is token-protected, the plain path otherwise)
+     */
+    async loadPackImage(packId, filename) {
+        const source = `/quests/${encodePathSegment(packId)}/assets/${filename}`;
+        try {
+            const resolved = await AssetService.mediaURL(source);
+            await this.preloadImage(resolved);
+            return resolved;
+        } catch (error) {
+            console.warn(`Pack asset ${source} could not be resolved:`, error);
+            await this.preloadImage(source);
+            return source;
+        }
+    }
+
+    /**
+     * Resolve and preload the portrait of every npc the loaded pack's
+     * roster declares. An npc whose image fails to load is left out of the
+     * map, so its lore entries show the fallback portrait instead of a
+     * broken one mid-story.
+     * @param {string} packId - Pack identifier
+     * @returns {Promise<Object.<string,string>>} npc key -> source to paint
+     */
+    async loadNpcImages(packId) {
+        const roster = this.state.npcs ?? {};
+        const settled = await Promise.all(Object.entries(roster).map(async ([npcKey, path]) => {
+            // Roster paths are "assets/..." relative to the pack root and
+            // validated server-side; encode each segment for URL safety.
+            const url = `/quests/${encodePathSegment(packId)}/` +
+                path.split('/').map(encodePathSegment).join('/');
+            try {
+                const resolved = await AssetService.mediaURL(url);
+                return (await this.preloadImage(resolved)) ? [npcKey, resolved] : null;
+            } catch (error) {
+                console.warn(`Pack npc asset ${url} could not be resolved:`, error);
+                return (await this.preloadImage(url)) ? [npcKey, url] : null;
+            }
+        }));
+        return Object.fromEntries(settled.filter(Boolean));
     }
 
     /**
@@ -247,12 +283,13 @@ export class PackManager {
 
         // Reset assets to default
         document.body.style.backgroundImage = '';
-        
-        const npcAvatar = document.querySelector('.npc-avatar');
-        if (npcAvatar) npcAvatar.src = '/public/assets/npc-questgiver.png';
 
-        const heroAvatar = document.querySelector('.avatar');
-        if (heroAvatar) heroAvatar.src = '/public/assets/hero-avatar.png';
+        // The portraits fall back to the shipped placeholders: with no
+        // roster loaded there is nothing to resolve against.
+        this.state.npcImages = {};
+        this.state.heroNPC = null;
+        this.ui.renderNpcAvatar(null, null);
+        this.ui.renderHeroAvatar(null, null);
         
         // Reset titles to default
         this.ui.updateTitles('Rego Adventure');

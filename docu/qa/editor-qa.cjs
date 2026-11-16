@@ -42,6 +42,7 @@ const {
 const EDITOR_URL = `file://${path.join(repoRoot, 'docu', 'quest-editor', 'index.html')}`;
 const FIXTURE = path.join(repoRoot, 'docu', 'qa', 'testdata', 'qa-editor-pack.json');
 const LOOSE_IDS = path.join(repoRoot, 'docu', 'qa', 'testdata', 'qa-editor-ids-loose.json');
+const PRE_V2 = path.join(repoRoot, 'docu', 'qa', 'testdata', 'qa-editor-pack-v1.json');
 
 // The fixture's content, restated here so each check says what it expects about
 // the pack rather than comparing two files.
@@ -140,8 +141,15 @@ async function main() {
             // early, or force a pause long enough to cover the whole check.
             const downloads = [];
             page.on('download', (download) => downloads.push(download));
-            // Deleting a quest asks for confirmation through a native confirm().
-            page.on('dialog', (dialog) => dialog.accept());
+            // Deleting a quest asks for confirmation through a native confirm();
+            // refusing a pre-v2 file speaks through an alert. Both are recorded
+            // and accepted: the alert text is a checked, and a refused load must
+            // leave the already-open pack alone.
+            const dialogs = [];
+            page.on('dialog', (dialog) => {
+                dialogs.push(dialog.message());
+                dialog.accept();
+            });
 
             await page.goto(EDITOR_URL, { waitUntil: 'domcontentloaded' });
             const startState = await page.evaluate(() => ({
@@ -174,6 +182,78 @@ async function main() {
                 'the sidebar numbers the quests by their position in the file',
                 labels.join(' | ') === `1: ${TITLES[0]} | 2: ${TITLES[1]} | 3: ${TITLES[2]}`,
                 labels.join(' | ')
+            );
+
+            phase = 'refusing a pre-v2 pack';
+            await page.setInputFiles('#fileInput', PRE_V2);
+            // The dialog is a node-side event: poll the record, not the page.
+            const refusalDeadline = Date.now() + 2000;
+            while (dialogs.length === 0 && Date.now() < refusalDeadline) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+            await settle(page);
+            report.check(
+                'a pack older than the format version is refused with a pointer to the migration tool',
+                dialogs.some((message) => /version 2/i.test(message) && /questmigrate/.test(message)),
+                JSON.stringify(dialogs)
+            );
+            const afterRefusal = await navLabels(page);
+            report.check(
+                'the refused file leaves the pack being edited exactly as it was',
+                afterRefusal.join(' | ') === labels.join(' | '),
+                afterRefusal.join(' | ')
+            );
+
+            phase = 'the character roster';
+            await page.click('.sidebar-nav .nav-item[data-view="characters"]');
+            const roster = await page.evaluate(() => ({
+                rows: Array.from(document.querySelectorAll('#npcList .npc-item')).map((row) => [
+                    row.querySelector('.npc-name').value,
+                    row.querySelector('.npc-image').value
+                ]),
+                speakers: Array.from(document.querySelectorAll('#npcNames option')).map((o) => o.value)
+            }));
+            report.check(
+                'the roster shows the pack characters, their portraits, and feeds the speaker autocomplete',
+                roster.rows.length === 2 &&
+                roster.rows[0][0] === 'default_npc' &&
+                roster.rows[0][1] === 'assets/npc-questgiver.png' &&
+                roster.rows[1][0] === 'hero' &&
+                roster.rows[1][1] === 'assets/hero-avatar.png' &&
+                roster.speakers.join('|') === 'default_npc|hero',
+                JSON.stringify(roster)
+            );
+            await page.click('#addNpcBtn');
+            const rosterAdded = await page.$$eval('#npcList .npc-item .npc-name', (els) => els.map((el) => el.value));
+            report.check(
+                'adding a character appends an editable row that autocompletes speakers',
+                rosterAdded.length === 3 && rosterAdded[2] === 'new_character' &&
+                (await page.$$eval('#npcNames option', (els) => els.map((el) => el.value).join('|'))) === 'default_npc|hero|new_character',
+                JSON.stringify(rosterAdded)
+            );
+            // Remove it again: the export phase below judges the pack on its
+            // original content, and an unpointed portrait would be refused.
+            await page.locator('#npcList .npc-item').nth(2).locator('.btn-danger').click();
+            const afterRemove = await page.$$eval('#npcList .npc-item .npc-name', (els) => els.map((el) => el.value));
+            report.check(
+                'a character row can be removed again',
+                afterRemove.length === 2 && afterRemove.join('|') === 'default_npc|hero',
+                JSON.stringify(afterRemove)
+            );
+
+            phase = 'lore rows name their speaker';
+            await openQuest(page, 0);
+            await openTab(page, 'lore');
+            const loreRows = await page.evaluate(() => Array.from(
+                document.querySelectorAll('.quest-view.active [data-field="loreList"] .lore-item')
+            ).map((row) => ({
+                npc: row.querySelector('.lore-npc').value,
+                text: row.querySelector('textarea').value
+            })));
+            report.check(
+                'every lore row carries its speaker and its text',
+                loreRows.length > 0 && loreRows.every((row) => row.npc === 'default_npc' && row.text.length > 0),
+                JSON.stringify(loreRows)
             );
 
             phase = 'quest identity';
@@ -326,13 +406,17 @@ async function main() {
                 packGenre: document.getElementById('meta-genre').maxLength,
                 questTitle: document.querySelector('.quest-view.active [data-field="quest-title"]').maxLength,
                 questHint: document.querySelector('.quest-view.active [data-field="addHintBtn"]') ? PACK_LIMITS.MaxQuestHint : 0,
-                budget: { packTitle: PACK_LIMITS.MaxPackTitle, packGenre: PACK_LIMITS.MaxPackGenre, questTitle: PACK_LIMITS.MaxQuestTitle }
+                npcName: document.querySelector('#npcList .npc-name').maxLength,
+                loreNpc: document.querySelector('.quest-view.active .lore-npc') ? document.querySelector('.quest-view.active .lore-npc').maxLength : 0,
+                budget: { packTitle: PACK_LIMITS.MaxPackTitle, packGenre: PACK_LIMITS.MaxPackGenre, questTitle: PACK_LIMITS.MaxQuestTitle, npcName: PACK_LIMITS.MaxNPCName, loreNpc: PACK_LIMITS.MaxNPCName }
             }));
             report.check(
                 'the form fields carry the length budget the backend enforces',
                 limits.packTitle === limits.budget.packTitle &&
                 limits.packGenre === limits.budget.packGenre &&
-                limits.questTitle === limits.budget.questTitle,
+                limits.questTitle === limits.budget.questTitle &&
+                limits.npcName === limits.budget.npcName &&
+                limits.loreNpc === limits.budget.loreNpc,
                 JSON.stringify(limits)
             );
 

@@ -19,8 +19,9 @@
 //
 // It answers the parts of the re-run matrix that belong to the processes: what
 // /api/packs says with an empty quests directory, what a signalled run logs,
-// what solutionverifier prints when a quest cannot be evaluated, and what an
-// interrupted assetgen run leaves on disk.
+// what solutionverifier prints when a quest cannot be evaluated, what an
+// interrupted assetgen run leaves on disk, and how questmigrate and the server
+// between them handle a pre-v2 pack.
 //
 // The listener-ended line is not reachable from outside a process, so it stays
 // covered by TestRunWithGracefulShutdown_ListenerClosedWithoutAShutdownRequest.
@@ -171,6 +172,83 @@ function assetgenRollback(report) {
     );
 }
 
+// The migration tool's whole contract, from the outside: the dry run says
+// without doing, the run migrates in place with a backup, a rerun skips,
+// and the point of it all - a pre-v2 pack the server refuses by name in
+// its log becomes a pack the same server serves after the tool ran.
+function migrationTool(report, binary) {
+    const fixture = path.join(repoRoot, 'docu', 'qa', 'testdata', 'qa-editor-pack-v1.json');
+
+    const root = path.join(work, 'migrate');
+    const packDir = path.join(root, 'qa-v1');
+    fs.mkdirSync(packDir, { recursive: true });
+    const packFile = path.join(packDir, 'quests.json');
+    fs.copyFileSync(fixture, packFile);
+
+    const dry = sh(goTool('questmigrate'), ['-dir', root, '-dry-run']);
+    report.check(
+        'a dry run names the pack it would migrate and writes nothing',
+        dry.status === 0 && /qa-v1: would migrate/.test(dry.output) &&
+        !fs.existsSync(path.join(packDir, 'quests.json.v1.bak')) &&
+        fs.readFileSync(packFile, 'utf8') === fs.readFileSync(fixture, 'utf8'),
+        dry.output.trim().split('\n').slice(0, 2).join(' ;; ')
+    );
+
+    const migrated = sh(goTool('questmigrate'), ['-dir', root]);
+    const pack = JSON.parse(fs.readFileSync(packFile, 'utf8'));
+    report.check(
+        'the run migrates in place: version 2, a default speaker, the original kept as a backup',
+        migrated.status === 0 && pack.version === 2 &&
+        pack.npcs.default_npc === 'assets/npc-questgiver.png' &&
+        pack.prologue.every((entry) => entry.npc === 'default_npc' && typeof entry.text === 'string') &&
+        pack.quests.every((quest) => (quest.description_lore || []).every((entry) => entry.npc === 'default_npc')) &&
+        fs.existsSync(path.join(packDir, 'quests.json.v1.bak')),
+        `status ${migrated.status}`
+    );
+
+    const rerun = sh(goTool('questmigrate'), ['-dir', root]);
+    report.check(
+        'a second run leaves the migrated pack alone',
+        rerun.status === 0 && /already, left alone/.test(rerun.output),
+        rerun.output.trim().split('\n')[0]
+    );
+
+    // The server side of the contract, in a run root of its own: the linked
+    // frontend a bootable server needs, and the pack to be refused.
+    const servedRoot = suiteRoot('cli-qa-migrate');
+    const servedPack = path.join(servedRoot, 'frontend', 'quests', 'qa-v1');
+    fs.mkdirSync(servedPack, { recursive: true });
+    fs.copyFileSync(fixture, path.join(servedPack, 'quests.json'));
+
+    return (async () => {
+        const refused = new Server({ cwd: servedRoot, port: await pickFreePort(), binary, env: { LOG_LEVEL: 'info' } });
+        await refused.start();
+        const before = await refused.packs();
+        const refusedLog = (await refused.stop('SIGTERM')).log;
+        report.check(
+            'a pre-v2 pack is refused at startup with the migration tool named in the log',
+            /skipping quest pack.*qa-v1.*questmigrate/.test(refusedLog),
+            refusedLog.trim().split('\n').filter((line) => /qa-v1/.test(line)).slice(0, 2).join(' ;; ')
+        );
+        report.check(
+            'the refused pack is not served',
+            !before.body.includes('qa-v1'),
+            `${before.status} ${before.body}`
+        );
+
+        sh(goTool('questmigrate'), ['-dir', path.join(servedRoot, 'frontend', 'quests')]);
+        const after = new Server({ cwd: servedRoot, port: await pickFreePort(), binary, env: { LOG_LEVEL: 'info' } });
+        await after.start();
+        const served = await after.packs();
+        await after.stop('SIGTERM');
+        report.check(
+            'the migrated pack loads into the same server setup',
+            served.body.includes('qa-v1'),
+            `${served.status} ${served.body}`
+        );
+    })();
+}
+
 function main() {
     // Judged on what the run adds to the tree, not on what was already there.
     const baseline = gitStatus(repoRoot);
@@ -202,6 +280,9 @@ function main() {
 
             phase = 'assetgen';
             assetgenRollback(report);
+
+            phase = 'questmigrate';
+            await migrationTool(report, binary);
         } catch (error) {
             report.check('the suite ran to the end', false, error.message.split('\n')[0]);
         }

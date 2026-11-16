@@ -25,28 +25,35 @@ package quest
 // which answers input, data and expected outcome to any client that asks: it
 // is a convenience layer for the test modal, not a secrecy boundary.
 type PublicQuest struct {
-	ID                int      `json:"id"`
-	Title             string   `json:"title"`
-	DescriptionLore   []string `json:"description_lore"`
-	DescriptionTask   string   `json:"description_task"`
-	Manual            Manual   `json:"manual"`
-	HintsCount        int      `json:"hints_count"`
-	HasSolution       bool     `json:"has_solution"`
-	HasSupportModules bool     `json:"has_support_modules"`
-	ApplyTemplate     bool     `json:"apply_template"`
-	Template          string   `json:"template"`
-	Query             string   `json:"query"`
+	ID                int         `json:"id"`
+	Title             string      `json:"title"`
+	DescriptionLore   []LoreEntry `json:"description_lore"`
+	DescriptionTask   string      `json:"description_task"`
+	Manual            Manual      `json:"manual"`
+	HintsCount        int         `json:"hints_count"`
+	HasSolution       bool        `json:"has_solution"`
+	HasSupportModules bool        `json:"has_support_modules"`
+	ApplyTemplate     bool        `json:"apply_template"`
+	Template          string      `json:"template"`
+	Query             string      `json:"query"`
 }
 
 // PublicQuestPack is the client-facing view of a quest pack. It mirrors
 // QuestPack except that quests are serialized through PublicQuest.
 type PublicQuestPack struct {
-	ID       string        `json:"id"`
-	Meta     MetaData      `json:"meta"`
-	UILabels UILabels      `json:"ui_labels"`
-	Prologue []string      `json:"prologue"`
-	Epilogue []string      `json:"epilogue"`
-	Quests   []PublicQuest `json:"quests"`
+	ID           string            `json:"id"`
+	Version      int               `json:"version"`
+	NPCs         map[string]string `json:"npcs"`
+	HeroNPC      string            `json:"hero_avatar"`
+	BackImage    string            `json:"background_image"`
+	IconSuccess  string            `json:"icon_success_image,omitempty"`
+	IconFailure  string            `json:"icon_failure_image,omitempty"`
+	PerfectScore string            `json:"perfect_score_image,omitempty"`
+	Meta         MetaData          `json:"meta"`
+	UILabels     UILabels          `json:"ui_labels"`
+	Prologue     []LoreEntry       `json:"prologue"`
+	Epilogue     []LoreEntry       `json:"epilogue"`
+	Quests       []PublicQuest     `json:"quests"`
 }
 
 // PublicView returns the client-facing projection of the quest.
@@ -73,12 +80,19 @@ func (p *QuestPack) PublicView() PublicQuestPack {
 		quests[i] = p.Quests[i].PublicView()
 	}
 	return PublicQuestPack{
-		ID:       p.ID,
-		Meta:     p.Meta,
-		UILabels: p.UILabels,
-		Prologue: p.Prologue,
-		Epilogue: p.Epilogue,
-		Quests:   quests,
+		ID:           p.ID,
+		Version:      p.Version,
+		NPCs:         p.NPCs,
+		HeroNPC:      p.HeroNPC,
+		BackImage:    p.BackImage,
+		IconSuccess:  p.IconSuccess,
+		IconFailure:  p.IconFailure,
+		PerfectScore: p.PerfectScore,
+		Meta:         p.Meta,
+		UILabels:     p.UILabels,
+		Prologue:     p.Prologue,
+		Epilogue:     p.Epilogue,
+		Quests:       quests,
 	}
 }
 

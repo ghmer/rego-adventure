@@ -106,7 +106,7 @@ The full index, in machine order:
 | 8 | Async reveal overlay (race control) | `managers/quest-manager.js:51` | `revealPhase`, `revealQuestId`, `revealPromise` | B |
 | 9 | Quest scoring / replay | `services/state-service.js:404` | `questScores`, `totalScore` | B |
 | 10 | Editor persistence (autosave) | `managers/grimoire-autosave.js`, `managers/ui-manager.js:289` | autosave timer, `save-indicator` class | D |
-| 11 | Verify request (client) | `managers/event-manager.js:292` | `verifying`, button label | D |
+| 11 | Verify request (client) | `managers/event-manager.js:345` | `verifying`, button label | D |
 | 12 | Verify pipeline (server) | `backend/http/handlers.go:221`, `backend/quest/verifier.go:334` | `context` + error shape | E |
 | 13 | Verification outcome shape | `backend/quest/verifier.go` | `Error` / `Results` / `Undefined` | E |
 | 14 | Dialogs | `managers/modal-manager.js:83` | `<dialog open>` | C |
@@ -136,7 +136,7 @@ The full index, in machine order:
 | 38 | `assetgen` pack scaffolding | `cmd/assetgen/tools/assetgen/generator.go:116` | files on disk | F |
 | 39 | `importmapgen` rewriting | `cmd/importmapgen/main.go` | file bytes + gates | F |
 | 40 | Quest editor (operator tool) | `docu/quest-editor/app.js`, `docu/quest-editor/rules.js` | `questData`, `openTestCase`, view `active` class | F |
-| 41 | Quest editor test modal | `docu/quest-editor/app.js:812` | `openTestCase {mode, questIndex, testIndex}` | F |
+| 41 | Quest editor test modal | `docu/quest-editor/app.js:1050` | `openTestCase {mode, questIndex, testIndex}` | F |
 | 42 | Page-ready gate (whole-document reveal) | `frontend/adventure/src/app.js:21` | `html.loaded` class | A |
 
 ---
@@ -273,7 +273,7 @@ The central machine. Three integers encode the whole game:
 
 | Variable | Domain | Meaning |
 | ---------- | -------- | --------- |
-| `currentQuestId` | `0 … N+1` | `0` = prologue, `1…N` = quest, `N+1` = epilogue; `isEpilogueCursor` (`state-service.js:488`) defines the upper sentinel |
+| `currentQuestId` | `0 … N+1` | `0` = prologue, `1…N` = quest, `N+1` = epilogue; `isEpilogueCursor` (`state-service.js:527`) defines the upper sentinel |
 | `activeQuestId` | `0 … N+1` | the unlocked frontier; sentinel `N+1` = "epilogue visited" |
 | `questScores[questId]` | present/absent | quest completed |
 
@@ -321,7 +321,7 @@ Navigation guards: one rule per direction, each consulted by the action and by t
 
 | Rule | Definition | Read by |
 | ------- | ------ | ------ |
-| `canNavigateBack()` | `currentQuestId > 1` (`state-service.js:517`) | the back arrow's `disabled` (`quest-manager.js:361`) and `rewindQuest` (`state-service.js:288`) |
+| `canNavigateBack()` | `currentQuestId > 1` (`state-service.js:517`) | the back arrow's `disabled` (`quest-manager.js:361`) and `rewindQuest` (`state-service.js:327`) |
 | `canNavigateForward()` | `currentQuestId < N && (questScores[currentQuestId+1] !== undefined \|\| (isHistoryMode && currentQuestId < activeQuestId))` (`state-service.js:528`) | the forward arrow's `disabled` (`quest-manager.js:362`) and the forward action (`quest-manager.js:379`) |
 
 ```mermaid
@@ -341,15 +341,15 @@ stateDiagram-v2
 
 Details:
 
-* `activeQuestId` has three writers and one restorer. `completeQuest` grows it at `state-service.js:462`, `advanceQuest` grows it at `state-service.js:273`, `visitEpilogue` sets it at `state-service.js:305`, and `loadPackState` (`state-service.js:103`) restores it from storage, falling back to `currentQuestId`. None of them lowers it, and navigating never touches it.
-* Reaching the epilogue is a transition. `visitEpilogue` lands cursor and frontier on `N+1` (`state-service.js:303-305`); `showEpilogue` (`quest-manager.js:322`) renders and writes nothing, and `loadQuest` performs the transition before it renders. That is what makes the epilogue the resume target of a pack, and `isEpilogueCursor` (`state-service.js:488`) is the single definition of where it begins; the interaction gate reads the same predicate (M#6).
+* `activeQuestId` has three writers and one restorer. `completeQuest` grows it at `state-service.js:491`, `advanceQuest` grows it at `state-service.js:303`, `visitEpilogue` sets it at `state-service.js:334`, and `loadPackState` (`state-service.js:117`) restores it from storage, falling back to `currentQuestId`. None of them lowers it, and navigating never touches it.
+* Reaching the epilogue is a transition. `visitEpilogue` lands cursor and frontier on `N+1` (`state-service.js:333-335`); `showEpilogue` (`quest-manager.js:322`) renders and writes nothing, and `loadQuest` performs the transition before it renders. That is what makes the epilogue the resume target of a pack, and `isEpilogueCursor` (`state-service.js:527`) is the single definition of where it begins; the interaction gate reads the same predicate (M#6).
 * Within a session the epilogue is reached by a passing verification of quest `N`: `canNavigateForward` bounds the forward arrow at the last quest. Once the epilogue has been visited, the `N+1` cursor is persisted, so a reload resumes straight onto it.
 * `isHistoryMode` is not persisted (`savePackState`, `state-service.js:190`); every transition recomputes it, so derived state never sits in storage (M#5).
 * The tour's first popover names its own controls: "Move through the tour with its Next and Previous buttons, the Left and Right arrow keys, or Enter; press Esc to leave the tour at any point" (`tutorial.js:137`). driver.js binds those keys and the popover focuses the Next button, so Enter advances the tour. Quest movement has no key binding: the arrows are buttons, and the only global shortcuts are Ctrl/Cmd+Enter and Ctrl/Cmd+S (`event-manager.js:170-184`).
 
 ### M#5 · History mode (pure derived state)
 
-**Carrier:** `isHistoryMode` · **Owner:** `deriveHistoryMode` (`state-service.js:316`), recomputed by every cursor transition · **Persisted:** no, by design
+**Carrier:** `isHistoryMode` · **Owner:** `deriveHistoryMode` (`state-service.js:355`), recomputed by every cursor transition · **Persisted:** no, by design
 
 ```mermaid
 flowchart LR
@@ -359,7 +359,7 @@ flowchart LR
     H -- false --> E[editable editor]
 ```
 
-Re-entry rule: `deriveHistoryMode` (`state-service.js:316`) is recomputed by every transition that moves the cursor, i.e. `enterQuest`, `advanceQuest`, `rewindQuest`, `visitEpilogue` and `resetProgress`. Leaving history view therefore happens by moving the cursor onto the frontier quest, by `advanceQuest`, or by `resetProgress`.
+Re-entry rule: `deriveHistoryMode` (`state-service.js:355`) is recomputed by every transition that moves the cursor, i.e. `enterQuest`, `advanceQuest`, `rewindQuest`, `visitEpilogue` and `resetProgress`. Leaving history view therefore happens by moving the cursor onto the frontier quest, by `advanceQuest`, or by `resetProgress`.
 
 The frontier quest *can* be completed and still be editable, because `questId === activeQuestId`. A completed quest is therefore "history" by score and "active" by mode at the same time. Replaying it is the only legitimate way to re-enter `completeQuest`.
 
@@ -421,7 +421,7 @@ stateDiagram-v2
 ```
 
 * Reveal accounting lives in **two** maps: `questHints[questId]` while a quest is in progress, `questScores[questId]` once it is completed. `completeQuest` deletes the former (`state-service.js:458`), and `loadQuestHintState` reads `questHints[id] ?? questScores[id]` (`state-service.js:356`).
-* A completion is one record. `completeQuest` keeps the better of the recorded and the current attempt, with `hintsUsed` and `solutionViewed` travelling with `pointsEarned` (`state-service.js:451`). A replay that does not beat the recorded score leaves both halves of the record alone.
+* A completion is one record. `completeQuest` keeps the better of the recorded and the current attempt, with `hintsUsed` and `solutionViewed` travelling with `pointsEarned` (`state-service.js:483`). A replay that does not beat the recorded score leaves both halves of the record alone.
 * A failed restore charges nothing new. When the stored reveal texts cannot be fetched, the stored accounting is applied anyway (`applyStoredReveals`, `quest-manager.js:489`), so the counters, the hint button and what the player already paid for stay in agreement (M#8).
 * The backend marks the reveal endpoints `Cache-Control: no-store` (`handlers.go:66`) precisely because the *delivery order* of these artifacts is game state. The client keeps a per `pack:quest` cache (`quest-manager.js:43`) that lives exactly one pack visit: `clearCaches` (`quest-manager.js:61`) drops it at pack entry, at pack exit and at restart (M#29).
 
@@ -452,16 +452,16 @@ stateDiagram-v2
 
 ### M#9 · Quest scoring / replay
 
-**Carrier:** `questScores` records, `totalScore` · **Owner:** `completeQuest` (`state-service.js:440`) · **Persisted:** yes (pack body, M#27)
+**Carrier:** `questScores` records, `totalScore` · **Owner:** `completeQuest` (`state-service.js:479`) · **Persisted:** yes (pack body, M#27)
 
 | State | Carried by |
 | ------- | ----------- |
 | `Unrecorded` | no `questScores[id]` |
 | `Scored` | `questScores[id].pointsEarned` |
 | `Replayed` | the attempt with the better `pointsEarned` is kept, and its reveals travel with it (`state-service.js:451`) |
-| `Perfect` | `hasPerfectScore()` (`state-service.js:475`) |
+| `Perfect` | `hasPerfectScore()` (`state-service.js:514`) |
 
-Penalty function: `10 − min(hintsUsed·2, 6) − (solutionViewed ? 3 : 0)`, floored at 1 (`state-service.js:404`). `totalScore` is derived from the records: `sumQuestScores` (`state-service.js:428`) computes the stored field at load and at every write, so the total cannot stand apart from the records that produce it.
+Penalty function: `10 − min(hintsUsed·2, 6) − (solutionViewed ? 3 : 0)`, floored at 1 (`state-service.js:404`). `totalScore` is derived from the records: `sumQuestScores` (`state-service.js:467`) computes the stored field at load and at every write, so the total cannot stand apart from the records that produce it.
 
 ```mermaid
 stateDiagram-v2
@@ -474,7 +474,7 @@ stateDiagram-v2
     Perfect --> Unrecorded : resetProgress
 ```
 
-`totalScore` is stored *and* derivable from `questScores`. It is rebased by `total − previous + new` (`state-service.js:314`), which makes the sum an invariant maintained by hand. `hasPerfectScore()` uses exact equality (`state-service.js:342`); a score above the maximum would flip it to false, which cannot happen today.
+`totalScore` is stored *and* derivable from `questScores`. It is recomputed from the records by `sumQuestScores`, which the replay rule keeps stable: the better attempt stands (`state-service.js:485`), which makes the sum an invariant maintained by hand. `hasPerfectScore()` uses exact equality (`state-service.js:505`); a score above the maximum would flip it to false, which cannot happen today.
 
 ---
 
@@ -484,7 +484,7 @@ Presentation, all fourteen machines of it: screens and themes, dialogs and their
 
 ### M#3 · Screen + pack/theme context
 
-**Carrier:** `hidden` classes on the two screens, `loadSeq` generation token · **Owner:** `showScreen` (`ui-manager.js:272`); `pack-manager.js` owns `loadSeq` · **Persisted:** no
+**Carrier:** `hidden` classes on the two screens, `loadSeq` generation token · **Owner:** `showScreen` (`ui-manager.js:344`); `pack-manager.js` owns `loadSeq` · **Persisted:** no
 
 `start-screen` and `game-interface` are mutually exclusive by class. The *theme* is a separate, independently-varying axis: which `<link data-quest-theme>` nodes exist, which `backgroundImage` is painted, which avatars are loaded. `PackManager.loadSeq` is a monotonically increasing generation token guarding stale async writes.
 
@@ -509,7 +509,7 @@ stateDiagram-v2
     end note
 ```
 
-Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:297`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:63`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:65`), before any write it governs. Those writes are quest data, labels, titles, theme `<style>` elements, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:240`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
+Two screens times two theme contexts gives four reachable combinations, and three of them are intended. `PackTheme` while on the start screen is unreachable because `beginQuestInFlight` serialises pack entries (`frontend/adventure/src/app.js:70-82`, M#1) and the game screen, which holds the only home button, is not shown until the pack has loaded (`pack-manager.js:334`). `loadSeq` protects the rest: the token is taken at the top of `loadPack` (`pack-manager.js:63`) and compared as soon as `fetchPackDetails` settles (`pack-manager.js:65`), before any write it governs. Those writes are quest data, labels, titles, theme `<style>` elements, background, avatars and the music track. `loadPack` and `startAdventure` return whether the entry applied, so a caller that lost the race does not continue into the pack. `resetToDefaultTheme` (`pack-manager.js:276`) bumps the token, which is what stops a half-finished pack load from landing on top of the start screen.
 
 Theme stylesheets are fetched and applied as inline style elements in both authentication modes: element-external requests cannot carry a bearer token, so `loadPackTheme` (`pack-manager.js:115`) resolves the sheet text through the asset service. A failed or missing stylesheet applies nothing, which is why a `custom.css` absence stays a silent "theme without effects" sub-state and no flag records it (M#34).
 
@@ -517,7 +517,7 @@ When `loadPack` fails, `rollbackPackEntry` clears the pack pointer and every pac
 
 ### M#14 · Dialogs
 
-**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:85`) / `closeDialog` (`modal-manager.js:95`) · **Persisted:** no
+**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:86`) / `closeDialog` (`modal-manager.js:96`) · **Persisted:** no
 
 Seven `<dialog>` elements, each with its own micro-machine, and one open mode.
 
@@ -544,9 +544,9 @@ stateDiagram-v2
     Blocked --> Closed : explicit confirm or cancel
 ```
 
-`openDialog` (`modal-manager.js:85`) and `closeDialog` (`modal-manager.js:95`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:32-53`) and matches the table above.
+`openDialog` (`modal-manager.js:86`) and `closeDialog` (`modal-manager.js:96`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:32-53`) and matches the table above.
 
-Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:129-135`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:139-143`): leaving it takes an explicit click.
+Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:131-137`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:139-143`): leaving it takes an explicit click.
 
 An eighth dialog sits outside the table. The tutorial prompt is created dynamically and follows the same explicit policy: ESC is prevented and forwarded to Decline (`tutorial.js:104-108`; see M#23).
 
@@ -554,7 +554,7 @@ Focus targets differ per dialog and encode an intent: cancel for the destructive
 
 ### M#15 · Result modal
 
-**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:288`); the caller passes points in · **Persisted:** no
+**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:318`); the caller passes points in · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -574,7 +574,7 @@ stateDiagram-v2
 
 ### M#16 · Perfect score reveal
 
-**Carrier:** `perfectScoreBtn` `hidden` · **Owner:** `renderPerfectScoreButton` (`ui-manager.js:213`), the only writer of the visibility · **Persisted:** no
+**Carrier:** `perfectScoreBtn` `hidden` · **Owner:** `renderPerfectScoreButton` (`ui-manager.js:285`), the only writer of the visibility · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -588,11 +588,11 @@ stateDiagram-v2
 
 The visibility *is* the state; the click handler is wired once at startup (`event-manager.js:270`).
 
-Showing happens at exactly one place: the epilogue, when `hasPerfectScore()` is true (`quest-manager.js:337`). Hiding happens at six: every quest render (`quest-manager.js:245`), either narrative stage (`quest-manager.js:297`), the epilogue without a perfect score (`quest-manager.js:339`), pack entry and pack exit (`pack-manager.js:218`, `:274`), and the restart handler (`event-manager.js:380`). A quest render hides it, so returning from the epilogue into history mode cannot leave it beside an unrelated quest. Closing the dialog changes nothing about the button either (M#17).
+Showing happens at exactly one place: the epilogue, when `hasPerfectScore()` is true (`quest-manager.js:337`). Hiding happens at six: every quest render (`quest-manager.js:245`), either narrative stage (`quest-manager.js:297`), the epilogue without a perfect score (`quest-manager.js:339`), pack entry and pack exit (`pack-manager.js:218`, `:274`), and the restart handler (`event-manager.js:393`). A quest render hides it, so returning from the epilogue into history mode cannot leave it beside an unrelated quest. Closing the dialog changes nothing about the button either (M#17).
 
 ### M#17 · Quest footer visibility
 
-**Carrier:** footer `hidden` class · **Owner:** `renderQuestFooter` (`ui-manager.js:177`), which folds button visibility after each render · **Persisted:** derived
+**Carrier:** footer `hidden` class · **Owner:** `renderQuestFooter` (`ui-manager.js:249`), which folds button visibility after each render · **Persisted:** derived
 
 A purely derived machine: the footer is hidden exactly when no descendant button is un-hidden. Its input set is closed and small. Exactly two buttons ever live in `.quest-footer` (`frontend/adventure/index.html:181-188`), namely `#perfect-score-btn` (`frontend/adventure/index.html:182`) and `#start-adventure` (`frontend/adventure/index.html:186`), and quest packs cannot add DOM nodes, only restyle existing ones (`routes.go:38-42`).
 
@@ -611,7 +611,7 @@ stateDiagram-v2
 
 The rule is derived, and it is recomputed by the render pipeline rather than at the sites that change visibility: a screen first renders its offers (`renderQuestButtonVisibility`, `renderPerfectScoreButton`), and `renderQuestFooter` then folds the result.
 
-Two ways a footer button becomes visible: the prologue offers the adventure (`renderQuestButtonVisibility(true, ...)` at `quest-manager.js:314`), and a perfect-score epilogue offers its button (`quest-manager.js:337`). `#start-adventure` has one DOM home, `.quest-footer`; no code reparents it. The quest arrows live in `.editor-footer` inside the **editor** pane (`frontend/adventure/index.html:216-229`), and the hint button sits above the editor (`frontend/adventure/index.html:168`), so neither touches this machine. `resetQuestUI` (`ui-manager.js:321`) re-shows the hint button and clears its `disabled` flag; the interaction gate itself is derived (M#6), not restored by a layout function.
+Two ways a footer button becomes visible: the prologue offers the adventure (`renderQuestButtonVisibility(true, ...)` at `quest-manager.js:314`), and a perfect-score epilogue offers its button (`quest-manager.js:337`). `#start-adventure` has one DOM home, `.quest-footer`; no code reparents it. The quest arrows live in `.editor-footer` inside the **editor** pane (`frontend/adventure/index.html:216-229`), and the hint button sits above the editor (`frontend/adventure/index.html:168`), so neither touches this machine. `resetQuestUI` (`ui-manager.js:393`) re-shows the hint button and clears its `disabled` flag; the interaction gate itself is derived (M#6), not restored by a layout function.
 
 ### M#18 · Lore pagination
 
@@ -723,7 +723,7 @@ The confetti canvas is hosted by the dialog the celebration belongs to: `showMod
 
 The opt-out is consulted once per effect, at the effect's own edge. `showConfetti` (`effects.js:68`) and `showDarkOverlay` (`effects.js:127`) return immediately while the body carries `effects-disabled`, so `triggerResultEffect` (`effects.js:163`) stays unconditional and its `hideDarkOverlay()` runs effect or not. A result cannot leave an overlay behind, and `showPerfectScore` may call `showConfetti` directly for the same reason: the guard belongs to the effect, not to the caller (M#21).
 
-Both dialogs that can start an effect close through a `close` listener running `cleanupEffects` (`modal-manager.js:125-135`), so confetti and overlay end with the dialog instead of outliving it (M#14).
+Both dialogs that can start an effect close through a `close` listener running `cleanupEffects` (`modal-manager.js:127-137`), so confetti and overlay end with the dialog instead of outliving it (M#14).
 
 The overlay is a **sticky** element: once a failure has happened, `#dark-overlay` stays in the DOM and only its `active` class toggles (`effects.js:127-154`), which makes "never shown" and "currently hidden" the same DOM state. `cleanupEffects` (`effects.js:176`) hides it, clears the interval, resets the burst and removes the dialog-hosted canvas, so a closed dialog cannot keep a celebration running.
 
@@ -772,7 +772,7 @@ The toast container is a lazily created singleton (`toast-service.js:37-45`), so
 
 ### M#25 · Copy-to-clipboard feedback
 
-**Carrier:** `dataset.copyFeedback` · **Owner:** copy handler at `ui-manager.js:347` · **Persisted:** no
+**Carrier:** `dataset.copyFeedback` · **Owner:** copy handler at `ui-render.js:391` · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -788,7 +788,7 @@ The `dataset.copyFeedback` flag is the mutex. The fallback path (`execCommand`) 
 
 ### M#26 · Interface minimize
 
-**Carrier:** `interfaceMinimized` (`ui-manager.js:43`), rendered as `game-interface.minimized` · **Owner:** `toggleInterfaceMinimized` (`ui-manager.js:254`), reset by `resetInterfaceMinimized` (`ui-manager.js:262`) · **Persisted:** no
+**Carrier:** `interfaceMinimized` (`ui-manager.js:43`), rendered as `game-interface.minimized` · **Owner:** `toggleInterfaceMinimized` (`ui-manager.js:326`), reset by `resetInterfaceMinimized` (`ui-manager.js:334`) · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -797,7 +797,7 @@ stateDiagram-v2
     Minimized --> Normal : second click, or pack entry, pack exit, restart
 ```
 
-`renderInterfaceMinimized` (`ui-manager.js:229`) writes the layout class, the icon (`fa-minus` ⇄ `fa-expand`) and `aria-pressed` in one call, so the three renderings cannot fall out of step. `resetInterfaceMinimized` is called at pack entry, on the way back to the start screen and at restart. The state is not persisted, so a reload returns to `Normal` as well.
+`renderInterfaceMinimized` (`ui-manager.js:301`) writes the layout class, the icon (`fa-minus` ⇄ `fa-expand`) and `aria-pressed` in one call, so the three renderings cannot fall out of step. `resetInterfaceMinimized` is called at pack entry, on the way back to the start screen and at restart. The state is not persisted, so a reload returns to `Normal` as well.
 
 ---
 
@@ -807,7 +807,7 @@ State that outlives a click or crosses the network. Five machines: what the brow
 
 ### M#10 · Editor persistence (autosave)
 
-**Carrier:** the debounce timer plus the `save-indicator` class · **Owner:** `GrimoireAutosave` (`src/managers/grimoire-autosave.js`) holds the timer, performs the write and reports the result; `renderSaveStatus` (`ui-manager.js:289`) is the only writer of the indicator class · **Persisted:** the written draft, yes (in the pack body, M#27)
+**Carrier:** the debounce timer plus the `save-indicator` class · **Owner:** `GrimoireAutosave` (`src/managers/grimoire-autosave.js`) holds the timer, performs the write and reports the result; `renderSaveStatus` (`ui-manager.js:361`) is the only writer of the indicator class · **Persisted:** the written draft, yes (in the pack body, M#27)
 
 | State | Carried by |
 | ------- | ----------- |
@@ -831,7 +831,7 @@ stateDiagram-v2
     Saved --> Idle : loadQuest reaches a prologue or an epilogue
 ```
 
-`markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`frontend/adventure/index.html:196`).
+`markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`frontend/adventure/index.html:197`).
 
 `saveGrimoire(questId, code)` (`state-service.js:384`) returns the status rather than a boolean: `IDLE` when `isGrimoireScreen(questId)` is false (`state-service.js:372`), `SAVED` only when the storage write succeeded, `FAILED` when storage refused it (quota full, `localStorage` switched off, or a private-mode rejection). A screen without a grimoire reports `IDLE` through `QuestManager.loadQuest` as well, so the prologue and the epilogue show grey instead of the colour the last typed quest left behind. The tour describes exactly these four colours (`tutorial.js:195`).
 
@@ -839,7 +839,7 @@ The draft store is `state.grimoires[questId]`, read back through `loadQuestCode`
 
 ### M#11 · Verify request (client)
 
-**Carrier:** `verifying` + the button label · **Owner:** `handleVerify` (`event-manager.js:292`) · **Persisted:** no
+**Carrier:** `verifying` + the button label · **Owner:** `handleVerify` (`event-manager.js:322`) · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -871,7 +871,7 @@ stateDiagram-v2
 | present | unparseable JSON | body kept aside under `rego_pack_state_<packId>_corrupt`, adventure starts fresh, a warning toast says so (`state-service.js:123`) |
 | present | valid, `questId === 0` | fresh adventure |
 | present | valid, `questId > 0` | resume at `currentQuestId`, `activeQuestId` restored |
-| present | `activeQuestId` missing | back-computed as `currentQuestId` (`state-service.js:115`) |
+| present | `activeQuestId` missing | back-computed as `currentQuestId` (`state-service.js:129`) |
 
 ```mermaid
 stateDiagram-v2
@@ -887,7 +887,7 @@ stateDiagram-v2
     FreshBody --> PointerCleared : returnHome
 ```
 
-`loadPackState` (`state-service.js:103`) and `setCurrentPack` (`state-service.js:136`) return `{ resumed, corrupt }`, so reading a saved adventure reports what it found instead of signalling through a null body, and pack entry turns `corrupt` into a warning toast. An entry that then fails is rolled back by `rollbackPackEntry` (`state-service.js:178`), which clears the pointer and every pack-scoped in-memory field without writing anything (M#3). `clearCurrentPack` (`state-service.js:162`) leaves the loaded quests alone and only flushes the state of a pack that is being left.
+`loadPackState` (`state-service.js:117`) and `setCurrentPack` (`state-service.js:150`) return `{ resumed, corrupt }`, so reading a saved adventure reports what it found instead of signalling through a null body, and pack entry turns `corrupt` into a warning toast. An entry that then fails is rolled back by `rollbackPackEntry` (`state-service.js:192`), which clears the pointer and every pack-scoped in-memory field without writing anything (M#3). `clearCurrentPack` (`state-service.js:176`) leaves the loaded quests alone and only flushes the state of a pack that is being left.
 
 A third micro-machine runs before any of this. `migrateStorageKeys()` (`frontend/adventure/src/app.js:52`) moves `adventureTutorialCompleted` → `rego_tutorial_completed` once at startup (`storage-service.js:112`), before any manager reads persisted state and before `init()` runs. That legacy-key state decides whether the tutorial machine (M#23) starts `Eligible` or `Skipped`.
 
@@ -921,7 +921,7 @@ Two boundaries of this machine matter. `/config` sits outside it: a `fetch` boun
 
 ### M#29 · Lazy reveal caches
 
-**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:62`; dropped by `clearPackCaches` (`pack-manager.js:319`) · **Persisted:** no, exactly one pack visit
+**Carrier:** three independent `Map`s keyed by `packId:questId` · **Owner:** `quest-manager.js:43` and `modal-manager.js:62`; dropped by `clearPackCaches` (`pack-manager.js:356`) · **Persisted:** no, exactly one pack visit
 
 | Cache | Owner | Fetched artifact | Backend `Cache-Control` |
 | ------- | ------- | ------------------ | ------------------------- |
@@ -1297,15 +1297,15 @@ stateDiagram-v2
 
 `questData` is the whole state of the tool, and it is memory-only: a reload loses an unsaved draft, and the only output is a browser download.
 
-Validation is one shared rule set rather than a copy of the server's. `docu/quest-editor/rules.js` holds `PACK_RULES` (a JSON block with `limits` and the rule list) plus `validatePack` (`rules.js:339`), `PACK_LIMITS` (`rules.js:134`) and `PACK_GENRE_PATTERN` (`rules.js:140`). `saveJSON` (`docu/quest-editor/app.js:189`) refuses the export while `validatePack` reports problems and writes all of them to `#validationReport` at once (`docu/quest-editor/app.js:952`); the form fields cap typing at the same numbers through `maxLength` (`docu/quest-editor/app.js:112`). The same `PACK_RULES` block is read by `TestEditorLimitsMatchBackendConstants` (`backend/quest/rules_parity_test.go`) against `backend/quest/constants.go`. The rules are exercised through `docu/quest-editor/testdata/pack-validation-fixtures.json`, one set of packs run by both halves of the comparison: the Go test sends each through the server's own load path (`backend/quest/rules_parity_test.go:572`), and `docu/quest-editor/rules.test.js` sends each through `validatePack`. A rule the server enforces at pack load therefore has a counterpart in the tool, and a divergence fails CI.
+Validation is one shared rule set rather than a copy of the server's. `docu/quest-editor/rules.js` holds `PACK_RULES` (a JSON block with `limits` and the rule list) plus `validatePack` (`rules.js:539`), `PACK_LIMITS` (`rules.js:182`) and `PACK_GENRE_PATTERN` (`rules.js:189`). `saveJSON` (`docu/quest-editor/app.js:221`) refuses the export while `validatePack` reports problems and writes all of them to `#validationReport` at once (`docu/quest-editor/app.js:1198`); the form fields cap typing at the same numbers through `maxLength` (`docu/quest-editor/app.js:116`). The same `PACK_RULES` block is read by `TestEditorLimitsMatchBackendConstants` (`backend/quest/rules_parity_test.go`) against `backend/quest/constants.go`. The rules are exercised through `docu/quest-editor/testdata/pack-validation-fixtures.json`, one set of packs run by both halves of the comparison: the Go test sends each through the server's own load path (`backend/quest/rules_parity_test.go:572`), and `docu/quest-editor/rules.test.js` sends each through `validatePack`. A rule the server enforces at pack load therefore has a counterpart in the tool, and a divergence fails CI.
 
-Quest identity is positional. The quest-ID field is read-only, and `renumberQuests` (`rules.js:368`) gives every quest the ID of its position, on add, on delete and again at export. That is the contiguity the repository requires (`backend/quest/repository.go:82-86`; the other end of the contract in section 12.3). `addQuest` (`docu/quest-editor/app.js:657`) seeds a new quest with a title, a query and empty lore, task text, hints, solution and tests, so an export is refused until the operator fills in what the server requires.
+Quest identity is positional. The quest-ID field is read-only, and `renumberQuests` (`rules.js:618`) gives every quest the ID of its position, on `addQuest` (`docu/quest-editor/app.js:895`), on delete and again at export. That is the contiguity the repository requires (`backend/quest/repository.go:82-86`; the other end of the contract in section 12.3). `addQuest` (`docu/quest-editor/app.js:895`) seeds a new quest with a title, a query and empty lore, task text, hints, solution and tests, so an export is refused until the operator fills in what the server requires.
 
-Views are cloned per quest and dropped on every structural change. `switchToQuest` (`docu/quest-editor/app.js:237`) clones `#questTemplate` into `view-quest-N`, where N is the quest's position, and the cloned controls close over that position; `addQuest` and `deleteQuest` (`docu/quest-editor/app.js:688`) call `destroyQuestViews` (`docu/quest-editor/app.js:705`), so no view survives a change of position to show or edit the wrong quest. The template node itself stays.
+Views are cloned per quest and dropped on every structural change. `switchToQuest` (`docu/quest-editor/app.js:269`) clones `#questTemplate` into `view-quest-N`, where N is the quest's position, and the cloned controls close over that position; `addQuest` (`docu/quest-editor/app.js:895`) and `deleteQuest` (`docu/quest-editor/app.js:926`) call `destroyQuestViews` (`docu/quest-editor/app.js:943`), so no view survives a change of position to show or edit the wrong quest. The template node itself stays.
 
 ### M#41 · Quest editor test modal
 
-**Carrier:** `openTestCase = { mode, questIndex, testIndex }` (`docu/quest-editor/app.js:32`) · **Owner:** `saveModalTest` (`docu/quest-editor/app.js:812`), which reads it once per save · **Persisted:** no
+**Carrier:** `openTestCase = { mode, questIndex, testIndex }` (`docu/quest-editor/app.js:32`) · **Owner:** `saveModalTest` (`docu/quest-editor/app.js:1050`), which reads it once per save · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -1320,7 +1320,7 @@ stateDiagram-v2
     Editing --> Editing
 ```
 
-`openTestCase` names add versus edit instead of encoding it as a sentinel number. `parseTestId` (`rules.js:389`) rejects a blank or non-numeric ID, and `saveModalTest` rejects an ID another test of the same quest already uses; both write their sentence into `#modalError` (`docu/quest-editor/app.js:799`) and leave the modal open. A new test starts at `nextFreeTestId` (`rules.js:380`). The cap on the number of test cases is applied before the modal opens, at `PACK_LIMITS.MaxQuestTests` (`docu/quest-editor/app.js:749`), which is the cap the server applies to the pack.
+`openTestCase` names add versus edit instead of encoding it as a sentinel number. `parseTestId` (`rules.js:639`) rejects a blank or non-numeric ID, and `saveModalTest` rejects an ID another test of the same quest already uses; both write their sentence into `#modalError` (`docu/quest-editor/app.js:1033`) and leave the modal open. A new test starts at `nextFreeTestId` (`rules.js:630`). The cap on the number of test cases is applied before the modal opens, at `PACK_LIMITS.MaxQuestTests` (`docu/quest-editor/app.js:987`), which is the cap the server applies to the pack.
 
 ---
 
@@ -1366,7 +1366,7 @@ Every operation worth bounding here is bounded twice or three times, from differ
 | Autosave debounce | 1.5 s | `services/constants.js` (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`) | the editor's Dirty state (M#10) |
 | Toast auto-dismiss | 3 to 6 s by level | `services/toast-service.js:25-30` | toast lifetime (M#24) |
 | Confetti run | 3 s | `src/effects.js:39` | the confetti interval (M#22) |
-| Copy feedback | 1.5 s | `ui-manager.js:347` | the Feedback state (M#25) |
+| Copy feedback | 1.5 s | `ui-render.js:391` | the Feedback state (M#25) |
 
 Two relationships in that table are load-bearing:
 

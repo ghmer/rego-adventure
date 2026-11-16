@@ -580,6 +580,30 @@ textarea.form-control {
     flex-shrink: 0;
 }
 
+/* Lore row: the speaker field takes the first line next to the remove
+   button, the entry text gets a line of its own underneath. */
+.lore-item {
+    flex-wrap: wrap;
+}
+
+.lore-npc {
+    flex: 1;
+    min-width: 220px;
+}
+
+.lore-item textarea {
+    flex-basis: 100%;
+}
+
+/* Character roster row: fixed-width name, image path fills the rest. */
+.npc-name {
+    flex: 0 0 220px;
+}
+
+.npc-image {
+    flex: 1;
+}
+
 .test-item {
     justify-content: space-between;
     align-items: center;

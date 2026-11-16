@@ -29,7 +29,11 @@
 // Each rule carries:
 //   id           stable name, referenced by the parity fixtures
 //   kind         nonEmpty | maxLength | minItems | maxItems | charset |
-//                urlScheme | maxJsonBytes | contiguousIds | uniqueIds
+//                urlScheme | maxJsonBytes | contiguousIds | uniqueIds |
+//                formatVersion | npcDefaultDefined | maxKeys |
+//                npcNameRequired | npcNameMaxLength | npcNameCharset |
+//                npcImageRequired | npcImageMaxLength | npcImagePath |
+//                npcDefined | heroNpcCharset | heroNpcDefined | imagePath
 //   path         where the value sits; a `[]` suffix takes the elements of an
 //                array, so `quests[].hints[]` selects every hint of every quest
 //   host, field  for the ID rules: the array whose elements carry the IDs
@@ -41,9 +45,16 @@
 //   optional     skip an absent or empty value
 //   serverLabel  the field label in the server's message for this check, with
 //                `{i}` for an index and `{n}` for a quest number
+//
+// The npc roster kinds walk Object.entries(pack.npcs) in sorted key order -
+// the same order the backend validates in - so both sides report the same
+// entry as the offender. npcDefined checks that a lore entry's speaker names
+// a declared npc and reads the roster off the pack, so it runs against the
+// entry lists selected by its path.
 
 const PACK_RULES = JSON.parse(`{
   "limits": {
+    "FormatVersion": 2,
     "MaxPackTitle": 100,
     "MaxPackDescription": 500,
     "MaxPackGenre": 50,
@@ -71,8 +82,12 @@ const PACK_RULES = JSON.parse(`{
     "MaxManualExternalLink": 500,
     "MaxPrologueItem": 2000,
     "MaxEpilogueItem": 2000,
-    "MaxTestPayloadBytes": 50000
+    "MaxTestPayloadBytes": 50000,
+    "MaxPackNPCs": 50,
+    "MaxNPCName": 64,
+    "MaxImageName": 500
   },
+  "defaultNPCKey": "default_npc",
   "rules": [
     { "id": "pack_title_required", "path": "meta.title", "kind": "nonEmpty", "serverLabel": "pack title" },
     { "id": "pack_title_max_length", "path": "meta.title", "kind": "maxLength", "limit": "MaxPackTitle", "serverLabel": "pack title" },
@@ -97,10 +112,41 @@ const PACK_RULES = JSON.parse(`{
     { "id": "ui_perfect_score_button_text_max_length", "path": "ui_labels.perfect_score_button_text", "kind": "maxLength", "limit": "MaxUIPerfectScoreButton", "optional": true, "serverLabel": "ui_labels.perfect_score_button_text" },
     { "id": "ui_begin_adventure_button_max_length", "path": "ui_labels.begin_adventure_button", "kind": "maxLength", "limit": "MaxUIBeginAdventureButton", "optional": true, "serverLabel": "ui_labels.begin_adventure_button" },
 
+    { "id": "pack_version_format", "path": "version", "kind": "formatVersion", "limit": "FormatVersion" },
+
+    { "id": "pack_npcs_default_npc", "path": "npcs", "kind": "npcDefaultDefined" },
+    { "id": "pack_npcs_max_items", "path": "npcs", "kind": "maxKeys", "limit": "MaxPackNPCs" },
+    { "id": "pack_npc_name_required", "path": "npcs", "kind": "npcNameRequired", "serverLabel": "npcs[{i}] name" },
+    { "id": "pack_npc_name_max_length", "path": "npcs", "kind": "npcNameMaxLength", "limit": "MaxNPCName", "serverLabel": "npcs[{i}] name" },
+    { "id": "pack_npc_name_charset", "path": "npcs", "kind": "npcNameCharset" },
+    { "id": "pack_npc_image_required", "path": "npcs", "kind": "npcImageRequired", "serverLabel": "npcs[{i}] image" },
+    { "id": "pack_npc_image_max_length", "path": "npcs", "kind": "npcImageMaxLength", "limit": "MaxImageName", "serverLabel": "npcs[{i}] image" },
+    { "id": "pack_npc_image_path", "path": "npcs", "kind": "npcImagePath" },
+
+    { "id": "pack_hero_avatar_required", "path": "hero_avatar", "kind": "nonEmpty", "serverLabel": "hero_avatar" },
+    { "id": "pack_hero_avatar_max_length", "path": "hero_avatar", "kind": "maxLength", "limit": "MaxNPCName", "serverLabel": "hero_avatar" },
+    { "id": "pack_hero_avatar_charset", "path": "hero_avatar", "kind": "heroNpcCharset" },
+    { "id": "pack_hero_avatar_defined", "path": "hero_avatar", "kind": "heroNpcDefined" },
+
+    { "id": "pack_background_image_required", "path": "background_image", "kind": "nonEmpty", "serverLabel": "background_image" },
+    { "id": "pack_background_image_max_length", "path": "background_image", "kind": "maxLength", "limit": "MaxImageName", "serverLabel": "background_image" },
+    { "id": "pack_background_image_path", "path": "background_image", "kind": "imagePath" },
+
+    { "id": "pack_icon_success_image_path", "path": "icon_success_image", "kind": "imagePath" },
+    { "id": "pack_icon_success_image_max_length", "path": "icon_success_image", "kind": "maxLength", "limit": "MaxImageName", "optional": true, "serverLabel": "icon_success_image" },
+    { "id": "pack_icon_failure_image_path", "path": "icon_failure_image", "kind": "imagePath" },
+    { "id": "pack_icon_failure_image_max_length", "path": "icon_failure_image", "kind": "maxLength", "limit": "MaxImageName", "optional": true, "serverLabel": "icon_failure_image" },
+    { "id": "pack_perfect_score_image_path", "path": "perfect_score_image", "kind": "imagePath" },
+    { "id": "pack_perfect_score_image_max_length", "path": "perfect_score_image", "kind": "maxLength", "limit": "MaxImageName", "optional": true, "serverLabel": "perfect_score_image" },
+
     { "id": "pack_prologue_min_items", "path": "prologue", "kind": "minItems", "min": 1 },
-    { "id": "pack_prologue_item_max_length", "path": "prologue[]", "kind": "maxLength", "limit": "MaxPrologueItem", "serverLabel": "prologue[{i}]" },
+    { "id": "pack_prologue_item_npc_required", "path": "prologue[].npc", "kind": "nonEmpty", "serverLabel": "prologue[{i}] npc" },
+    { "id": "pack_prologue_item_npc_defined", "path": "prologue[]", "kind": "npcDefined" },
+    { "id": "pack_prologue_item_max_length", "path": "prologue[].text", "kind": "maxLength", "limit": "MaxPrologueItem", "serverLabel": "prologue[{i}]" },
     { "id": "pack_epilogue_min_items", "path": "epilogue", "kind": "minItems", "min": 1 },
-    { "id": "pack_epilogue_item_max_length", "path": "epilogue[]", "kind": "maxLength", "limit": "MaxEpilogueItem", "serverLabel": "epilogue[{i}]" },
+    { "id": "pack_epilogue_item_npc_required", "path": "epilogue[].npc", "kind": "nonEmpty", "serverLabel": "epilogue[{i}] npc" },
+    { "id": "pack_epilogue_item_npc_defined", "path": "epilogue[]", "kind": "npcDefined" },
+    { "id": "pack_epilogue_item_max_length", "path": "epilogue[].text", "kind": "maxLength", "limit": "MaxEpilogueItem", "serverLabel": "epilogue[{i}]" },
     { "id": "pack_quests_min_items", "path": "quests", "kind": "minItems", "min": 1 },
 
     { "id": "quest_ids_contiguous", "kind": "contiguousIds", "host": "quests", "field": "id", "from": 1 },
@@ -110,7 +156,9 @@ const PACK_RULES = JSON.parse(`{
     { "id": "quest_task_required", "path": "quests[].description_task", "kind": "nonEmpty", "serverLabel": "quest {n} task" },
     { "id": "quest_task_max_length", "path": "quests[].description_task", "kind": "maxLength", "limit": "MaxQuestDescriptionTask", "serverLabel": "quest {n} task" },
     { "id": "quest_lore_min_items", "path": "quests[].description_lore", "kind": "minItems", "min": 1 },
-    { "id": "quest_lore_item_max_length", "path": "quests[].description_lore[]", "kind": "maxLength", "limit": "MaxQuestDescriptionLore", "serverLabel": "quest {n} lore[{i}]" },
+    { "id": "quest_lore_npc_required", "path": "quests[].description_lore[].npc", "kind": "nonEmpty", "serverLabel": "quest {n} lore[{i}] npc" },
+    { "id": "quest_lore_npc_defined", "path": "quests[].description_lore[]", "kind": "npcDefined" },
+    { "id": "quest_lore_item_max_length", "path": "quests[].description_lore[].text", "kind": "maxLength", "limit": "MaxQuestDescriptionLore", "serverLabel": "quest {n} lore[{i}]" },
     { "id": "quest_hint_item_max_length", "path": "quests[].hints[]", "kind": "maxLength", "limit": "MaxQuestHint", "serverLabel": "quest {n} hint[{i}]" },
     { "id": "quest_solution_max_length", "path": "quests[].solution", "kind": "maxLength", "limit": "MaxQuestSolution", "optional": true, "serverLabel": "quest {n} solution" },
     { "id": "quest_template_max_length", "path": "quests[].template", "kind": "maxLength", "limit": "MaxQuestTemplate", "optional": true, "serverLabel": "quest {n} template" },
@@ -132,12 +180,23 @@ const PACK_RULES = JSON.parse(`{
 // PACK_LIMITS is the length budget the editor puts on its form fields. The
 // numbers are the backend's, pinned by the parity test.
 const PACK_LIMITS = PACK_RULES.limits;
+const DEFAULT_NPC_KEY = PACK_RULES.defaultNPCKey;
 
 // PACK_GENRE_PATTERN is the character set the backend accepts for a genre
 // (alphanumericPattern in backend/quest/models.go). Go's \s is tab, newline,
 // form feed, carriage return and space, spelled out here so both sides mean the
 // same set; the pack_genre_charset fixtures pin that reading.
 const PACK_GENRE_PATTERN = /^[a-zA-Z0-9\t\n\f\r \-_.,!?']+$/;
+
+// NPC_NAME_PATTERN is the npc key charset the backend accepts, mirroring
+// npcKeyPattern in backend/quest/models.go.
+const NPC_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
+
+// NPC_IMAGE_PREFIX and NPC_IMAGE_EXTENSIONS mirror NPCImagePrefix and
+// npcImageExtensions in backend/quest/models.go: an npc image addresses a
+// media file inside the pack's assets directory.
+const NPC_IMAGE_PREFIX = 'assets/';
+const NPC_IMAGE_EXTENSIONS = ['.jpeg', '.jpg', '.png', '.webp'];
 
 // ============================================================================
 // LOOKUP
@@ -283,6 +342,128 @@ const RULE_CHECKS = {
             : null;
     },
 
+    formatVersion(rule, site) {
+        return site.value === PACK_LIMITS[rule.limit]
+            ? null
+            : `pack format version must be ${PACK_LIMITS[rule.limit]}; run the migration tool on older packs`;
+    },
+
+    npcDefaultDefined(rule, site) {
+        const npcs = site.value;
+        const declared = npcs !== null && typeof npcs === 'object' && !Array.isArray(npcs)
+            && Object.prototype.hasOwnProperty.call(npcs, PACK_RULES.defaultNPCKey);
+        return declared
+            ? null
+            : `roster must declare ${JSON.stringify(PACK_RULES.defaultNPCKey)} as the fallback speaker`;
+    },
+
+    maxKeys(rule, site) {
+        const npcs = site.value;
+        const count = npcs !== null && typeof npcs === 'object' && !Array.isArray(npcs)
+            ? Object.keys(npcs).length
+            : 0;
+        const max = PACK_LIMITS[rule.limit];
+        return count > max
+            ? `roster has ${count} npc characters, maximum is ${max}`
+            : null;
+    },
+
+    npcNameRequired(rule, entry) {
+        const name = typeof entry.name === 'string' ? entry.name : '';
+        return name.trim() === '' ? 'name cannot be empty' : null;
+    },
+
+    npcNameMaxLength(rule, entry) {
+        const name = typeof entry.name === 'string' ? entry.name : '';
+        const length = codePoints(name);
+        const max = PACK_LIMITS[rule.limit];
+        return length > max
+            ? `name exceeds maximum length of ${max} characters (got ${length})`
+            : null;
+    },
+
+    npcNameCharset(rule, entry) {
+        const name = typeof entry.name === 'string' ? entry.name : '';
+        return name === '' || NPC_NAME_PATTERN.test(name)
+            ? null
+            : 'name contains invalid characters (must start with a letter and use only letters, numbers, hyphens and underscores)';
+    },
+
+    npcImageRequired(rule, entry) {
+        const image = typeof entry.image === 'string' ? entry.image : '';
+        return image.trim() === '' ? 'image cannot be empty' : null;
+    },
+
+    npcImageMaxLength(rule, entry) {
+        const image = typeof entry.image === 'string' ? entry.image : String(entry.image ?? '');
+        const length = codePoints(image);
+        const max = PACK_LIMITS[rule.limit];
+        return length > max
+            ? `image exceeds maximum length of ${max} characters (got ${length})`
+            : null;
+    },
+
+    npcImagePath(rule, entry) {
+        const image = typeof entry.image === 'string' ? entry.image : '';
+        if (image.trim() === '') {
+            return null;
+        }
+        if (!image.startsWith(NPC_IMAGE_PREFIX)) {
+            return `image must point inside the pack assets directory (must start with ${JSON.stringify(NPC_IMAGE_PREFIX)})`;
+        }
+        const rest = image.slice(NPC_IMAGE_PREFIX.length);
+        if (rest === '') {
+            return 'image must name a file inside the pack assets directory';
+        }
+        if (rest.includes('..') || rest.includes('\\')) {
+            return 'image must stay inside the pack assets directory (path traversal is not allowed)';
+        }
+        if (/\s/.test(rest)) {
+            return 'image must not contain whitespace (only URL-safe paths are allowed)';
+        }
+        return RULE_CHECKS.imageExtension(rule, image);
+    },
+
+    // heroNpcCharset checks the hero pointer names a well-formed npc key;
+    // an empty value is left to the required rule, like the roster names.
+    heroNpcCharset(rule, site) {
+        const name = typeof site.value === 'string' ? site.value : '';
+        return name === '' || NPC_NAME_PATTERN.test(name)
+            ? null
+            : 'contains invalid characters (must start with a letter and use only letters, numbers, hyphens and underscores)';
+    },
+
+    // imagePath checks a pack media path (the background) the way npc
+    // portraits are checked: inside the pack assets directory, media
+    // extension. The empty value is left to the required rule.
+    imagePath(rule, site) {
+        const image = typeof site.value === 'string' ? site.value : '';
+        if (image.trim() === '') {
+            return null;
+        }
+        if (!image.startsWith(NPC_IMAGE_PREFIX)) {
+            return `must point inside the pack assets directory (must start with ${JSON.stringify(NPC_IMAGE_PREFIX)})`;
+        }
+        const rest = image.slice(NPC_IMAGE_PREFIX.length);
+        if (rest === '') {
+            return 'must name a file inside the pack assets directory';
+        }
+        if (rest.includes('..') || rest.includes('\\')) {
+            return 'must stay inside the pack assets directory (path traversal is not allowed)';
+        }
+        if (/\s/.test(rest)) {
+            return 'must not contain whitespace (only URL-safe paths are allowed)';
+        }
+        return RULE_CHECKS.imageExtension(rule, image);
+    },
+
+    imageExtension(rule, image) {
+        const ext = (image.match(/\.[^.]*$/)?.[0] ?? '').toLowerCase();
+        return NPC_IMAGE_EXTENSIONS.includes(ext)
+            ? null
+            : `image must use one of the extensions: ${NPC_IMAGE_EXTENSIONS.join(', ')}`;
+    },
+
     contiguousIds(rule, ids) {
         for (let index = 0; index < ids.length; index += 1) {
             if (ids[index] !== rule.from + index) {
@@ -328,6 +509,25 @@ function idGroups(pack, host, field) {
         }));
 }
 
+// npcEntrySites iterates the pack's npc roster in sorted key order - the same
+// order the backend validates in - so both halves point at the same entry.
+function npcEntrySites(pack) {
+    const npcs = pack ? pack.npcs : undefined;
+    if (npcs === null || typeof npcs !== 'object' || Array.isArray(npcs)) {
+        return [];
+    }
+    return Object.keys(npcs).sort().map((name, index) => ({ name, image: npcs[name], index }));
+}
+
+// NPC_ROSTER_KINDS are the rules that walk the npc roster rather than a value
+// path. npcDefaultDefined and maxKeys look at the roster as a whole; the
+// per-entry kinds take each entry site above.
+const NPC_ROSTER_KINDS = new Set([
+    'npcDefaultDefined', 'maxKeys',
+    'npcNameRequired', 'npcNameMaxLength', 'npcNameCharset',
+    'npcImageRequired', 'npcImageMaxLength', 'npcImagePath'
+]);
+
 // ============================================================================
 // VALIDATION
 // ============================================================================
@@ -345,6 +545,56 @@ function validatePack(pack) {
                 const problem = RULE_CHECKS[rule.kind](rule, group.ids);
                 if (problem) {
                     problems.push({ ruleId: rule.id, message: `${renderTrail(group.trail)} ${problem}` });
+                }
+            }
+            continue;
+        }
+
+        if (rule.kind === 'npcDefined') {
+            const npcs = pack ? pack.npcs : null;
+            for (const site of valuesAt(pack, rule.path)) {
+                const speaker = site.value !== null && typeof site.value === 'object'
+                    ? site.value.npc
+                    : undefined;
+                const declared = npcs !== null && typeof npcs === 'object' && !Array.isArray(npcs)
+                    && Object.prototype.hasOwnProperty.call(npcs, speaker);
+                if (!declared) {
+                    problems.push({
+                        ruleId: rule.id,
+                        message: `${renderTrail(site.trail)} references npc "${speaker ?? ''}", which the pack does not declare`
+                    });
+                }
+            }
+            continue;
+        }
+
+        if (rule.kind === 'heroNpcDefined') {
+            const npcs = pack ? pack.npcs : null;
+            const hero = pack ? pack.hero_avatar : undefined;
+            const declared = npcs !== null && typeof npcs === 'object' && !Array.isArray(npcs)
+                && Object.prototype.hasOwnProperty.call(npcs, hero);
+            if (!declared) {
+                problems.push({
+                    ruleId: rule.id,
+                    message: `hero_avatar "${hero ?? ''}" is not a character declared in the npcs section`
+                });
+            }
+            continue;
+        }
+
+        if (NPC_ROSTER_KINDS.has(rule.kind)) {
+            if (rule.kind === 'npcDefaultDefined' || rule.kind === 'maxKeys') {
+                const problem = RULE_CHECKS[rule.kind](rule, { value: pack ? pack.npcs : undefined });
+                if (problem) {
+                    problems.push({ ruleId: rule.id, message: `npcs ${problem}` });
+                }
+                continue;
+            }
+            for (const entry of npcEntrySites(pack)) {
+                const problem = RULE_CHECKS[rule.kind](rule, entry);
+                if (problem) {
+                    problems.push({ ruleId: rule.id, message: `npcs[${entry.index}] ${problem}` });
+                    break;
                 }
             }
             continue;
@@ -403,6 +653,10 @@ if (typeof module !== 'undefined' && module.exports) {
         PACK_RULES,
         PACK_LIMITS,
         PACK_GENRE_PATTERN,
+        DEFAULT_NPC_KEY,
+        NPC_NAME_PATTERN,
+        NPC_IMAGE_PREFIX,
+        NPC_IMAGE_EXTENSIONS,
         validatePack,
         renumberQuests,
         nextFreeTestId,

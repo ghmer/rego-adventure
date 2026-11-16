@@ -142,6 +142,9 @@ describe('modal-manager', () => {
                 manualModal: dialog(),
                 testPayloadModal: dialog(),
                 supportModulesModal: dialog(),
+                portraitModal: dialog(),
+                portraitModalImage: document.createElement('img'),
+                closePortraitBtn: document.createElement('button'),
                 resultModal: dialog(),
                 perfectScoreModal: dialog(),
                 hintModal: dialog(),
@@ -335,6 +338,71 @@ describe('modal-manager', () => {
         });
     });
 
+
+    describe('showPortrait', () => {
+        /**
+         * Build an avatar image as the pack render left it.
+         * @param {string} src - Resolved source, plain path or blob
+         * @param {string} [alt] - Accessible text of the avatar
+         * @returns {HTMLImageElement} Avatar image
+         */
+        function avatar(src, alt = 'Speaking character') {
+            const img = document.createElement('img');
+            img.setAttribute('src', src);
+            img.alt = alt;
+            return img;
+        }
+
+        it('shows the clicked avatar, source and alt text copied over', () => {
+            const source = avatar('/quests/fantasy/assets/chief.png');
+            const focus = vi.spyOn(ui.elements.closePortraitBtn, 'focus');
+            modal.showPortrait(source);
+
+            expect(ui.elements.portraitModalImage.src).toBe(source.src);
+            expect(ui.elements.portraitModalImage.alt).toBe('Speaking character');
+            expect(ui.elements.portraitModal.open).toBe(true);
+            // The dialog opens at its close control, like the other view
+            // dialogs; the spy because happy-dom keeps focus on the body.
+            expect(focus).toHaveBeenCalledTimes(1);
+        });
+
+        it('copies a blob source unchanged, without resolving it again', () => {
+            // The pack manager already resolved the portrait for element use;
+            // the dialog reuses that exact source, token or no token.
+            modal.showPortrait(avatar('blob:http://localhost/abc-123'));
+
+            expect(ui.elements.portraitModalImage.src)
+                .toBe('blob:http://localhost/abc-123');
+        });
+
+        it('gives an avatar without alt text a plain portrait name', () => {
+            modal.showPortrait(avatar('/quests/fantasy/assets/hero.png', ''));
+
+            expect(ui.elements.portraitModalImage.alt).toBe('Character portrait');
+        });
+
+        it('opens nothing for an image without a source', () => {
+            modal.showPortrait(document.createElement('img'));
+            modal.showPortrait(null);
+
+            expect(ui.elements.portraitModal.open).toBe(false);
+        });
+
+        it('the backdrop click and the safe close dismiss it', () => {
+            const source = avatar('/quests/fantasy/assets/chief.png');
+            modal.showPortrait(source);
+
+            // A click on the dialog itself - the backdrop area - closes.
+            ui.elements.portraitModal.dispatchEvent(new Event('click', { bubbles: true }));
+            expect(ui.elements.portraitModal.open).toBe(false);
+
+            modal.showPortrait(source);
+            modal.closePortrait();
+            modal.closePortrait(); // closing twice is safe
+            expect(ui.elements.portraitModal.open).toBe(false);
+        });
+    });
+
     describe('dialog helpers', () => {
         it('closes an open hint dialog on cancel', () => {
             ui.elements.hintModal.showModal();
@@ -472,6 +540,37 @@ describe('modal-manager', () => {
             ui.elements.perfectScoreImage.dispatchEvent(new Event('error'));
             await flushImageResolution();
 
+            expect(ui.elements.perfectScoreImage.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/icon-success.png');
+        });
+
+        it('loads the images a pack declares instead of the shipped filenames', async () => {
+            state.iconSuccessImage = 'assets/media/icon-success.jpg';
+            state.iconFailureImage = 'assets/media/icon-failure.jpg';
+            state.perfectScoreImage = 'assets/media/perfect-score.jpg';
+
+            modal.showResult({ passed: true, results: [] }, 10);
+            await flushImageResolution();
+            expect(ui.elements.resultIcon.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/media/icon-success.jpg');
+
+            modal.showResult({ passed: false, results: [] }, 0);
+            await flushImageResolution();
+            expect(ui.elements.resultIcon.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/media/icon-failure.jpg');
+
+            modal.showPerfectScore();
+            await flushImageResolution();
+            expect(ui.elements.perfectScoreImage.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/media/perfect-score.jpg');
+
+            // Clearing the success declaration and re-showing binds the
+            // fallback to the shipped filename again.
+            state.iconSuccessImage = null;
+            modal.showPerfectScore();
+            await flushImageResolution();
+            ui.elements.perfectScoreImage.dispatchEvent(new Event('error'));
+            await flushImageResolution();
             expect(ui.elements.perfectScoreImage.getAttribute('src'))
                 .toBe('/quests/fantasy/assets/icon-success.png');
         });

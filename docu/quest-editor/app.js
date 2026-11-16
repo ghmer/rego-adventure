@@ -69,6 +69,9 @@ function initializeEventListeners() {
     // Add prologue/epilogue buttons
     document.getElementById('addPrologueBtn').addEventListener('click', addPrologueItem);
     document.getElementById('addEpilogueBtn').addEventListener('click', addEpilogueItem);
+
+    // Add character button
+    document.getElementById('addNpcBtn').addEventListener('click', addNpcItem);
     
     // Modal buttons
     document.getElementById('modalClose').addEventListener('click', closeModal);
@@ -90,7 +93,11 @@ function initializeMaxLengthAttributes() {
         'meta-description': PACK_LIMITS.MaxPackDescription,
         'meta-genre': PACK_LIMITS.MaxPackGenre,
         'meta-initial_objective': PACK_LIMITS.MaxPackObjective,
-        'meta-final_objective': PACK_LIMITS.MaxPackObjective
+        'meta-final_objective': PACK_LIMITS.MaxPackObjective,
+        'meta-background_image': PACK_LIMITS.MaxImageName,
+        'meta-icon_success_image': PACK_LIMITS.MaxImageName,
+        'meta-icon_failure_image': PACK_LIMITS.MaxImageName,
+        'meta-perfect_score_image': PACK_LIMITS.MaxImageName
     };
     
     // UI Labels fields
@@ -129,7 +136,17 @@ function handleFileLoad(event) {
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
-            questData = JSON.parse(e.target.result);
+            const parsed = JSON.parse(e.target.result);
+            // The editor only handles packs at the format version rules.js
+            // declares. Older packs are migrated on the command line
+            // (cmd/questmigrate), so the editor never rewrites a pack's
+            // shape behind the author's back - and the refusal happens
+            // before the file can replace a pack already being edited.
+            if ((parsed.version ?? 1) < PACK_LIMITS.FormatVersion) {
+                alert(`This pack predates quest format version ${PACK_LIMITS.FormatVersion}. Migrate it first with the questmigrate tool (cmd/questmigrate), then load the migrated file.`);
+                return;
+            }
+            questData = parsed;
             loadEditor();
         } catch (error) {
             alert('Error parsing JSON file: ' + error.message);
@@ -160,6 +177,20 @@ function normalizeTestPayloads() {
 }
 
 function loadEditor() {
+    if (!questData.npcs || typeof questData.npcs !== 'object' || Array.isArray(questData.npcs)) {
+        questData.npcs = {};
+    }
+    // The media pointers: the hero names one roster entry and the
+    // background is the image behind the game screens. Absent values are
+    // filled with the roster's first entry and the shipped background, so
+    // a pack opened pre-edit keeps its meaning and the export carries them.
+    if (!questData.hero_avatar || !Object.prototype.hasOwnProperty.call(questData.npcs, questData.hero_avatar)) {
+        questData.hero_avatar = Object.keys(questData.npcs)[0] || 'default_npc';
+    }
+    if (!questData.background_image) {
+        questData.background_image = 'assets/bg-adventure.jpg';
+    }
+
     normalizeTestPayloads();
     renumberQuests(questData);
     hideValidationReport();
@@ -178,6 +209,7 @@ function loadEditor() {
     // Render all sections
     renderMeta();
     renderUILabels();
+    renderNpcs();
     renderPrologue();
     renderEpilogue();
     renderQuestNav();
@@ -341,6 +373,10 @@ function renderMeta() {
     document.getElementById('meta-genre').value = questData.meta.genre || '';
     document.getElementById('meta-initial_objective').value = questData.meta.initial_objective || '';
     document.getElementById('meta-final_objective').value = questData.meta.final_objective || '';
+    document.getElementById('meta-background_image').value = questData.background_image || '';
+    document.getElementById('meta-icon_success_image').value = questData.icon_success_image || '';
+    document.getElementById('meta-icon_failure_image').value = questData.icon_failure_image || '';
+    document.getElementById('meta-perfect_score_image').value = questData.perfect_score_image || '';
 }
 
 function renderUILabels() {
@@ -370,6 +406,57 @@ function renderUILabels() {
     document.getElementById('ui_labels-begin_adventure_button').value = questData.ui_labels.begin_adventure_button || '';
 }
 
+function renderNpcs() {
+    const container = document.getElementById('npcList');
+    container.innerHTML = '';
+
+    if (!questData.npcs) questData.npcs = {};
+
+    Object.entries(questData.npcs).forEach(([key, image], index) => {
+        container.appendChild(createNpcItem(key, image, index));
+    });
+
+    renderHeroNpcSelect();
+    updateNpcDatalist();
+}
+
+// renderHeroNpcSelect: the player-character picker lists every roster
+// entry and keeps the declared hero selected. When the current hero was
+// removed from the roster it falls back to the first remaining entry, so
+// the pointer is never left dangling.
+function renderHeroNpcSelect() {
+    const select = document.getElementById('hero-npc');
+    if (!select) return;
+
+    if (!questData.hero_avatar || !Object.prototype.hasOwnProperty.call(questData.npcs, questData.hero_avatar)) {
+        questData.hero_avatar = Object.keys(questData.npcs)[0] || 'default_npc';
+    }
+
+    select.innerHTML = '';
+    Object.keys(questData.npcs).forEach(key => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = key;
+        if (key === questData.hero_avatar) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+}
+
+// The roster doubles as the autocomplete source for every speaker field.
+// Speaker inputs read the datalist live, so editing the roster never needs
+// to re-render the lore lists.
+function updateNpcDatalist() {
+    const datalist = document.getElementById('npcNames');
+    datalist.innerHTML = '';
+    Object.keys(questData.npcs || {}).forEach(key => {
+        const option = document.createElement('option');
+        option.value = key;
+        datalist.appendChild(option);
+    });
+}
+
 function renderPrologue() {
     const container = document.getElementById('prologueList');
     container.innerHTML = '';
@@ -377,9 +464,12 @@ function renderPrologue() {
     if (!questData.prologue) questData.prologue = [];
     
     questData.prologue.forEach((item, index) => {
-        const div = createListItem(item, () => removePrologueItem(index), (value) => {
-            questData.prologue[index] = value;
-        }, PACK_LIMITS.MaxPrologueItem);
+        const entry = normalizeLoreEntry(questData.prologue, index);
+        const div = createLoreItem(entry, PACK_LIMITS.MaxPrologueItem, () => removePrologueItem(index), (value) => {
+            questData.prologue[index].npc = value;
+        }, (value) => {
+            questData.prologue[index].text = value;
+        });
         container.appendChild(div);
     });
 }
@@ -391,9 +481,12 @@ function renderEpilogue() {
     if (!questData.epilogue) questData.epilogue = [];
     
     questData.epilogue.forEach((item, index) => {
-        const div = createListItem(item, () => removeEpilogueItem(index), (value) => {
-            questData.epilogue[index] = value;
-        }, PACK_LIMITS.MaxEpilogueItem);
+        const entry = normalizeLoreEntry(questData.epilogue, index);
+        const div = createLoreItem(entry, PACK_LIMITS.MaxEpilogueItem, () => removeEpilogueItem(index), (value) => {
+            questData.epilogue[index].npc = value;
+        }, (value) => {
+            questData.epilogue[index].text = value;
+        });
         container.appendChild(div);
     });
 }
@@ -470,9 +563,12 @@ function renderLore(questIndex, questView) {
     if (!quest.description_lore) quest.description_lore = [];
 
     quest.description_lore.forEach((item, index) => {
-        const div = createListItem(item, () => removeLoreItem(questIndex, index), (value) => {
-            questData.quests[questIndex].description_lore[index] = value;
-        }, PACK_LIMITS.MaxQuestDescriptionLore);
+        const entry = normalizeLoreEntry(quest.description_lore, index);
+        const div = createLoreItem(entry, PACK_LIMITS.MaxQuestDescriptionLore, () => removeLoreItem(questIndex, index), (value) => {
+            questData.quests[questIndex].description_lore[index].npc = value;
+        }, (value) => {
+            questData.quests[questIndex].description_lore[index].text = value;
+        });
         container.appendChild(div);
     });
 }
@@ -585,6 +681,122 @@ function createCodeListItem(text, onRemove, onChange, maxLength) {
     return createListItem(text, onRemove, onChange, maxLength, 'form-control code-editor');
 }
 
+// A lore entry is { npc, text }: the speaking character and the line. The
+// speaker field autocompletes from the character roster but stays freely
+// typable, so a name missing from the roster survives to be reported by
+// validation on save instead of being silently dropped.
+function createLoreItem(entry, maxLength, onRemove, onNpc, onText) {
+    const div = document.createElement('div');
+    div.className = 'list-item lore-item';
+
+    const speakerInput = document.createElement('input');
+    speakerInput.type = 'text';
+    speakerInput.className = 'form-control lore-npc';
+    speakerInput.setAttribute('list', 'npcNames');
+    speakerInput.placeholder = 'speaking character';
+    speakerInput.maxLength = PACK_LIMITS.MaxNPCName;
+    speakerInput.value = entry.npc || '';
+    speakerInput.addEventListener('change', () => onNpc(speakerInput.value.trim()));
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'form-control';
+    textarea.rows = 2;
+    textarea.value = entry.text || '';
+    if (maxLength) {
+        textarea.maxLength = maxLength;
+    }
+    textarea.addEventListener('change', () => onText(textarea.value));
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'list-item-actions';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn-danger';
+    // Security: Static HTML content is safe
+    removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    removeBtn.addEventListener('click', onRemove);
+
+    actionsDiv.appendChild(removeBtn);
+    div.appendChild(speakerInput);
+    div.appendChild(textarea);
+    div.appendChild(actionsDiv);
+
+    return div;
+}
+
+// createNpcItem: one roster row, a name input and a pack-relative image
+// path. Key order is the display order, so edits rewrite the entry in
+// place by position rather than deleting and re-adding it.
+function createNpcItem(key, image, index) {
+    const div = document.createElement('div');
+    div.className = 'list-item npc-item';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'form-control npc-name';
+    nameInput.placeholder = 'character_key';
+    nameInput.maxLength = PACK_LIMITS.MaxNPCName;
+    nameInput.value = key;
+    nameInput.addEventListener('change', () => {
+        const name = nameInput.value.trim();
+        if (name !== key && Object.prototype.hasOwnProperty.call(questData.npcs, name)) {
+            alert(`A character named "${name}" is already in the pack`);
+            nameInput.value = key;
+            return;
+        }
+        updateNpcEntry(index, name || key, imageInput.value.trim());
+    });
+
+    const imageInput = document.createElement('input');
+    imageInput.type = 'text';
+    imageInput.className = 'form-control npc-image';
+    imageInput.placeholder = 'assets/npc-portrait.png';
+    imageInput.maxLength = PACK_LIMITS.MaxImageName;
+    imageInput.value = image;
+    imageInput.addEventListener('change', () => {
+        updateNpcEntry(index, nameInput.value.trim() || key, imageInput.value.trim());
+    });
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'list-item-actions';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn-danger';
+    // Security: Static HTML content is safe
+    removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    removeBtn.addEventListener('click', () => removeNpcItem(index));
+
+    actionsDiv.appendChild(removeBtn);
+    div.appendChild(nameInput);
+    div.appendChild(imageInput);
+    div.appendChild(actionsDiv);
+
+    return div;
+}
+
+// normalizeLoreEntry upgrades an array slot to a {npc, text} entry in place
+// before the render callbacks bind to it.
+function normalizeLoreEntry(list, index) {
+    if (typeof list[index] !== 'object' || list[index] === null || Array.isArray(list[index])) {
+        list[index] = { npc: DEFAULT_NPC_KEY, text: String(list[index] ?? '') };
+    }
+    return list[index];
+}
+
+function updateNpcEntry(index, key, image) {
+    const entries = Object.entries(questData.npcs);
+    const renamedFrom = entries[index][0];
+    entries[index] = [key, image];
+    questData.npcs = Object.fromEntries(entries);
+    // A rename must not drop the hero pointer: the renamed entry stays the
+    // player character; renderHeroNpcSelect only re-points when the pointed
+    // entry vanished entirely.
+    if (questData.hero_avatar === renamedFrom) {
+        questData.hero_avatar = key;
+    }
+    renderNpcs();
+}
+
 function createTestItem(test, questIndex, testIndex) {
     const div = document.createElement('div');
     div.className = 'test-item';
@@ -634,7 +846,7 @@ function createTestItem(test, questIndex, testIndex) {
 // ============================================================================
 function addPrologueItem() {
     if (!questData.prologue) questData.prologue = [];
-    questData.prologue.push('');
+    questData.prologue.push({ npc: DEFAULT_NPC_KEY, text: '' });
     renderPrologue();
 }
 
@@ -645,13 +857,39 @@ function removePrologueItem(index) {
 
 function addEpilogueItem() {
     if (!questData.epilogue) questData.epilogue = [];
-    questData.epilogue.push('');
+    questData.epilogue.push({ npc: DEFAULT_NPC_KEY, text: '' });
     renderEpilogue();
 }
 
 function removeEpilogueItem(index) {
     questData.epilogue.splice(index, 1);
     renderEpilogue();
+}
+
+function addNpcItem() {
+    if (!questData.npcs) questData.npcs = {};
+    if (Object.keys(questData.npcs).length >= PACK_LIMITS.MaxPackNPCs) {
+        alert(`A pack can have at most ${PACK_LIMITS.MaxPackNPCs} characters`);
+        return;
+    }
+
+    let key = 'new_character';
+    let n = 1;
+    while (Object.prototype.hasOwnProperty.call(questData.npcs, key)) {
+        n += 1;
+        key = `new_character_${n}`;
+    }
+    questData.npcs[key] = 'assets/';
+    renderNpcs();
+}
+
+function removeNpcItem(index) {
+    const entries = Object.entries(questData.npcs);
+    entries.splice(index, 1);
+    questData.npcs = Object.fromEntries(entries);
+    // A deleted hero leaves the pointer dangling; renderHeroNpcSelect
+    // re-points it at the first remaining entry.
+    renderNpcs();
 }
 
 function addQuest() {
@@ -713,7 +951,7 @@ function destroyQuestViews() {
 function addLoreItem(questIndex) {
     const quest = questData.quests[questIndex];
     if (!quest.description_lore) quest.description_lore = [];
-    quest.description_lore.push('');
+    quest.description_lore.push({ npc: DEFAULT_NPC_KEY, text: '' });
     
     const questView = document.getElementById(`view-quest-${questIndex}`);
     renderLore(questIndex, questView);
@@ -872,6 +1110,20 @@ function setupFormListeners() {
         }
     });
     
+    // Pack media pointers (top-level keys, not meta fields)
+    const backgroundEl = document.getElementById('meta-background_image');
+    if (backgroundEl) {
+        backgroundEl.addEventListener('change', () => {
+            questData.background_image = backgroundEl.value.trim();
+        });
+    }
+    const heroSelect = document.getElementById('hero-npc');
+    if (heroSelect) {
+        heroSelect.addEventListener('change', () => {
+            questData.hero_avatar = heroSelect.value;
+        });
+    }
+
     // UI Labels fields
     ['grimoire_title', 'hint_button', 'verify_button', 'verifying', 'message_success', 'message_failure', 'perfect_score_message', 'perfect_score_button_text', 'begin_adventure_button'].forEach(field => {
         const el = document.getElementById(`ui_labels-${field}`);

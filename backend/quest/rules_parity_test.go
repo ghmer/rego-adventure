@@ -532,8 +532,9 @@ func replaceAt(t *testing.T, pack map[string]any, segments []string, value any) 
 	}
 }
 
-// expandFixtureValue expands the two generator forms the fixture file uses:
-// {"count": n, "value": v} and {"$repeatChars": n, "char": c}.
+// expandFixtureValue expands the three generator forms the fixture file uses:
+// {"count": n, "value": v}, {"$repeatChars": n, "char": c} and
+// {"$repeatKeys": n, "prefix": p, "value": v}.
 func expandFixtureValue(value any) any {
 	object, ok := value.(map[string]any)
 	if !ok {
@@ -561,6 +562,16 @@ func expandFixtureValue(value any) any {
 			char = "x"
 		}
 		return strings.Repeat(char, int(total))
+	}
+
+	if repeat, ok := object["$repeatKeys"]; ok {
+		total, _ := repeat.(float64)
+		prefix, _ := object["prefix"].(string)
+		generated := make(map[string]any, int(total))
+		for i := 0; i < int(total); i++ {
+			generated[fmt.Sprintf("%s%d", prefix, i)] = expandFixtureValue(object["value"])
+		}
+		return generated
 	}
 
 	for key, item := range object {

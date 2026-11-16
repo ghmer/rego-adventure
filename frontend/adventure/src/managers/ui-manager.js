@@ -21,7 +21,7 @@
 
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { nextReveal } from '../services/reveal-service.js';
-import { DEFAULT_TEXT, SaveStatus } from '../services/constants.js';
+import { DEFAULT_TEXT, DEFAULT_NPC_KEY, DEFAULT_NPC_AVATAR_SRC, DEFAULT_HERO_AVATAR_SRC, SaveStatus } from '../services/constants.js';
 import { show, hide, setHidden, isHidden } from '../services/visibility.js';
 import { parseMarkdown } from '../services/markdown.js';
 import { initializeUiElements } from './ui-elements.js';
@@ -75,34 +75,106 @@ export class UIManager {
         uiRender.renderSupportModules(this.elements, modules);
     }
     /**
-     * Render quest lore with pagination support
-     * @param {Object} quest - Quest object containing lore
+     * Render quest lore with pagination support. Each lore entry names the
+     * npc speaking it; the pane-header avatar follows the entry on screen.
+     * @param {Object} quest - Quest object whose description_lore is a list
+     *   of {npc, text} entries
      * @param {number} currentLoreIndex - Current lore page index
+     * @param {Object.<string,string>|null} [npcImages=null] - Resolved image
+     *   sources by npc key (filled by the pack manager once the pack's
+     *   roster is preloaded); absent keys fall back to the shipped portrait
      */
-    renderLore(quest, currentLoreIndex) {
+    renderLore(quest, currentLoreIndex, npcImages = null) {
         const lore = quest.description_lore;
-        
-        if (Array.isArray(lore)) {
+
+        if (Array.isArray(lore) && lore.length > 0) {
+            const entry = lore[Math.min(currentLoreIndex, lore.length - 1)];
             if (lore.length > 1) {
                 show(this.elements.loreControls);
-                this.elements.questLore.innerHTML = parseMarkdown(lore[currentLoreIndex]);
+                this.elements.questLore.innerHTML = parseMarkdown(entry.text);
                 this.elements.lorePageIndicator.textContent = `${currentLoreIndex + 1}/${lore.length}`;
-                
+
                 this.elements.lorePrevBtn.disabled = currentLoreIndex === 0;
                 this.elements.loreNextBtn.disabled = currentLoreIndex === lore.length - 1;
             } else {
                 hide(this.elements.loreControls);
-                this.elements.questLore.innerHTML = parseMarkdown(lore[0]);
+                this.elements.questLore.innerHTML = parseMarkdown(entry.text);
             }
+            this.renderNpcAvatar(entry.npc, npcImages);
         } else {
             hide(this.elements.loreControls);
-            this.elements.questLore.innerHTML = parseMarkdown(lore);
+            this.elements.questLore.innerHTML = '';
+            this.renderNpcAvatar(null, npcImages);
         }
-        
+
         // Trigger attention animation
         this.elements.questLore.classList.remove('attention');
         void this.elements.questLore.offsetWidth; // Force reflow
         this.elements.questLore.classList.add('attention');
+    }
+
+    /**
+     * Show the portrait of the npc speaking the lore on screen. The pane
+     * header carries exactly one portrait and this method is its only
+     * writer; screens without a lore entry (and unresolved roster images)
+     * show the pack's default speaker or the shipped quest-giver portrait.
+     * @param {string|null} npcKey - npc key from the lore entry
+     * @param {Object.<string,string>|null} [npcImages=null] - Resolved
+     *   image sources by npc key
+     */
+    renderNpcAvatar(npcKey, npcImages = null) {
+        const avatar = this.elements.npcAvatar;
+        if (!avatar) return;
+
+        const key = npcKey || DEFAULT_NPC_KEY;
+        // Fallback chain: this speaker's portrait, else the pack's own
+        // default speaker (a pack whose portrait 404s reads as its
+        // quest-giver, not as the shipped placeholder), else the shipped
+        // portrait.
+        const src = npcImages?.[key] || npcImages?.[DEFAULT_NPC_KEY] || DEFAULT_NPC_AVATAR_SRC;
+
+        // Repainting the same portrait would replay the avatar's CSS
+        // transition on every lore re-render, so skip identical writes.
+        if (avatar.dataset.npcKey === key && avatar.dataset.npcSrc === src) return;
+
+        avatar.dataset.npcKey = key;
+        avatar.dataset.npcSrc = src;
+        avatar.alt = `${key.replaceAll('_', ' ')} character portrait`;
+        avatar.src = src;
+        avatar.onerror = () => {
+            avatar.onerror = null;
+            avatar.src = DEFAULT_NPC_AVATAR_SRC;
+        };
+    }
+
+    /**
+     * Show the hero's portrait in the page header. The hero is a normal
+     * roster entry named by the pack's hero_avatar, so its image resolves from
+     * the same preloaded roster map the lore pane uses; a pack without a
+     * resolvable hero reads as the shipped hero portrait.
+     * @param {string|null} heroKey - the pack's hero_avatar key
+     * @param {Object.<string,string>|null} [npcImages=null] - Resolved
+     *   image sources by npc key
+     */
+    renderHeroAvatar(heroKey, npcImages = null) {
+        const avatar = this.elements.heroAvatar;
+        if (!avatar) return;
+
+        // Fallback chain: the hero's own roster portrait, else the pack's
+        // default speaker, else the shipped hero portrait.
+        const src = npcImages?.[heroKey] || npcImages?.[DEFAULT_NPC_KEY] || DEFAULT_HERO_AVATAR_SRC;
+
+        // Skip identical writes so CSS transitions do not replay.
+        if (avatar.dataset.heroKey === heroKey && avatar.dataset.heroSrc === src) return;
+
+        avatar.dataset.heroKey = heroKey;
+        avatar.dataset.heroSrc = src;
+        avatar.alt = 'Your character avatar';
+        avatar.src = src;
+        avatar.onerror = () => {
+            avatar.onerror = null;
+            avatar.src = DEFAULT_HERO_AVATAR_SRC;
+        };
     }
 
     /**

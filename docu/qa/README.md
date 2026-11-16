@@ -9,7 +9,7 @@ Six suites run the re-run matrix that the unit tests cannot reach:
 | `session-qa.cjs` | A signed session token: renewal refused on the start screen and inside a quest | yes | yes |
 | `save-compat.cjs` | Saved states recorded by the pre-refactor app, resumed by the current one | yes | yes |
 | `editor-qa.cjs` | The quest editor as a page: identity, deletion, export rules | no | yes |
-| `cli-qa.cjs` | Processes and their output: signals, `solutionverifier`, `assetgen` rollback | yes | no |
+| `cli-qa.cjs` | Processes and their output: signals, `solutionverifier`, `assetgen` rollback, `questmigrate` and the server over a pre-v2 pack | yes | no |
 
 Run one suite by hand with `node docu/qa/<suite>.cjs`, or all of them with
 `node docu/qa/run-qa.cjs`. The runner builds the server and the two Go QA tools
@@ -39,7 +39,7 @@ clocks, and the profiled columns come from timing each `waitFor*` call in the ru
 | `spa-qa` | 13.0 s | 8.5 s | 1 × 2000 ms (a predicate the app can no longer satisfy) |
 | `session-qa` | 5.9 s | 3.2 s | 2.4 s waiting out a token expiry (deliberate: the suite *is* the expiry) |
 | `editor-qa` | 4.3 s | 1.2 s | 1 × 1200 ms (waiting for a download that must not arrive) |
-| `cli-qa` | 3.0 s | – | – |
+| `cli-qa` | 1.3 s | – | – |
 | `save-compat` | 2.5 s | 0.4 s | – |
 
 Three separate reasons add up to the 1-2 minutes per suite a CI runner reports.

@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-// Browser QA for the dialog machine: the seven <dialog> elements and the tutorial
+// Browser QA for the dialog machine: the eight <dialog> elements and the tutorial
 // prompt, walked against the dismissal policy that ModalManager states at its
 // class - open mode, backdrop, ESC, focus on open, and what a close cleans up.
 //
@@ -325,6 +325,63 @@ async function main() {
                 const afterEsc = await dialogOpen(page, item.id);
                 report.check(`${item.id} closes under ESC`, afterEsc.open === false, JSON.stringify(afterEsc));
             }
+
+
+            phase = 'the two avatars open the portrait dialog';
+            // The pane portrait of the speaking character and the header hero
+            // portrait: the click opens the dialog showing the same resolved
+            // asset, not a refetched or differently sized one.
+            await page.click('.npc-avatar');
+            await page.waitForSelector('#portrait-modal[open]', { timeout: 1500 }).catch(() => {});
+            const openedPortrait = await dialogOpen(page, 'portrait-modal');
+            report.check(
+                'clicking the speaking character opens the portrait dialog, at its close button',
+                openedPortrait.open && openedPortrait.modal &&
+                openedPortrait.focus === 'button#close-portrait-btn',
+                JSON.stringify(openedPortrait)
+            );
+            // The src property on both sides: it is the resolved URL the
+            // element actually loads, attribute for the plain path the pack
+            // manager wrote and blob for a token-protected one.
+            const npcCopy = await page.evaluate(() => ({
+                shown: document.getElementById('portrait-modal-image').src,
+                avatar: document.querySelector('.npc-avatar').src
+            }));
+            report.check(
+                'the dialog shows the avatar own resolved source, not a refetch',
+                npcCopy.shown === npcCopy.avatar,
+                JSON.stringify(npcCopy)
+            );
+            await page.keyboard.press('Escape');
+            await dialogClosed(page, 'portrait-modal');
+
+            await page.click('.avatar');
+            await page.waitForSelector('#portrait-modal[open]', { timeout: 1500 }).catch(() => {});
+            const heroCopy = await page.evaluate(() => ({
+                shown: document.getElementById('portrait-modal-image').src,
+                avatar: document.querySelector('.avatar').src
+            }));
+            report.check(
+                'the hero portrait opens too, showing the hero image',
+                heroCopy.shown === heroCopy.avatar,
+                JSON.stringify(heroCopy)
+            );
+            await page.click('#close-portrait-btn');
+            report.check(
+                'the portrait dialog closes from its button',
+                (await dialogOpen(page, 'portrait-modal')).open === false
+            );
+
+            // The avatars are keyboard-operable: focus one and press Enter.
+            await page.evaluate(() => document.querySelector('.npc-avatar').focus());
+            await page.keyboard.press('Enter');
+            await page.waitForSelector('#portrait-modal[open]', { timeout: 1500 }).catch(() => {});
+            report.check(
+                'Enter on a focused avatar opens its portrait',
+                (await dialogOpen(page, 'portrait-modal')).open === true
+            );
+            await page.keyboard.press('Escape');
+            await dialogClosed(page, 'portrait-modal');
 
             phase = 'what the pack payload carries, and what it does not';
             const payload = await page.evaluate(async (packId) => {

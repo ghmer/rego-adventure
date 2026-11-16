@@ -158,7 +158,8 @@ describe('progression source boundaries', () => {
         // through the asset service, which decides between a blob URL and
         // the plain path.
         const owners = [
-            ['pack-manager.js', 'loadPackAssets'],
+            ['pack-manager.js', 'loadPackImage'],
+            ['pack-manager.js', 'loadNpcImages'],
             ['audio-manager.js', 'setupMusic'],
             ['modal-manager.js', 'setPackImage']
         ];

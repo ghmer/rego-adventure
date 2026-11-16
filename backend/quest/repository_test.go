@@ -3,6 +3,7 @@ package quest
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -70,6 +71,67 @@ func TestLoadPack_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestCheckFormatVersion(t *testing.T) {
+	tests := []struct {
+		name        string
+		packJSON    string
+		errFragment string
+	}{
+		// A pre-v2 pack carries no version key at all; the error must name
+		// the migration tool as the remedy, not just the missing field.
+		{"missing version key", `{"meta": {}}`, `has no "version" key`},
+		{"older format version", `{"version": 1}`, "format version 1 is no longer loaded"},
+		{"newer format version", `{"version": 3}`, "newer than this server understands"},
+		{"non-numeric version", `{"version": "2"}`, "cannot read the format version"},
+		{"current format version", `{"version": 2}`, ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := CheckFormatVersion([]byte(tc.packJSON))
+			if tc.errFragment == "" {
+				if err != nil {
+					t.Fatalf("expected no error, got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected an error mentioning %q, got none", tc.errFragment)
+			}
+			if !strings.Contains(err.Error(), tc.errFragment) {
+				t.Errorf("expected an error mentioning %q, got: %v", tc.errFragment, err)
+			}
+			if (tc.name == "missing version key" || tc.name == "older format version") &&
+				!strings.Contains(err.Error(), "cmd/questmigrate") {
+				t.Errorf("expected the error to point at cmd/questmigrate, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestLoadPack_RefusesPreV2PackWithMigrationMessage pins the promise of the
+// format gate: an old pack is refused, and the message states the remedy,
+// because the server carries no migration logic of its own.
+func TestLoadPack_RefusesPreV2PackWithMigrationMessage(t *testing.T) {
+	repo := NewQuestRepository()
+	preV2 := `{"meta": {"title": "Old", "description": "Old pack", "genre": "fantasy"},
+		"ui_labels": {"grimoire_title": "G", "hint_button": "H", "verify_button": "V"},
+		"prologue": ["Once upon a time"],
+		"epilogue": ["Happily ever after"],
+		"quests": []}`
+
+	err := repo.LoadPack("old-pack", []byte(preV2))
+	if err == nil {
+		t.Fatal("expected a pre-v2 pack to be refused, got none")
+	}
+	if !strings.Contains(err.Error(), "cmd/questmigrate") {
+		t.Errorf("expected the error to name cmd/questmigrate, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "cannot unmarshal") {
+		t.Errorf("expected the format gate to answer before the decoder, got a decoder error: %v", err)
+	}
+}
+
 func TestLoadPack_ValidationFailure(t *testing.T) {
 	repo := NewQuestRepository()
 	pack := createValidQuestPack()
@@ -122,14 +184,14 @@ var loadPackValidationScenarios = []struct {
 	{
 		name: "Empty Prologue",
 		modifyPack: func(p *QuestPack) {
-			p.Prologue = []string{}
+			p.Prologue = []LoreEntry{}
 		},
 		expectError: true,
 	},
 	{
 		name: "Empty Epilogue",
 		modifyPack: func(p *QuestPack) {
-			p.Epilogue = []string{}
+			p.Epilogue = []LoreEntry{}
 		},
 		expectError: true,
 	},

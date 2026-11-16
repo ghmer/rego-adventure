@@ -49,13 +49,18 @@ import { handleApiError } from '../services/error-service.js';
  */
 function packData(packId, questCount = 2) {
     return {
+        version: 2,
+        npcs: { default_npc: 'assets/npc-questgiver.png', hero: 'assets/hero-avatar.png' },
+        hero_avatar: 'hero',
+        background_image: 'assets/bg-adventure.jpg',
         quests: Array.from({ length: questCount }, (_, i) => ({
             id: i + 1,
             title: `${packId} quest ${i + 1}`,
+            description_lore: [{ npc: 'default_npc', text: `${packId} lore ${i + 1}` }],
             hints_count: 1
         })),
-        prologue: [`${packId} prologue`],
-        epilogue: [`${packId} epilogue`],
+        prologue: [{ npc: 'default_npc', text: `${packId} prologue` }],
+        epilogue: [{ npc: 'default_npc', text: `${packId} epilogue` }],
         meta: { title: `${packId} title` },
         ui_labels: {
             grimoire_title: `${packId} grimoire`,
@@ -76,6 +81,8 @@ function createUi() {
         updateHintButtonText: vi.fn(),
         updateTitles: vi.fn(),
         renderPerfectScoreButton: vi.fn(),
+        renderNpcAvatar: vi.fn(),
+        renderHeroAvatar: vi.fn(),
         resetInterfaceMinimized: vi.fn(),
         showScreen: vi.fn(),
         updateScoreDisplay: vi.fn()
@@ -191,50 +198,76 @@ describe('PackManager', () => {
         it('paints pack media from blob URLs when authentication is enabled', async () => {
             const fetchMock = vi.fn(async () => new Response('png-bytes', { status: 200 }));
             const restore = enableAuth(fetchMock);
-            const { pack } = createFixture();
+            const { pack, state, ui } = createFixture();
+            state.loadPackData(packData('alpha'));
             mountAvatars();
             pack.preloadImage = vi.fn(async src => src);
 
             await pack.loadPackAssets('alpha', pack.loadSeq);
 
-            expect(fetchMock).toHaveBeenCalledWith('/quests/alpha/assets/npc-questgiver.png',
+            expect(fetchMock).toHaveBeenCalledWith('/quests/alpha/assets/bg-adventure.jpg',
                 expect.objectContaining({ headers: {} }));
-            expect(document.querySelector('.npc-avatar').getAttribute('src')).toBe('blob:test-1');
-            expect(document.querySelector('.avatar').getAttribute('src')).toBe('blob:test-2');
-            expect(document.body.style.backgroundImage).toContain('blob:test-3');
+            expect(document.body.style.backgroundImage).toContain('blob:test-1');
+            // The avatar portraits are painted by the UI manager, which owns
+            // the elements; the pack manager only hands it resolved sources.
+            // The hero rides the roster: hero_avatar names a declared entry.
+            expect(ui.renderNpcAvatar).toHaveBeenCalledWith('default_npc', {
+                default_npc: 'blob:test-2',
+                hero: 'blob:test-3'
+            });
+            expect(ui.renderHeroAvatar).toHaveBeenCalledWith('hero', {
+                default_npc: 'blob:test-2',
+                hero: 'blob:test-3'
+            });
             restore();
         });
 
         it('keeps the plain path when resolution fails, letting the element error handling decide', async () => {
             const fetchMock = vi.fn(async () => new Response('denied', { status: 401 }));
             const restore = enableAuth(fetchMock);
-            const { pack } = createFixture();
-            const { npc } = mountAvatars();
+            const { pack, state, ui } = createFixture();
+            state.loadPackData(packData('alpha'));
+            mountAvatars();
             pack.preloadImage = vi.fn(async src => src);
 
             await pack.loadPackAssets('alpha', pack.loadSeq);
 
             expect(fetchMock).toHaveBeenCalledTimes(3);
-            expect(npc.getAttribute('src')).toBe('/quests/alpha/assets/npc-questgiver.png');
+            expect(ui.renderNpcAvatar).toHaveBeenCalledWith('default_npc', {
+                default_npc: '/quests/alpha/assets/npc-questgiver.png',
+                hero: '/quests/alpha/assets/hero-avatar.png'
+            });
             restore();
         });
 
-        it('clears the public fallback handler before applying it', async () => {
-            const fetchMock = vi.fn(async () => new Response('denied', { status: 401 }));
+        it('leaves a roster image that cannot load out of the map', async () => {
+            const fetchMock = vi.fn(async url =>
+                (url.endsWith('npc-ghost.png')
+                    ? new Response('gone', { status: 404 })
+                    : new Response('png-bytes', { status: 200 })));
             const restore = enableAuth(fetchMock);
-            const { pack } = createFixture();
-            const { npc } = mountAvatars();
-            pack.preloadImage = vi.fn(async src => src);
+            const { pack, state, ui } = createFixture();
+            state.loadPackData(packData('alpha'));
+            state.npcs = {
+                default_npc: 'assets/npc-questgiver.png',
+                ghost: 'assets/npc-ghost.png'
+            };
+            mountAvatars();
+            // Only the ghost portrait fails: its lore entries show the
+            // fallback portrait instead of a broken image mid-story.
+            pack.preloadImage = vi.fn(async src =>
+                (String(src).endsWith('npc-ghost.png') ? null : src));
 
             await pack.loadPackAssets('alpha', pack.loadSeq);
-            npc.dispatchEvent(new Event('error'));
 
-            expect(npc.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
-            expect(npc.onerror).toBeNull();
-
-            npc.dispatchEvent(new Event('error'));
-
-            expect(npc.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
+            expect(ui.renderNpcAvatar).toHaveBeenCalledWith('default_npc', {
+                default_npc: 'blob:test-2'
+            });
+            // The roster in this test has no hero entry: the ui fallback
+            // chain decides what an unresolved hero reads as.
+            expect(ui.renderHeroAvatar).toHaveBeenCalledWith('hero', {
+                default_npc: 'blob:test-2'
+            });
             restore();
         });
 
@@ -243,19 +276,22 @@ describe('PackManager', () => {
             const fetchMock = vi.fn(() => new Promise(resolve => deferreds.push(resolve)));
             const restore = enableAuth(fetchMock);
             const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-            const { pack } = createFixture();
+            const { pack, state } = createFixture();
+            state.npcs = { default_npc: 'assets/npc-questgiver.png' };
+            state.backgroundImage = 'assets/bg-adventure.jpg';
+            state.heroNPC = 'hero';
             mountAvatars();
             pack.preloadImage = vi.fn(async src => src);
 
             const inFlight = pack.loadPackAssets('alpha', pack.loadSeq);
-            for (let flush = 0; flush < 20 && deferreds.length < 3; flush++) {
+            for (let flush = 0; flush < 20 && deferreds.length < 2; flush++) {
                 await Promise.resolve();
             }
             deferreds.forEach(resolve => resolve(new Response('png-bytes', { status: 200 })));
             pack.loadSeq++;
             await inFlight;
 
-            expect(revokeSpy).toHaveBeenCalledTimes(3);
+            expect(revokeSpy).toHaveBeenCalledTimes(2);
             revokeSpy.mockRestore();
             restore();
         });
@@ -449,12 +485,7 @@ describe('PackManager', () => {
         });
 
         it('stops painting assets once the generation moved on', async () => {
-            const { pack } = createFixture();
-            const npc = document.createElement('img');
-            npc.className = 'npc-avatar';
-            const hero = document.createElement('img');
-            hero.className = 'avatar';
-            document.body.append(npc, hero);
+            const { pack, state, ui } = createFixture();
 
             pack.preloadImage = vi.fn(async src => src);
 
@@ -464,16 +495,29 @@ describe('PackManager', () => {
             await pack.loadPackAssets('alpha', seq);
             expect(await inFlight).toBe(false);
 
-            expect(npc.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
-            expect(hero.getAttribute('src')).toBe('/public/assets/hero-avatar.png');
             expect(document.body.style.backgroundImage).toBe('');
             expect(themeVariants()).toEqual([]);
+            // The reset fell the portraits back to the shipped ones...
+            expect(ui.renderNpcAvatar).toHaveBeenLastCalledWith(null, null);
+            expect(ui.renderHeroAvatar).toHaveBeenLastCalledWith(null, null);
 
+            // The superseded load never landed its pack data, so seed the
+            // roster the winner is expected to paint from.
+            state.npcs = { default_npc: 'assets/npc-questgiver.png', hero: 'assets/hero-avatar.png' };
+            state.heroNPC = 'hero';
             await pack.loadPackAssets('alpha', pack.loadSeq);
 
-            expect(npc.getAttribute('src')).toBe('/quests/alpha/assets/npc-questgiver.png');
-            expect(hero.getAttribute('src')).toBe('/quests/alpha/assets/hero-avatar.png');
             expect(document.body.style.backgroundImage).toContain('/quests/alpha/assets/bg-adventure.jpg');
+            // ...and the winner paints it from the loaded roster. The hero
+            // avatar reads from the same roster map the lore pane uses.
+            expect(ui.renderNpcAvatar).toHaveBeenLastCalledWith('default_npc', {
+                default_npc: '/quests/alpha/assets/npc-questgiver.png',
+                hero: '/quests/alpha/assets/hero-avatar.png'
+            });
+            expect(ui.renderHeroAvatar).toHaveBeenLastCalledWith('hero', {
+                default_npc: '/quests/alpha/assets/npc-questgiver.png',
+                hero: '/quests/alpha/assets/hero-avatar.png'
+            });
         });
     });
 

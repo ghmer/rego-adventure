@@ -192,7 +192,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 The QA suites in `docu/qa/` start their own server on a free port and drive a real browser through
 Playwright, which is resolved from the installed toolchain (a devDependency pinned in the manifest
 and lockfile). Six suites:
-`spa-qa` (the adventure interface), `dialog-qa` (the seven dialogs), `editor-qa` (the quest editor),
+`spa-qa` (the adventure interface), `dialog-qa` (the eight dialogs), `editor-qa` (the quest editor),
 `save-compat` (saved-state compatibility), `cli-qa` (the command-line tools) and `session-qa` (a
 signed session token that expires during a quest, on the start screen and inside a quest). They run by
 hand against the change they test: each keeps its generated quest packs inside a run root of its own
@@ -223,6 +223,7 @@ repository only tracks as a placeholder.
 ├── cmd/
 │   ├── assetgen/          # Quest pack asset generator
 │   ├── importmapgen/      # Quest editor import map generator
+│   ├── questmigrate/      # Quest pack format migrator (pre-v2 packs)
 │   └── solutionverifier/  # Quest pack solution verifier
 ├── backend/
 │   ├── config/            # Configuration management
@@ -263,10 +264,9 @@ repository only tracks as a placeholder.
 | `AUTH_ALLOWED_ALGORITHMS` | No          | `RS256` | Comma-separated list of allowed JWT signing algorithms (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512`, `EdDSA`) |
 | `TRUSTED_PROXIES`         | No          | -       | Comma-separated CIDR ranges for trusted proxies                                                                                                   |
 | `SHOW_IMPRESSUM`          | No          | `false` | Enable impressum/legal notice page link in footer                                                                                                 |
-| `LOG_LEVEL`               | No          | `info`  | Log level: `debug`, `info`, `warn`, or `error`                                                                                                     |
+| `LOG_LEVEL`               | No          | `info`  | Log level: `debug`, `info`, `warn`, or `error`                                                                                                    |
 
 > **Note:** `DOMAIN` is normalized to its origin (scheme + host); any path or trailing slash is stripped so CORS matching (which compares against the browser `Origin` header) cannot silently break.
-
 > **Note:** When deploying behind a proxy or load balancer (e.g., nginx, Kubernetes ingress, cloud load balancer), it is important to set `TRUSTED_PROXIES` to ensure accurate client IP detection. Without this configuration, the application will see the proxy's IP address instead of the actual client IP. Set this to the CIDR range(s) of your trusted proxy infrastructure (e.g., `TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12"`).
 
 ### Authentication
@@ -362,6 +362,12 @@ Quest packs are defined in JSON format in a dedicated folder under [`frontend/qu
 - Quest definitions with test cases
 - Theme-specific assets (images, audio, styles)
 
+Pack files declare their format with a top-level `version` key; this build
+loads version 2, the format with the `npcs` character roster and `{npc, text}`
+lore entries. Older packs are refused at pack scan with a log line naming the
+pack and the migration tool; see [`docu/quests.md`](docu/quests.md) and the
+Quest Pack Migrator below.
+
 ### What the Browser Receives
 
 `GET /api/packs/{packId}` serves a projection of the pack, not the pack file. It omits the solution,
@@ -419,6 +425,37 @@ go run cmd/assetgen/main.go -theme western -output frontend/quests
   - `bg-music.m4a` - Silent placeholder track for background music
 
 All generated images are solid color placeholders. Replace with theme-appropriate artwork before deployment.
+
+### Quest Pack Migrator
+
+Packs written before format version 2 - no `version` key, narrative lines as
+plain strings, no `npcs` roster - are refused at scan until they are brought
+up to date. The migrator rewrites a pack's `quests.json` in place, wrapping
+every narrative string in a `{npc, text}` entry spoken by `default_npc` and
+pointing that speaker at the pack's `npc-questgiver.png`, so the pack plays
+as it did before. It also declares the pack's media pointers: `hero_avatar`
+naming the roster entry that holds the player avatar (`assets/
+hero-avatar.png`), and `background_image` (`assets/bg-adventure.jpg`). The
+original is kept as `quests.json.v1.bak`, the result is loaded through the
+server's own validation before anything is written, and already-current
+packs are skipped (packs that only miss the media pointers are healed), so a
+rerun is free.
+
+**Location:** [`cmd/questmigrate/`](cmd/questmigrate/)
+
+**Usage:**
+
+```bash
+go run ./cmd/questmigrate -dir <pack-dir|parent-dir> [-dry-run]
+```
+
+**Example:**
+
+```bash
+go run ./cmd/questmigrate -dir frontend/quests
+
+# migrates every pack folder below frontend/quests
+```
 
 ### Mounting Quest Packs
 

@@ -4,7 +4,7 @@ A browser-based tool for creating and editing quest packs for the Rego Adventure
 
 ## What It Does
 
-The quest editor loads `quests.json` files, lets you edit them, and saves them back out. It handles all the quest pack structure: metadata, UI labels, prologue/epilogue text, individual quests, and test cases.
+The quest editor loads `quests.json` files, lets you edit them, and saves them back out. It handles all the quest pack structure: metadata, UI labels, the character roster, prologue/epilogue text, individual quests, and test cases. It opens format-version-2 packs only: a pre-v2 file is refused with a pointer to the migration tool (`cmd/questmigrate`), never quietly rewritten.
 
 ## Gallery
 
@@ -25,10 +25,15 @@ The quest editor loads `quests.json` files, lets you edit them, and saves them b
 
 **Global Settings:**
 
-- Meta Info - title, description, genre, objectives
+- Meta Info - title, description, genre, objectives, background image, and the
+  optional images the dialogs show (success/failure icons, perfect-score image)
+  declared as pack paths so any format (jpeg, webp) works
 - UI Labels - button text, messages, theme-specific labels
-- Prologue - intro story elements (array of text blocks)
-- Epilogue - ending story elements (array of text blocks)
+- Characters - the roster of speaking characters and the pack's player
+  character (`hero_avatar`): the game shows that entry's portrait as the
+  player's avatar, and the entry can speak in lore like any other character
+- Prologue - intro story elements (each line names the character speaking it)
+- Epilogue - ending story elements (each line names the character speaking it)
 
 **Quests:**
 
@@ -90,7 +95,12 @@ A new test is proposed an ID the quest does not use yet. A blank, non-numeric or
 **Save** refuses to export a pack that the backend would refuse, and lists every
 problem it found in a panel under the top bar instead of one per attempt. The
 rules it checks are the same ones the server enforces when a pack is loaded -
-required text, length limits, at least one lore entry and one test case per
+required text, length limits, a format version the build understands, a
+`default_npc` in the character roster, a `hero_avatar` naming a declared roster
+entry, a `background_image` under the pack's `assets/` folder, the optional
+image overrides when a pack declares them (`icon_success_image`,
+`icon_failure_image`, `perfect_score_image`), lore entries
+that name a declared character, at least one lore entry and one test case per
 quest, quest IDs numbered 1, 2, 3 in order, unique test IDs - and they are
 declared once in [`docu/quest-editor/rules.js`](docu/quest-editor/rules.js).
 `backend/quest/rules_parity_test.go` compares that list with the server's own

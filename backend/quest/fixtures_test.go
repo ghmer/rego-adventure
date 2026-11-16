@@ -42,11 +42,30 @@ func verificationTestCases() []TestCase {
 	}
 }
 
+// validNPCs returns the minimal npc roster the shared fixtures speak with.
+// Tests that need another speaker add it to the returned map.
+func validNPCs() map[string]string {
+	return map[string]string{
+		DefaultNPCKey: "assets/npc-questgiver.png",
+		"hero":        "assets/hero-avatar.png",
+	}
+}
+
+// loreEntries wraps texts as lore entries spoken by the default npc, for
+// tests that vary lore content without caring about speakers.
+func loreEntries(texts ...string) []LoreEntry {
+	entries := make([]LoreEntry, len(texts))
+	for i, text := range texts {
+		entries[i] = LoreEntry{NPC: DefaultNPCKey, Text: text}
+	}
+	return entries
+}
+
 func createValidQuest() Quest {
 	return Quest{
 		ID:              1,
 		Title:           "Test Quest",
-		DescriptionLore: []string{"Lore entry 1", "Lore entry 2"},
+		DescriptionLore: loreEntries("Lore entry 1", "Lore entry 2"),
 		DescriptionTask: "This is the task description",
 		Manual: Manual{
 			DataModel:    `{"type": "object"}`,
@@ -64,7 +83,14 @@ func createValidQuest() Quest {
 
 func createValidQuestPack() QuestPack {
 	return QuestPack{
-		ID: "test-pack",
+		ID:           "test-pack",
+		Version:      FormatVersion,
+		NPCs:         validNPCs(),
+		HeroNPC:      "hero",
+		BackImage:    "assets/bg-adventure.jpg",
+		IconSuccess:  "assets/icon-success.png",
+		IconFailure:  "assets/icon-failure.png",
+		PerfectScore: "assets/perfect_score.png",
 		Meta: MetaData{
 			Title:            "Test Pack Title",
 			Description:      "A test quest pack description",
@@ -82,8 +108,8 @@ func createValidQuestPack() QuestPack {
 			PerfectScoreButtonText: "Continue",
 			BeginAdventureButton:   "Begin Adventure",
 		},
-		Prologue: []string{"Welcome, adventurer!", "Your journey begins here."},
-		Epilogue: []string{"Congratulations!", "You have completed all quests."},
+		Prologue: loreEntries("Welcome, adventurer!", "Your journey begins here."),
+		Epilogue: loreEntries("Congratulations!", "You have completed all quests."),
 		Quests:   []Quest{createValidQuest()},
 	}
 }

@@ -628,4 +628,183 @@ describe('ui-manager', () => {
             });
         });
     });
+
+    describe('lore and the speaker portrait', () => {
+        const ROSTER = {
+            chief: '/quests/p/assets/chief.png',
+            informant: '/quests/p/assets/characters/informant.png',
+            default_npc: '/quests/p/assets/quest-giver.png'
+        };
+
+        /**
+         * Build a UIManager over the lore pane, its controls and the
+         * pane-header avatar.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createLoreUi() {
+            document.body.innerHTML = `
+                <img class="npc-avatar" src="/public/assets/npc-questgiver.png"
+                     alt="Quest giver character providing guidance">
+                <div id="quest-lore"></div>
+                <div id="lore-controls" class="hidden">
+                    <button id="lore-prev-btn"></button>
+                    <span id="lore-page-indicator"></span>
+                    <button id="lore-next-btn"></button>
+                </div>
+                <div id="editor-pane"></div>
+                <textarea id="editor"></textarea>
+            `;
+            return new UIManager({ textarea: document.getElementById('editor') });
+        }
+
+        const avatar = () => document.querySelector('.npc-avatar');
+
+        it('shows the text and speaker of the current lore page', () => {
+            const ui = createLoreUi();
+            const quest = {
+                description_lore: [
+                    { npc: 'chief', text: 'We got a problem.' },
+                    { npc: 'informant', text: 'It was the butler.' }
+                ]
+            };
+
+            ui.renderLore(quest, 0, ROSTER);
+
+            expect(ui.elements.questLore.textContent).toContain('got a problem');
+            expect(ui.elements.lorePageIndicator.textContent).toBe('1/2');
+            expect(avatar().getAttribute('src')).toBe('/quests/p/assets/chief.png');
+            expect(avatar().getAttribute('alt')).toBe('chief character portrait');
+
+            ui.renderLore(quest, 1, ROSTER);
+
+            expect(ui.elements.questLore.textContent).toContain('butler');
+            expect(avatar().getAttribute('src')).toBe('/quests/p/assets/characters/informant.png');
+        });
+
+        it('hides the pagination controls of a single lore page', () => {
+            const ui = createLoreUi();
+
+            ui.renderLore({ description_lore: [{ npc: 'chief', text: 'One line only.' }] }, 0, ROSTER);
+
+            expect(ui.elements.questLore.textContent).toContain('One line only');
+            expect(ui.elements.loreControls.classList.contains('hidden')).toBe(true);
+        });
+
+        it('shows the pack default speaker when the lore screen has no entry', () => {
+            const ui = createLoreUi();
+
+            ui.renderLore({ description_lore: [] }, 0, ROSTER);
+
+            expect(ui.elements.questLore.innerHTML).toBe('');
+            expect(avatar().getAttribute('src')).toBe('/quests/p/assets/quest-giver.png');
+        });
+
+        it('falls back to the pack default speaker for a portrait that did not resolve', () => {
+            const ui = createLoreUi();
+
+            // The roster holds chief only: informant's portrait failed to
+            // preload, so its line shows the quest-giver, not a broken image.
+            ui.renderLore(
+                { description_lore: [{ npc: 'informant', text: 'Missing portrait.' }] },
+                0,
+                { chief: ROSTER.chief, default_npc: ROSTER.default_npc }
+            );
+
+            expect(avatar().getAttribute('src')).toBe(ROSTER.default_npc);
+        });
+
+        it('falls back to the shipped portrait without any roster', () => {
+            const ui = createLoreUi();
+
+            ui.renderLore({ description_lore: [{ npc: 'chief', text: 'No pack loaded.' }] }, 0, null);
+
+            expect(avatar().getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
+        });
+
+        it('applies the shipped portrait once when a roster image fails at the element', () => {
+            const ui = createLoreUi();
+
+            ui.renderNpcAvatar('chief', ROSTER);
+            const el = avatar();
+            el.dispatchEvent(new Event('error'));
+
+            expect(el.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
+            expect(el.onerror).toBeNull();
+
+            el.dispatchEvent(new Event('error'));
+            expect(el.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
+        });
+    });
+
+    describe('the hero avatar', () => {
+        const ROSTER = {
+            hero: '/quests/p/assets/hero.png',
+            default_npc: '/quests/p/assets/quest-giver.png'
+        };
+
+        /**
+         * Build a UIManager over the page-header hero avatar.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createHeroUi() {
+            document.body.innerHTML = `
+                <img class="avatar" src="/public/assets/hero-avatar.png"
+                     alt="Your character avatar">
+                <div id="editor-pane"></div>
+                <textarea id="editor"></textarea>
+            `;
+            return new UIManager({ textarea: document.getElementById('editor') });
+        }
+
+        const avatar = () => document.querySelector('.avatar');
+
+        it('paints the hero from its roster entry, named by hero_avatar', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar('hero', ROSTER);
+
+            expect(avatar().getAttribute('src')).toBe(ROSTER.hero);
+            expect(avatar().getAttribute('alt')).toBe('Your character avatar');
+        });
+
+        it('does not rewrite an identical portrait', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar('hero', ROSTER);
+            avatar().src = ''; // a direct write the next call must not replay
+            ui.renderHeroAvatar('hero', ROSTER);
+
+            expect(avatar().getAttribute('src')).toBe('');
+        });
+
+        it('falls back to the pack default speaker when the hero entry did not resolve', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar('hero', { default_npc: ROSTER.default_npc });
+
+            expect(avatar().getAttribute('src')).toBe(ROSTER.default_npc);
+        });
+
+        it('falls back to the shipped hero portrait without a roster', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar(null, null);
+
+            expect(avatar().getAttribute('src')).toBe('/public/assets/hero-avatar.png');
+        });
+
+        it('applies the shipped portrait once when a hero image fails at the element', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar('hero', ROSTER);
+            const el = avatar();
+            el.dispatchEvent(new Event('error'));
+
+            expect(el.getAttribute('src')).toBe('/public/assets/hero-avatar.png');
+            expect(el.onerror).toBeNull();
+
+            el.dispatchEvent(new Event('error'));
+            expect(el.getAttribute('src')).toBe('/public/assets/hero-avatar.png');
+        });
+    });
 });

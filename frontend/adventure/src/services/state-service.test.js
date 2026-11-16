@@ -821,4 +821,122 @@ describe('state-service', () => {
             expect(packed.grimoires[1]).toBe('package saved');
         });
     });
+
+    describe('npc roster and lore speaker', () => {
+        function loadedState(packExtra) {
+            const state = new GameState();
+            state.setCurrentPack(PACK_ID);
+            state.loadPackData({
+                quests: [{ id: 1, description_lore: [{ npc: 'chief', text: 'One' }, { npc: 'informant', text: 'Two' }] }],
+                prologue: [{ npc: 'default_npc', text: 'Once' }],
+                epilogue: [],
+                meta: null,
+                ui_labels: {},
+                ...packExtra
+            });
+            return state;
+        }
+
+        it('carries the roster and holds no resolved images before the pack manager fills them', () => {
+            const state = loadedState({ npcs: { default_npc: 'assets/npc-questgiver.png' } });
+
+            expect(state.npcs).toEqual({ default_npc: 'assets/npc-questgiver.png' });
+            expect(state.npcImages).toEqual({});
+        });
+
+        it('carries the hero pointer and the background path a pack declares', () => {
+            const state = loadedState({
+                npcs: { default_npc: 'assets/npc-questgiver.png', hero: 'assets/hero-avatar.png' },
+                hero_avatar: 'hero',
+                background_image: 'assets/bg-adventure.jpg'
+            });
+
+            expect(state.heroNPC).toBe('hero');
+            expect(state.backgroundImage).toBe('assets/bg-adventure.jpg');
+        });
+
+        it('carries the optional image overrides and clears them with the pack', () => {
+            const state = loadedState({
+                icon_success_image: 'assets/icon-success.jpg',
+                icon_failure_image: 'assets/icon-failure.jpg',
+                perfect_score_image: 'assets/perfect_score.jpg'
+            });
+
+            expect(state.iconSuccessImage).toBe('assets/icon-success.jpg');
+            expect(state.iconFailureImage).toBe('assets/icon-failure.jpg');
+            expect(state.perfectScoreImage).toBe('assets/perfect_score.jpg');
+
+            state.loadPackData({ quests: [], prologue: [], epilogue: [], meta: null, ui_labels: {} });
+
+            expect(state.iconSuccessImage).toBeNull();
+            expect(state.iconFailureImage).toBeNull();
+            expect(state.perfectScoreImage).toBeNull();
+        });
+
+        it('a pack without the optional image overrides keeps the shipped filenames', () => {
+            const state = loadedState({});
+
+            expect(state.iconSuccessImage).toBeNull();
+            expect(state.iconFailureImage).toBeNull();
+            expect(state.perfectScoreImage).toBeNull();
+        });
+
+        it('a new pack load clears the hero pointer and the background path', () => {
+            const state = loadedState({ hero_avatar: 'hero', background_image: 'assets/bg-adventure.jpg' });
+
+            state.loadPackData({ quests: [], prologue: [], epilogue: [], meta: null, ui_labels: {} });
+
+            expect(state.heroNPC).toBeNull();
+            expect(state.backgroundImage).toBeNull();
+        });
+
+        it('a new pack load replaces the roster and drops resolved images', () => {
+            const state = loadedState({ npcs: { default_npc: 'assets/npc-questgiver.png' } });
+            state.npcImages = { default_npc: 'blob:stale' };
+
+            state.loadPackData({ quests: [], prologue: [], epilogue: [], meta: null, ui_labels: {} });
+
+            expect(state.npcs).toEqual({});
+            expect(state.npcImages).toEqual({});
+        });
+
+        it('rolling back a failed pack entry drops the roster and the resolved images', () => {
+            const state = loadedState({ npcs: { default_npc: 'assets/npc-questgiver.png' } });
+            state.npcImages = { default_npc: 'blob:x' };
+
+            state.rollbackPackEntry();
+
+            expect(state.npcs).toEqual({});
+            expect(state.npcImages).toEqual({});
+        });
+
+        it('the speaker follows the lore page under the cursor', () => {
+            const state = loadedState({ npcs: {} });
+            state.currentQuest = state.questsMap.get(1);
+            state.currentLoreIndex = 0;
+            expect(state.currentLoreSpeaker()).toBe('chief');
+
+            state.currentLoreIndex = 1;
+            expect(state.currentLoreSpeaker()).toBe('informant');
+        });
+
+        it('the narrative stage speaker comes from the list handed to the screen', () => {
+            const state = loadedState({ npcs: {} });
+            state.currentQuest = { description_lore: state.prologue };
+            state.currentLoreIndex = 0;
+
+            expect(state.currentLoreSpeaker()).toBe('default_npc');
+        });
+
+        it('screens without a lore entry answer with the default speaker', () => {
+            const state = loadedState({ npcs: {} });
+            expect(state.currentLoreSpeaker()).toBe('default_npc');
+
+            state.currentQuest = { description_lore: [] };
+            expect(state.currentLoreSpeaker()).toBe('default_npc');
+
+            state.currentQuest = { description_lore: [{ text: 'no speaker' }] };
+            expect(state.currentLoreSpeaker()).toBe('default_npc');
+        });
+    });
 });
