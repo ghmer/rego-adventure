@@ -117,6 +117,20 @@ export const DEFAULT_TEXT = {
 export const DEFAULT_REGO_CODE = 'package play\n\ndefault allow := false';
 
 /**
+ * The npc key every pack's npcs roster must declare: the fallback speaker
+ * shown on screens without a lore entry of their own. Mirrors the backend's
+ * quest.DefaultNPCKey; the quest editor exports the same constant.
+ */
+export const DEFAULT_NPC_KEY = 'default_npc';
+
+/**
+ * The quest-giver portrait shipped with the application itself: the avatar
+ * before any pack is loaded, and the fallback when a pack's own image
+ * cannot be resolved.
+ */
+export const DEFAULT_NPC_AVATAR_SRC = '/public/assets/npc-questgiver.png';
+
+/**
  * Confetti animation settings
  */
 export const CONFETTI = {

@@ -249,7 +249,7 @@ export class QuestManager {
         this.restoreQuestHints(questId);
         
         // Render lore
-        this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
+        this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex, this.state.npcImages);
 
         this.loadQuestCode(questId);
 
@@ -275,7 +275,7 @@ export class QuestManager {
     /**
      * Prepare the editor area for a narrative screen (prologue/epilogue):
      * render its lore, hide quest-only elements, refresh navigation
-     * @param {string[]} lore - Narrative lore paragraphs
+     * @param {Array<{npc: string, text: string}>} lore - Narrative lore entries
      * @param {string} taskText - Objective text for the narrative screen
      */
     prepareNarrativeStage(lore, taskText) {
@@ -284,7 +284,7 @@ export class QuestManager {
         };
 
         this.state.currentLoreIndex = 0;
-        this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
+        this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex, this.state.npcImages);
 
         this.ui.elements.questTask.textContent = taskText;
 
@@ -419,10 +419,10 @@ export class QuestManager {
         
         if (direction === 'prev' && this.state.currentLoreIndex > 0) {
             this.state.currentLoreIndex--;
-            this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
+            this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex, this.state.npcImages);
         } else if (direction === 'next' && this.state.currentLoreIndex < lore.length - 1) {
             this.state.currentLoreIndex++;
-            this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex);
+            this.ui.renderLore(this.state.currentQuest, this.state.currentLoreIndex, this.state.npcImages);
         }
     }
 

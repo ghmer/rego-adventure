@@ -22,7 +22,7 @@
 import {
     getLocalStorage, setLocalStorage, removeLocalStorage, getPackKey, getCorruptPackKey, STORAGE_KEYS
 } from './storage-service.js';
-import { SCORING, DEFAULT_TEXT, SaveStatus } from './constants.js';
+import { SCORING, DEFAULT_TEXT, DEFAULT_NPC_KEY, SaveStatus } from './constants.js';
 
 /**
  * Maps label accessor keys to the pack's snake_case ui_labels key and
@@ -67,6 +67,11 @@ export class GameState {
         this.questsMap = new Map(); // Map for O(1) quest lookup by ID
         this.prologue = [];
         this.epilogue = [];
+        this.npcs = {};
+        // Resolved image sources by npc key, written by the pack manager
+        // once the pack's roster is preloaded; empty until then, and empty
+        // again once the pack is left.
+        this.npcImages = {};
         this.meta = null;
         this.currentQuest = null;
         this.currentQuestId = 0;
@@ -223,6 +228,10 @@ export class GameState {
 
         this.prologue = packData.prologue;
         this.epilogue = packData.epilogue;
+        // The pack's npc roster: lore-entry speakers resolve against it, and
+        // the pack manager preloads every declared portrait.
+        this.npcs = packData.npcs ?? {};
+        this.npcImages = {};
         this.meta = packData.meta;
 
         this.uiLabels = packData.ui_labels || {};
@@ -237,6 +246,19 @@ export class GameState {
     label(key) {
         const keys = LABEL_KEYS[key];
         return this.uiLabels[keys.ui] || DEFAULT_TEXT[keys.fallback];
+    }
+
+    /**
+     * The npc key of the lore entry currently on screen: the speaker whose
+     * portrait the pane header shows. Screens without a lore entry under the
+     * cursor (and entries without a speaker, which the backend refuses
+     * anyway) answer with the pack's default speaker.
+     * @returns {string} npc key from the pack's roster
+     */
+    currentLoreSpeaker() {
+        const lore = this.currentQuest?.description_lore;
+        const entry = Array.isArray(lore) ? lore[this.currentLoreIndex] : null;
+        return entry?.npc || DEFAULT_NPC_KEY;
     }
     
     // Progression. The cursor (currentQuestId), the frontier (activeQuestId)

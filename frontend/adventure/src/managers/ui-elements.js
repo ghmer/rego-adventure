@@ -32,6 +32,7 @@ export const uiElementSelectors = {
     loreNextBtn: '#lore-next-btn',
     lorePageIndicator: '#lore-page-indicator',
     questTask: '#quest-task',
+    npcAvatar: '.npc-avatar',
 
     // Hints
     hintsList: '#hints-list',

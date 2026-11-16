@@ -821,4 +821,76 @@ describe('state-service', () => {
             expect(packed.grimoires[1]).toBe('package saved');
         });
     });
+
+    describe('npc roster and lore speaker', () => {
+        function loadedState(packExtra) {
+            const state = new GameState();
+            state.setCurrentPack(PACK_ID);
+            state.loadPackData({
+                quests: [{ id: 1, description_lore: [{ npc: 'chief', text: 'One' }, { npc: 'informant', text: 'Two' }] }],
+                prologue: [{ npc: 'default_npc', text: 'Once' }],
+                epilogue: [],
+                meta: null,
+                ui_labels: {},
+                ...packExtra
+            });
+            return state;
+        }
+
+        it('carries the roster and holds no resolved images before the pack manager fills them', () => {
+            const state = loadedState({ npcs: { default_npc: 'assets/npc-questgiver.png' } });
+
+            expect(state.npcs).toEqual({ default_npc: 'assets/npc-questgiver.png' });
+            expect(state.npcImages).toEqual({});
+        });
+
+        it('a new pack load replaces the roster and drops resolved images', () => {
+            const state = loadedState({ npcs: { default_npc: 'assets/npc-questgiver.png' } });
+            state.npcImages = { default_npc: 'blob:stale' };
+
+            state.loadPackData({ quests: [], prologue: [], epilogue: [], meta: null, ui_labels: {} });
+
+            expect(state.npcs).toEqual({});
+            expect(state.npcImages).toEqual({});
+        });
+
+        it('rolling back a failed pack entry drops the roster and the resolved images', () => {
+            const state = loadedState({ npcs: { default_npc: 'assets/npc-questgiver.png' } });
+            state.npcImages = { default_npc: 'blob:x' };
+
+            state.rollbackPackEntry();
+
+            expect(state.npcs).toEqual({});
+            expect(state.npcImages).toEqual({});
+        });
+
+        it('the speaker follows the lore page under the cursor', () => {
+            const state = loadedState({ npcs: {} });
+            state.currentQuest = state.questsMap.get(1);
+            state.currentLoreIndex = 0;
+            expect(state.currentLoreSpeaker()).toBe('chief');
+
+            state.currentLoreIndex = 1;
+            expect(state.currentLoreSpeaker()).toBe('informant');
+        });
+
+        it('the narrative stage speaker comes from the list handed to the screen', () => {
+            const state = loadedState({ npcs: {} });
+            state.currentQuest = { description_lore: state.prologue };
+            state.currentLoreIndex = 0;
+
+            expect(state.currentLoreSpeaker()).toBe('default_npc');
+        });
+
+        it('screens without a lore entry answer with the default speaker', () => {
+            const state = loadedState({ npcs: {} });
+            expect(state.currentLoreSpeaker()).toBe('default_npc');
+
+            state.currentQuest = { description_lore: [] };
+            expect(state.currentLoreSpeaker()).toBe('default_npc');
+
+            state.currentQuest = { description_lore: [{ text: 'no speaker' }] };
+            expect(state.currentLoreSpeaker()).toBe('default_npc');
+        });
+    });
 });
