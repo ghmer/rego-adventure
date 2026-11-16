@@ -19,9 +19,12 @@ package assetgen
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/ghmer/rego-adventure/v2/backend/quest"
 )
 
 // generateTo runs GenerateTheme into a fresh temporary directory.
@@ -33,6 +36,69 @@ func generateTo(t *testing.T, themeName string) string {
 		t.Fatalf("GenerateTheme(%q) returned error: %v", themeName, err)
 	}
 	return filepath.Join(out, themeName)
+}
+
+// TestGenerateThemeWritesALoadableV2Pack pins that the skeleton's quests.json
+// is the pack this tool promises: the server's own load path accepts it, it
+// already speaks format v2, and the npc roster it declares points at an image
+// the generation run really produced.
+func TestGenerateThemeWritesALoadableV2Pack(t *testing.T) {
+	theme := "loadablepack"
+	pack := generateTo(t, theme)
+
+	content, err := os.ReadFile(filepath.Join(pack, "quests.json")) // #nosec G304 -- path under t.TempDir()
+	if err != nil {
+		t.Fatalf("read quests.json: %v", err)
+	}
+
+	repo := quest.NewQuestRepository()
+	if err := repo.LoadPack(theme, content); err != nil {
+		t.Fatalf("the generated quests.json does not load: %v", err)
+	}
+
+	var raw struct {
+		Version  int               `json:"version"`
+		NPCs     map[string]string `json:"npcs"`
+		Prologue []quest.LoreEntry `json:"prologue"`
+		Epilogue []quest.LoreEntry `json:"epilogue"`
+		Quests   []struct {
+			DescriptionLore []quest.LoreEntry `json:"description_lore"`
+		} `json:"quests"`
+	}
+	if err := json.Unmarshal(content, &raw); err != nil {
+		t.Fatalf("parse quests.json: %v", err)
+	}
+
+	if raw.Version != quest.FormatVersion {
+		t.Errorf("generated pack declares version %d, want %d", raw.Version, quest.FormatVersion)
+	}
+	image, ok := raw.NPCs[quest.DefaultNPCKey]
+	if !ok {
+		t.Fatalf("generated pack npcs lack %q: %v", quest.DefaultNPCKey, raw.NPCs)
+	}
+	if _, err := os.Stat(filepath.Join(pack, image)); err != nil {
+		t.Errorf("the roster names %q, but that file is not in the generated pack: %v", image, err)
+	}
+
+	declared := func(entries []quest.LoreEntry) bool {
+		for _, entry := range entries {
+			if _, known := raw.NPCs[entry.NPC]; !known {
+				return false
+			}
+		}
+		return len(entries) > 0
+	}
+	if !declared(raw.Prologue) {
+		t.Errorf("prologue entries must each name a declared npc: %v", raw.Prologue)
+	}
+	if !declared(raw.Epilogue) {
+		t.Errorf("epilogue entries must each name a declared npc: %v", raw.Epilogue)
+	}
+	for i, q := range raw.Quests {
+		if !declared(q.DescriptionLore) {
+			t.Errorf("quest %d lore entries must each name a declared npc: %v", i+1, q.DescriptionLore)
+		}
+	}
 }
 
 func TestGenerateThemeWritesPlayablePlaceholderTrack(t *testing.T) {
