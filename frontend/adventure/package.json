@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "7.0.1",
     "canvas-confetti": "1.9.4",
     "dompurify": "3.4.18",
     "driver.js": "1.14.0",
@@ -50,13 +51,48 @@
   },
   "comments": {
     "purpose": "This package.json carries the frontend's two dependency surfaces: \"dependencies\" are the browser libraries the game loads via CDN, \"devDependencies\" are the Node toolchains for tests, lint and QA.",
-    "deployment": "Dependencies are loaded via CDN using Import Maps (see index.html/importmap.json).",
-    "security": "Run 'npm audit --omit=dev' to audit the shipped browser libraries (the CI merge gate); 'npm audit --omit=prod' reports advisories for the CI toolchain without gating.",
-    "updates": "Use 'npm outdated' to check for available updates, then update versions in package.json and regenerate the import map in index.html with cmd/importmapgen (do not edit the import map by hand).",
-    "importmap": "The import map is generated from \"dependencies\" only. The optional 'importmap.subpaths' field declares package subpath modules per dependency; importmapgen emits an extra '<lib>/<subpath>' entry for each. Declare subpaths here when a new import path is used in frontend code.",
-    "testing": "Run 'npm test' after 'npm ci' in this directory: the toolchains are devDependencies pinned by the committed lockfile, the same install every frontend CI job starts from."
+    "deployment": "Dependencies are vendored into frontend/adventure/vendor by cmd/vendorgen (files are extracted from the integrity-checked npm tarballs the lockfile pins) and served same-origin; index.html's import map maps the bare names at the vendored files via cmd/importmapgen's manifest mode. No CDN is involved at runtime.",
+    "security": "Run 'npm audit --omit=dev' to audit the shipped browser libraries (the CI merge gate); 'npm audit --omit=prod' reports advisories for the CI toolchain without gating. The vendored files come from the same lockfile-pinned tarballs, so the audit covers exactly what ships.",
+    "updates": "Use 'npm outdated' to check for available updates, then update versions in package.json, run 'npm install' to refresh the lockfile, run 'go run ./cmd/vendorgen -pkg frontend/adventure/package.json' to refresh vendor/, and run 'go run ./cmd/importmapgen -pkgPath frontend/adventure/package.json -indexPath frontend/adventure/index.html -manifest frontend/adventure/vendor/manifest.json'. Do not edit the import map or vendor/ by hand.",
+    "importmap": "The import map reads \"dependencies\" only. The optional 'importmap.subpaths' field declares package subpath modules per dependency, used for both the CDN URLs (default mode) and the vendored files (manifest mode). Declare subpaths here when a new import path is used in frontend code.",
+    "testing": "Run 'npm test' after 'npm ci' in this directory: the toolchains are devDependencies pinned by the committed lockfile, the same install every frontend CI job starts from.",
+    "vendoring": "The 'vendoring' section configures cmd/vendorgen: 'packages' names, per dependency, the dist files the browser fetches (entry: the bare name's module; files: the subpath modules; css: a stylesheet linked from index.html). A dependency whose config declares only css ships no module. 'cssAlias' maps a cdnjs library slug to the dependency that now ships it, so importmapgen can redirect the document's cdnjs links to the vendored file."
   },
   "allowScripts": {
     "fsevents@2.3.3": true
+  },
+  "vendoring": {
+    "packages": {
+      "canvas-confetti": {
+        "entry": "dist/confetti.module.mjs"
+      },
+      "dompurify": {
+        "entry": "dist/purify.es.mjs"
+      },
+      "driver.js": {
+        "entry": "dist/driver.js.mjs",
+        "css": "dist/driver.css"
+      },
+      "marked": {
+        "entry": "lib/marked.esm.js"
+      },
+      "oidc-client-ts": {
+        "entry": "dist/esm/oidc-client-ts.js"
+      },
+      "yace": {
+        "entry": "dist/index.js",
+        "files": [
+          "dist/plugins/autoClose.js",
+          "dist/plugins/preserveIndent.js",
+          "dist/plugins/tab.js"
+        ]
+      },
+      "@fortawesome/fontawesome-free": {
+        "css": "css/all.min.css"
+      }
+    },
+    "cssAlias": {
+      "font-awesome": "@fortawesome/fontawesome-free"
+    }
   }
 }

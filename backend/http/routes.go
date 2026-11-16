@@ -136,7 +136,11 @@ func (s *Server) SetupRoutes() error {
 	// below defaults to protected, and only publicRoutePaths opens an
 	// exception. Unmatched paths fall through to the public SPA handler
 	// (see servePublicly and createSPAHandler).
-	s.router.Use(SecurityHeaders(s.config, importMapHash))
+	// The release ships its browser libraries either locally
+	// (frontend/adventure/vendor, cmd/vendorgen) or through CDNs; the
+	// shipped files decide and the CSP drops the external origins when
+	// vendored files carry the load.
+	s.router.Use(SecurityHeaders(s.config, importMapHash, vendoredAssets()))
 	s.router.Use(BodySizeLimit())
 	s.router.Use(setupCORS(s.config.AllowedOrigin))
 	s.router.Use(Auth(s.config))

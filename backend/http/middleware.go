@@ -72,7 +72,12 @@ func StructuredLogger() gin.HandlerFunc {
 // inlineImportMapHash is the CSP source expression (e.g. "sha256-...") for
 // the inline <script type="importmap"> in index.html, computed once at
 // startup by inlineImportMapScriptHash.
-func SecurityHeaders(cfg *config.Config, inlineImportMapHash string) gin.HandlerFunc {
+//
+// vendoredAssets marks a release whose browser libraries ship under
+// frontend/adventure/vendor (cmd/vendorgen): no CDN takes part in loading
+// scripts, styles or fonts, so esm.sh and cdnjs leave every directive. The
+// inline import map is still an inline script and still needs its hash.
+func SecurityHeaders(cfg *config.Config, inlineImportMapHash string, vendoredAssets bool) gin.HandlerFunc {
 	// Inline import maps ARE inline scripts for CSP purposes: they are
 	// governed by script-src and are blocked by a policy that allows no
 	// inline script (WICG/import-maps#105, enforced by browsers; see also
@@ -81,12 +86,21 @@ func SecurityHeaders(cfg *config.Config, inlineImportMapHash string) gin.Handler
 	// script-src with 'unsafe-inline'. style-src keeps 'unsafe-inline':
 	// the editor and tour libraries attach inline styles; there are no
 	// other inline scripts.
-	scriptSrc := []string{"'self'", "https://esm.sh"}
+	scriptSrc := []string{"'self'"}
+	connectSrc := []string{"'self'"}
+	workerSrc := []string{"'self'", "blob:"}
+	styleSrc := []string{"'self'", "'unsafe-inline'"}
+	fontSrc := []string{"'self'"}
+	if !vendoredAssets {
+		scriptSrc = append(scriptSrc, esmShOrigin)
+		connectSrc = append(connectSrc, esmShOrigin)
+		workerSrc = append(workerSrc, esmShOrigin)
+		styleSrc = append(styleSrc, cdnJsOrigin)
+		fontSrc = append(fontSrc, cdnJsOrigin)
+	}
 	if inlineImportMapHash != "" {
 		scriptSrc = append(scriptSrc, "'"+inlineImportMapHash+"'")
 	}
-
-	connectSrc := []string{"'self'", "https://esm.sh"}
 	if cfg != nil && cfg.Auth.Enabled {
 		if origin := oidcOrigin(cfg.Auth.Issuer, cfg.Auth.DiscoveryURL); origin != "" {
 			connectSrc = append(connectSrc, origin)
@@ -99,11 +113,11 @@ func SecurityHeaders(cfg *config.Config, inlineImportMapHash string) gin.Handler
 	csp := strings.Join([]string{
 		"default-src 'self'",
 		"script-src " + strings.Join(scriptSrc, " "),
-		"worker-src 'self' blob: https://esm.sh",
-		"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
+		"worker-src " + strings.Join(workerSrc, " "),
+		"style-src " + strings.Join(styleSrc, " "),
 		"img-src 'self' data: blob:",
 		"media-src 'self' blob:",
-		"font-src 'self' https://cdnjs.cloudflare.com",
+		"font-src " + strings.Join(fontSrc, " "),
 		"connect-src " + strings.Join(connectSrc, " "),
 		"frame-ancestors 'none'",
 	}, "; ")

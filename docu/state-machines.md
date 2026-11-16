@@ -831,7 +831,7 @@ stateDiagram-v2
     Saved --> Idle : loadQuest reaches a prologue or an epilogue
 ```
 
-`markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`frontend/adventure/index.html:197`).
+`markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`frontend/adventure/index.html:198`).
 
 `saveGrimoire(questId, code)` (`state-service.js:384`) returns the status rather than a boolean: `IDLE` when `isGrimoireScreen(questId)` is false (`state-service.js:372`), `SAVED` only when the storage write succeeded, `FAILED` when storage refused it (quota full, `localStorage` switched off, or a private-mode rejection). A screen without a grimoire reports `IDLE` through `QuestManager.loadQuest` as well, so the prologue and the epilogue show grey instead of the colour the last typed quest left behind. The tour describes exactly these four colours (`tutorial.js:195`).
 
@@ -1277,6 +1277,8 @@ flowchart TD
 ```
 
 Two gates are duplicated on purpose: `buildImportMap` rejects a bad version before `syncCdnJsVersions` runs, and the latter still re-validates defensively rather than interpolating an unvalidated string into a URL (`cmd/importmapgen/main.go:124-130`). A third, quieter branch is the no-op rewrite. When the spliced version already equals the cleaned one, the link is returned unchanged (`cmd/importmapgen/main.go:134-136`), which makes the generator idempotent. Running it twice never drifts the document.
+
+In manifest mode (`-manifest <path>`, pointing at cmd/vendorgen's `vendor/manifest.json`) the module names resolve to same-origin `/vendor/...` files instead of esm.sh, and the cdnjs links of every aliased library are redirected wholesale to the vendored stylesheets (`redirectCdnJsLinks`); no version reaches an interpolation path in this mode, because the vendored directory names carry it. A run without the manifest keeps the CDN URLs untouched: the modes cannot mix.
 
 ### M#40 · Quest editor (operator tool)
 

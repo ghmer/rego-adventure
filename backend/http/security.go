@@ -17,15 +17,57 @@
 package http
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/ghmer/rego-adventure/v2/backend/paths"
 	"github.com/ghmer/rego-adventure/v2/backend/quest"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+// VendorDirName is the subdirectory of the adventure dir that carries
+// the release's vendored browser libraries (cmd/vendorgen output).
+const VendorDirName = "vendor"
+
+// Origins the CSP allowlists while the release still loads its browser
+// libraries from CDNs; a vendored release drops both.
+const (
+	esmShOrigin = "https://esm.sh"
+	cdnJsOrigin = "https://cdnjs.cloudflare.com"
+)
+
+// vendoredAssets reports whether the release ships its browser libraries
+// locally: the parseable vendorgen manifest in frontend/adventure/vendor
+// decides, so a deployment flips modes by the files it ships and no
+// configuration is needed.
+func vendoredAssets() bool {
+	return vendoredManifest(filepath.Join(paths.AdventureDir, VendorDirName))
+}
+
+// vendoredManifest reads one vendor directory's manifest and reports
+// whether it records a real vendoring (module packages or redirecting
+// stylesheets). Anything unreadable counts as "not vendored": a broken
+// manifest must not silently strip the CDN origins a CDN release needs.
+func vendoredManifest(vendorDir string) bool {
+	manifestPath := filepath.Join(vendorDir, "manifest.json")
+	content, err := os.ReadFile(manifestPath) // #nosec G304 -- path is a constant
+	if err != nil {
+		return false
+	}
+	var probe struct {
+		Packages map[string]json.RawMessage `json:"packages"`
+		CSS      map[string]json.RawMessage `json:"css"`
+	}
+	if json.Unmarshal(content, &probe) != nil {
+		return false
+	}
+	return len(probe.Packages) > 0 || len(probe.CSS) > 0
+}
 
 // Allowed file extensions for quest assets
 var allowedExtensions = map[string]bool{

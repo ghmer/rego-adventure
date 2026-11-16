@@ -44,10 +44,14 @@ import (
 // securityHeadersResponse drives a request against /test through the
 // security headers middleware and returns the recorder, so header
 // assertions share one scaffold.
-func securityHeadersResponse(t *testing.T, cfg *config.Config, nonce string) *httptest.ResponseRecorder {
+func securityHeadersResponse(t *testing.T, cfg *config.Config, nonce string, vendored ...bool) *httptest.ResponseRecorder {
 	t.Helper()
+	vendoredAssets := false
+	if len(vendored) > 0 {
+		vendoredAssets = vendored[0]
+	}
 	router := gin.New()
-	router.Use(SecurityHeaders(cfg, nonce))
+	router.Use(SecurityHeaders(cfg, nonce, vendoredAssets))
 	router.GET("/test", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -400,6 +404,35 @@ func TestSecurityHeaders_ScriptSrcCarriesImportMapHash(t *testing.T) {
 	}
 	if strings.Contains(csp, "script-src 'self' https://esm.sh 'unsafe-inline'") {
 		t.Errorf("the hash must replace, not accompany, unsafe-inline in script-src, got CSP: %s", csp)
+	}
+}
+
+// TestSecurityHeaders_VendoredModeDropsCDNOrigins: a release vendoring
+// its browser libraries (frontend/adventure/vendor) loads every script,
+// style and font from 'self'; esm.sh and cdnjs leave the policy, while
+// the inline import map keeps its hash.
+func TestSecurityHeaders_VendoredModeDropsCDNOrigins(t *testing.T) {
+	recorder := securityHeadersResponse(t, &config.Config{},
+		"sha256-t6ZbYD7G4ISBEhUHIsZ0DPR9Sq0le85EeQmLLcmy4Wg=", true)
+	csp := recorder.Header().Get("Content-Security-Policy")
+
+	if strings.Contains(csp, "esm.sh") {
+		t.Errorf("vendored mode must not allowlist esm.sh, got CSP: %s", csp)
+	}
+	if strings.Contains(csp, "cdnjs") {
+		t.Errorf("vendored mode must not allowlist cdnjs, got CSP: %s", csp)
+	}
+	if !strings.Contains(csp, "script-src 'self' 'sha256-t6ZbYD7G4ISBEhUHIsZ0DPR9Sq0le85EeQmLLcmy4Wg=';") {
+		t.Errorf("the import map hash must stay in vendored mode, got CSP: %s", csp)
+	}
+	if !strings.Contains(csp, "style-src 'self' 'unsafe-inline';") {
+		t.Errorf("style-src must keep 'unsafe-inline', got CSP: %s", csp)
+	}
+	if !strings.Contains(csp, "font-src 'self';") {
+		t.Errorf("font-src must point at 'self' in vendored mode, got CSP: %s", csp)
+	}
+	if !strings.Contains(csp, "worker-src 'self' blob:;") {
+		t.Errorf("worker-src must keep blob: for pack media, got CSP: %s", csp)
 	}
 }
 

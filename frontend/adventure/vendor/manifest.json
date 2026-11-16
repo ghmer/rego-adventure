@@ -1,0 +1,99 @@
+{
+  "packages": {
+    "@fortawesome/fontawesome-free": {
+      "dir": "fortawesome-fontawesome-free@7.0.1",
+      "entry": "",
+      "css": "css/all.min.css",
+      "files": [
+        "LICENSE.txt",
+        "css/all.min.css",
+        "package.json",
+        "webfonts/fa-brands-400.woff2",
+        "webfonts/fa-regular-400.woff2",
+        "webfonts/fa-solid-900.woff2",
+        "webfonts/fa-v4compatibility.woff2"
+      ]
+    },
+    "canvas-confetti": {
+      "dir": "canvas-confetti@1.9.4",
+      "entry": "dist/confetti.module.mjs",
+      "files": [
+        "LICENSE",
+        "dist/confetti.module.mjs",
+        "package.json"
+      ]
+    },
+    "dompurify": {
+      "dir": "dompurify@3.4.18",
+      "entry": "dist/purify.es.mjs",
+      "files": [
+        "LICENSE",
+        "LICENSE-MPL",
+        "dist/purify.es.mjs",
+        "package.json"
+      ]
+    },
+    "driver.js": {
+      "dir": "driver.js@1.14.0",
+      "entry": "dist/driver.js.mjs",
+      "css": "dist/driver.css",
+      "files": [
+        "dist/driver.css",
+        "dist/driver.js.mjs",
+        "license",
+        "package.json"
+      ]
+    },
+    "jwt-decode": {
+      "dir": "jwt-decode@4.0.0",
+      "entry": "build/esm/index.js",
+      "files": [
+        "LICENSE",
+        "build/esm/index.js",
+        "package.json"
+      ]
+    },
+    "marked": {
+      "dir": "marked@18.2.1",
+      "entry": "lib/marked.esm.js",
+      "files": [
+        "LICENSE",
+        "lib/marked.esm.js",
+        "package.json"
+      ]
+    },
+    "oidc-client-ts": {
+      "dir": "oidc-client-ts@3.5.0",
+      "entry": "dist/esm/oidc-client-ts.js",
+      "files": [
+        "LICENSE",
+        "dist/esm/oidc-client-ts.js",
+        "package.json"
+      ]
+    },
+    "yace": {
+      "dir": "yace@1.1.1",
+      "entry": "dist/index.js",
+      "subpathFiles": {
+        "yace/plugins/autoClose": "dist/plugins/autoClose.js",
+        "yace/plugins/preserveIndent": "dist/plugins/preserveIndent.js",
+        "yace/plugins/tab": "dist/plugins/tab.js"
+      },
+      "files": [
+        "LICENSE",
+        "dist/index.js",
+        "dist/plugins/autoClose.js",
+        "dist/plugins/isKey.js",
+        "dist/plugins/preserveIndent.js",
+        "dist/plugins/tab.js",
+        "package.json"
+      ]
+    }
+  },
+  "css": {
+    "font-awesome": {
+      "dir": "fortawesome-fontawesome-free@7.0.1",
+      "file": "css/all.min.css"
+    }
+  }
+}
