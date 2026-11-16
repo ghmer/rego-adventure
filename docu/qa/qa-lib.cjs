@@ -97,6 +97,36 @@ function run(command, args, options = {}) {
     return result.stdout;
 }
 
+// ensureVendorSynced makes sure the vendored browser libraries exist
+// before a suite starts a server: the import map resolves /vendor/... and
+// the server refuses to boot without those files. The manifest is the
+// committed contract; the files are derived output gitignored, so a tree
+// that has not gone through 'npm ci' in frontend/adventure (or a docker
+// build) still needs one vendorgen resolution. Idempotent per process: a
+// run with several suites pays the check once.
+let vendorSynced = null;
+function ensureVendorSynced() {
+    if (vendorSynced !== null) {
+        return;
+    }
+    vendorSynced = true;
+    const vendorDir = path.join(repoRoot, 'frontend', 'adventure', 'vendor');
+    const manifestPath = path.join(vendorDir, 'manifest.json');
+    if (!fs.existsSync(manifestPath)) {
+        throw new Error(
+            `${manifestPath} is missing: the vendoring contract is part of the repository; a tree without it is broken`
+        );
+    }
+    const contract = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const packages = Object.entries(contract.packages || {})
+        .filter(([, entry]) => entry.entry)
+        .map(([name, entry]) => ({ name, file: path.join(vendorDir, entry.dir, entry.entry) }));
+    if (packages.every((pkg) => fs.existsSync(pkg.file))) {
+        return;
+    }
+    run('go', ['run', './cmd/vendorgen', '-pkg', 'frontend/adventure/package.json']);
+}
+
 // sleep blocks this process for a moment. The harness is synchronous on purpose
 // (a suite's phases run one after another), so the synchronous wait is how a
 // suite waits for an artifact another suite's process is compiling.
@@ -223,6 +253,7 @@ const LINKED_FRONTEND = ['adventure', 'shared'];
 // suite sees its own packs, so the suites can run at the same time and the
 // working tree stays as it was.
 function suiteRoot(suite) {
+    ensureVendorSynced();
     const root = path.join(runDir, 'roots', suite);
     const frontend = path.join(root, 'frontend');
     fs.mkdirSync(path.join(frontend, 'quests'), { recursive: true });
@@ -621,6 +652,7 @@ module.exports = {
     keepRunDir,
     scratch,
     suiteRoot,
+    ensureVendorSynced,
     stopServersSync, gitStatus, leftoverChanges,
     pickFreePort,
     requirePlaywright,

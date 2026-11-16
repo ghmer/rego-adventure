@@ -12,3 +12,8 @@ docu/
 frontend/adventure/package.json
 frontend/adventure/package-lock.json
 frontend/adventure/eslint.config.js
+# ...except the two dependency-surface files the builder stage needs:
+# vendorgen resolves the browser libraries from the pinned lockfile and
+# importmapgen rewrites the import map to the vendored files.
+!frontend/adventure/package.json
+!frontend/adventure/package-lock.json

@@ -1280,6 +1280,8 @@ Two gates are duplicated on purpose: `buildImportMap` rejects a bad version befo
 
 In manifest mode (`-manifest <path>`, pointing at cmd/vendorgen's `vendor/manifest.json`) the module names resolve to same-origin `/vendor/...` files instead of esm.sh, and the cdnjs links of every aliased library are redirected wholesale to the vendored stylesheets (`redirectCdnJsLinks`); no version reaches an interpolation path in this mode, because the vendored directory names carry it. A run without the manifest keeps the CDN URLs untouched: the modes cannot mix.
 
+The release resolves the manifest's files before serving. The Docker builder stage runs `vendorgen` and then importmapgen's manifest mode, so the image ships the resolved tree; `npm ci` in the frontend manifest runs the same resolution as a postinstall hook; the QA harness preflights it (`docu/qa/qa-lib.cjs`). The server boot then fails closed: when the committed contract names module packages whose entry files are missing, `SetupRoutes` refuses to start and names `go run ./cmd/vendorgen` as the fix (backend/http/routes.go), because an import map pointing at absent files would answer 404 for every module.
+
 ### M#40 · Quest editor (operator tool)
 
 **Carrier:** `questData` (`docu/quest-editor/app.js:28`), memory-only, plus view `active` classes · **Owner:** `docu/quest-editor/app.js`; validation in `docu/quest-editor/rules.js` · **Persisted:** no, a reload loses an unsaved draft (hazard 4)

@@ -61,7 +61,9 @@ jobs:
         working-directory: pr-head
         run: |
           # package.json carries the PR version, so only the generated
-          # files can drift: lockfile refresh, vendored tree, import map.
+          # text files can drift: lockfile refresh, vendoring contract,
+          # import map. The vendored files themselves are gitignored —
+          # this commit stays text-only.
           if git diff --quiet -- frontend/adventure; then
             echo "No changes to the imported surface"
             exit 0
@@ -71,5 +73,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add frontend/adventure
-          git commit -m "chore: update index.html and vendored libraries"
+          git commit -m "chore: update index.html and the vendoring contract"
           git push

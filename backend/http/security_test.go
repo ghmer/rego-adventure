@@ -175,21 +175,56 @@ func TestVendoredManifestDetection(t *testing.T) {
 		return dir
 	}
 
-	if vendoredManifest(vendorDir(t, "", false)) {
+	if vendored, _ := vendorStatusDir(vendorDir(t, "", false)); vendored {
 		t.Error("no manifest file must not count as vendored")
 	}
-	if vendoredManifest(vendorDir(t, "{", true)) {
+	if vendored, _ := vendorStatusDir(vendorDir(t, "{", true)); vendored {
 		t.Error("an unparseable manifest must not count as vendored")
 	}
-	if vendoredManifest(vendorDir(t, `{"packages": {}, "css": {}}`, true)) {
+	if vendored, _ := vendorStatusDir(vendorDir(t, `{"packages": {}, "css": {}}`, true)); vendored {
 		t.Error("a manifest recording nothing must not count as vendored")
 	}
-	moduleFixture := `{"packages": {"marked": {"dir": "marked@1", "entry": "m.js", "files": ["m.js"]}}}`
-	if !vendoredManifest(vendorDir(t, moduleFixture, true)) {
-		t.Error("a manifest with module packages must count as vendored")
-	}
 	cssFixture := `{"packages": {}, "css": {"font-awesome": {"dir": "fa@1", "file": "css/all.min.css"}}}`
-	if !vendoredManifest(vendorDir(t, cssFixture, true)) {
-		t.Error("a manifest with only style redirects must count as vendored")
+	if vendored, missing := vendorStatusDir(vendorDir(t, cssFixture, true)); vendored || missing != nil {
+		t.Error("a css-alias-only manifest without files must not flip the mode")
+	}
+}
+
+// TestVendorStatusRequiresEntryFiles: a manifest whose module packages
+// all exist on disk is vendored; any missing entry file is reported by
+// name and flips the mode.
+func TestVendorStatusRequiresEntryFiles(t *testing.T) {
+	base := t.TempDir()
+	// #nosec G306 -- test fixture
+	if err := os.WriteFile(filepath.Join(base, "manifest.json"), []byte(
+		`{"packages": {"marked": {"dir": "marked@1", "entry": "m.js", "files": ["m.js"]},
+		  "fonts": {"dir": "fonts@1", "entry": "", "files": []}}}`), 0644); err != nil {
+		t.Fatalf("writing manifest: %v", err)
+	}
+	target := filepath.Join(base, "marked@1")
+	// #nosec G301 -- test fixture
+	if err := os.MkdirAll(target, 0755); err != nil {
+		t.Fatalf("creating package dir: %v", err)
+	}
+	// #nosec G306 -- test fixture
+	if err := os.WriteFile(filepath.Join(target, "m.js"), []byte("export {};"), 0644); err != nil {
+		t.Fatalf("writing module: %v", err)
+	}
+
+	vendored, missing := vendorStatusDir(base)
+	if !vendored || len(missing) != 0 {
+		t.Errorf("a complete tree must count as vendored, got vendored=%v missing=%v", vendored, missing)
+	}
+
+	// #nosec G306 -- test fixture
+	if err := os.Remove(filepath.Join(target, "m.js")); err != nil {
+		t.Fatalf("removing module: %v", err)
+	}
+	vendored, missing = vendorStatusDir(base)
+	if vendored {
+		t.Error("a missing entry file must flip the mode off")
+	}
+	if len(missing) != 1 || missing[0] != "marked" {
+		t.Errorf("the missing package should be named, got %v", missing)
 	}
 }
