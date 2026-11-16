@@ -19,6 +19,7 @@ package quest
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 	"testing"
@@ -207,7 +208,7 @@ func TestValidateAlphanumericWithSpaces_Invalid(t *testing.T) {
 
 func TestValidateQuest_Valid(t *testing.T) {
 	quest := createValidQuest()
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err != nil {
 		t.Errorf("validateQuest with valid quest returned error: %v", err)
 	}
@@ -216,7 +217,7 @@ func TestValidateQuest_Valid(t *testing.T) {
 func TestValidateQuest_MissingQuery(t *testing.T) {
 	quest := createValidQuest()
 	quest.Query = ""
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil || !strings.Contains(err.Error(), "query") {
 		t.Errorf("expected empty query validation error, got: %v", err)
 	}
@@ -225,7 +226,7 @@ func TestValidateQuest_MissingQuery(t *testing.T) {
 func TestValidateQuest_WhitespaceQuery(t *testing.T) {
 	quest := createValidQuest()
 	quest.Query = "   "
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil || !strings.Contains(err.Error(), "query") {
 		t.Errorf("expected whitespace-only query validation error, got: %v", err)
 	}
@@ -250,7 +251,7 @@ func TestValidateQuest_ExternalLinkSchemes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			quest := createValidQuest()
 			quest.Manual.ExternalLink = tc.link
-			err := validateQuest(&quest, 1)
+			err := validateQuest(&quest, 1, validNPCs())
 			if (err != nil) != tc.wantErr {
 				t.Errorf("validateQuest with external_link %q: error = %v, wantErr = %v", tc.link, err, tc.wantErr)
 			}
@@ -261,7 +262,7 @@ func TestValidateQuest_ExternalLinkSchemes(t *testing.T) {
 func TestValidateQuest_MissingTitle(t *testing.T) {
 	quest := createValidQuest()
 	quest.Title = ""
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with empty title expected error")
 	}
@@ -270,7 +271,7 @@ func TestValidateQuest_MissingTitle(t *testing.T) {
 func TestValidateQuest_TitleTooLong(t *testing.T) {
 	quest := createValidQuest()
 	quest.Title = strings.Repeat("a", MaxQuestTitle+1)
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with too long title expected error")
 	}
@@ -279,7 +280,7 @@ func TestValidateQuest_TitleTooLong(t *testing.T) {
 func TestValidateQuest_MissingTaskDescription(t *testing.T) {
 	quest := createValidQuest()
 	quest.DescriptionTask = ""
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with empty task description expected error")
 	}
@@ -288,7 +289,7 @@ func TestValidateQuest_MissingTaskDescription(t *testing.T) {
 func TestValidateQuest_TaskDescriptionTooLong(t *testing.T) {
 	quest := createValidQuest()
 	quest.DescriptionTask = strings.Repeat("a", MaxQuestDescriptionTask+1)
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with too long task description expected error")
 	}
@@ -296,8 +297,8 @@ func TestValidateQuest_TaskDescriptionTooLong(t *testing.T) {
 
 func TestValidateQuest_EmptyLore(t *testing.T) {
 	quest := createValidQuest()
-	quest.DescriptionLore = []string{}
-	err := validateQuest(&quest, 1)
+	quest.DescriptionLore = []LoreEntry{}
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with empty lore expected error")
 	}
@@ -305,8 +306,8 @@ func TestValidateQuest_EmptyLore(t *testing.T) {
 
 func TestValidateQuest_LoreEntryTooLong(t *testing.T) {
 	quest := createValidQuest()
-	quest.DescriptionLore = []string{strings.Repeat("a", MaxQuestDescriptionLore+1)}
-	err := validateQuest(&quest, 1)
+	quest.DescriptionLore = loreEntries(strings.Repeat("a", MaxQuestDescriptionLore+1))
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with too long lore entry expected error")
 	}
@@ -315,7 +316,7 @@ func TestValidateQuest_LoreEntryTooLong(t *testing.T) {
 func TestValidateQuest_HintTooLong(t *testing.T) {
 	quest := createValidQuest()
 	quest.Hints = []string{strings.Repeat("a", MaxQuestHint+1)}
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with too long hint expected error")
 	}
@@ -324,7 +325,7 @@ func TestValidateQuest_HintTooLong(t *testing.T) {
 func TestValidateQuest_SolutionTooLong(t *testing.T) {
 	quest := createValidQuest()
 	quest.Solution = strings.Repeat("a", MaxQuestSolution+1)
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with too long solution expected error")
 	}
@@ -333,7 +334,7 @@ func TestValidateQuest_SolutionTooLong(t *testing.T) {
 func TestValidateQuest_TemplateTooLong(t *testing.T) {
 	quest := createValidQuest()
 	quest.Template = strings.Repeat("a", MaxQuestTemplate+1)
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with too long template expected error")
 	}
@@ -368,7 +369,7 @@ func TestValidateQuest_ManualFieldsTooLong(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			quest := createValidQuest()
 			tt.modify(&quest)
-			err := validateQuest(&quest, 1)
+			err := validateQuest(&quest, 1, validNPCs())
 			if err == nil {
 				t.Error("validateQuest with too long manual field expected error")
 			}
@@ -379,7 +380,7 @@ func TestValidateQuest_ManualFieldsTooLong(t *testing.T) {
 func TestValidateQuest_NoTests(t *testing.T) {
 	quest := createValidQuest()
 	quest.Tests = []TestCase{}
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with no tests expected error")
 	}
@@ -391,7 +392,7 @@ func TestValidateQuest_InvalidPayloadJSON(t *testing.T) {
 	quest.Tests[0].Payload = TestPayload{
 		Input: func() {}, // Functions can't be JSON marshaled
 	}
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with invalid payload expected error")
 	}
@@ -403,7 +404,7 @@ func TestValidateQuest_PayloadTooLarge(t *testing.T) {
 	largeData := make(map[string]any)
 	largeData["data"] = strings.Repeat("x", MaxTestPayloadBytes+1)
 	quest.Tests[0].Payload = TestPayload{Input: largeData}
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("validateQuest with too large payload expected error")
 	}
@@ -623,7 +624,7 @@ func TestValidateQuestPack_UILabelsTooLong(t *testing.T) {
 
 func TestValidateQuestPack_EmptyPrologue(t *testing.T) {
 	pack := createValidQuestPack()
-	pack.Prologue = []string{}
+	pack.Prologue = []LoreEntry{}
 	err := validateQuestPack(&pack)
 	if err == nil {
 		t.Error("validateQuestPack with empty prologue expected error")
@@ -632,7 +633,7 @@ func TestValidateQuestPack_EmptyPrologue(t *testing.T) {
 
 func TestValidateQuestPack_PrologueEntryTooLong(t *testing.T) {
 	pack := createValidQuestPack()
-	pack.Prologue = []string{strings.Repeat("a", MaxPrologueItem+1)}
+	pack.Prologue = loreEntries(strings.Repeat("a", MaxPrologueItem+1))
 	err := validateQuestPack(&pack)
 	if err == nil {
 		t.Error("validateQuestPack with too long prologue entry expected error")
@@ -641,7 +642,7 @@ func TestValidateQuestPack_PrologueEntryTooLong(t *testing.T) {
 
 func TestValidateQuestPack_EmptyEpilogue(t *testing.T) {
 	pack := createValidQuestPack()
-	pack.Epilogue = []string{}
+	pack.Epilogue = []LoreEntry{}
 	err := validateQuestPack(&pack)
 	if err == nil {
 		t.Error("validateQuestPack with empty epilogue expected error")
@@ -650,7 +651,7 @@ func TestValidateQuestPack_EmptyEpilogue(t *testing.T) {
 
 func TestValidateQuestPack_EpilogueEntryTooLong(t *testing.T) {
 	pack := createValidQuestPack()
-	pack.Epilogue = []string{strings.Repeat("a", MaxEpilogueItem+1)}
+	pack.Epilogue = loreEntries(strings.Repeat("a", MaxEpilogueItem+1))
 	err := validateQuestPack(&pack)
 	if err == nil {
 		t.Error("validateQuestPack with too long epilogue entry expected error")
@@ -737,7 +738,8 @@ func TestGetTestPayloads_PayloadPreservation(t *testing.T) {
 
 func TestValidateQuestPack_MultipleValidationErrors(t *testing.T) {
 	pack := QuestPack{
-		ID: "test",
+		ID:      "test",
+		Version: FormatVersion,
 		Meta: MetaData{
 			Title:       "",
 			Description: "",
@@ -748,8 +750,8 @@ func TestValidateQuestPack_MultipleValidationErrors(t *testing.T) {
 			HintButton:    "",
 			VerifyButton:  "",
 		},
-		Prologue: []string{},
-		Epilogue: []string{},
+		Prologue: []LoreEntry{},
+		Epilogue: []LoreEntry{},
 		Quests:   []Quest{},
 	}
 
@@ -765,7 +767,7 @@ func TestValidateQuest_OptionalFields(t *testing.T) {
 	quest := Quest{
 		ID:              1,
 		Title:           "Test",
-		DescriptionLore: []string{"Lore"},
+		DescriptionLore: loreEntries("Lore"),
 		DescriptionTask: "Task",
 		Manual: Manual{
 			DataModel:    "",
@@ -781,7 +783,7 @@ func TestValidateQuest_OptionalFields(t *testing.T) {
 		},
 	}
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err != nil {
 		t.Errorf("validateQuest with optional fields empty should pass: %v", err)
 	}
@@ -790,7 +792,9 @@ func TestValidateQuest_OptionalFields(t *testing.T) {
 func TestValidateQuestPack_OptionalFields(t *testing.T) {
 	// Test that optional fields can be empty
 	pack := QuestPack{
-		ID: "test",
+		ID:      "test",
+		Version: FormatVersion,
+		NPCs:    validNPCs(),
 		Meta: MetaData{
 			Title:       "Title",
 			Description: "Description",
@@ -806,8 +810,8 @@ func TestValidateQuestPack_OptionalFields(t *testing.T) {
 			PerfectScoreButtonText: "",
 			BeginAdventureButton:   "",
 		},
-		Prologue: []string{"Intro"},
-		Epilogue: []string{"Outro"},
+		Prologue: loreEntries("Intro"),
+		Epilogue: loreEntries("Outro"),
 		Quests:   []Quest{createValidQuest()},
 	}
 
@@ -826,7 +830,7 @@ func TestValidateQuest_ManyHints(t *testing.T) {
 	}
 	quest.Hints = hints
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err != nil {
 		t.Errorf("validateQuest with many valid hints should pass: %v", err)
 	}
@@ -839,9 +843,9 @@ func TestValidateQuest_ManyLoreEntries(t *testing.T) {
 	for i := range lore {
 		lore[i] = "Lore entry"
 	}
-	quest.DescriptionLore = lore
+	quest.DescriptionLore = loreEntries(lore...)
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err != nil {
 		t.Errorf("validateQuest with many valid lore entries should pass: %v", err)
 	}
@@ -862,7 +866,7 @@ func TestValidateQuest_ManyTests(t *testing.T) {
 	}
 	quest.Tests = tests
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err != nil {
 		t.Errorf("validateQuest with many valid tests should pass: %v", err)
 	}
@@ -880,7 +884,7 @@ func TestValidateQuest_ExceedsTestCap(t *testing.T) {
 	}
 	quest.Tests = tests
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Fatalf("validateQuest should reject %d test cases (max %d)", len(tests), MaxQuestTests)
 	}
@@ -931,7 +935,7 @@ func TestValidateQuest_ValidQuery(t *testing.T) {
 	for _, query := range queries {
 		t.Run(query, func(t *testing.T) {
 			quest.Query = query
-			err := validateQuest(&quest, 1)
+			err := validateQuest(&quest, 1, validNPCs())
 			if err != nil {
 				t.Errorf("validateQuest with query %q should pass: %v", query, err)
 			}
@@ -948,7 +952,7 @@ func TestValidateQuest_SupportModules(t *testing.T) {
 		"package under_test.extra\n\nvalue := 42",
 	}
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err != nil {
 		t.Errorf("validateQuest with valid support modules should pass: %v", err)
 	}
@@ -961,7 +965,7 @@ func TestValidateQuest_TooManySupportModules(t *testing.T) {
 		quest.SupportModules[i] = "package under_test\n\nvalue := 42"
 	}
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("Expected error for too many support modules")
 		return
@@ -975,7 +979,7 @@ func TestValidateQuest_EmptySupportModule(t *testing.T) {
 	quest := createValidQuest()
 	quest.SupportModules = []string{""}
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("Expected error for empty support module")
 		return
@@ -989,7 +993,7 @@ func TestValidateQuest_SupportModuleTooLong(t *testing.T) {
 	quest := createValidQuest()
 	quest.SupportModules = []string{strings.Repeat("x", MaxQuestSupportModule+1)}
 
-	err := validateQuest(&quest, 1)
+	err := validateQuest(&quest, 1, validNPCs())
 	if err == nil {
 		t.Error("Expected error for oversized support module")
 		return
@@ -1042,5 +1046,209 @@ func TestQuest_SupportModules_JSONOmittedWhenEmpty(t *testing.T) {
 	}
 	if decoded.SupportModules != nil {
 		t.Errorf("Expected nil SupportModules for legacy quest packs, got %v", decoded.SupportModules)
+	}
+}
+
+// ==================== Format Version ====================
+
+func TestValidateQuestPack_WrongFormatVersion(t *testing.T) {
+	for _, version := range []int{0, 1, FormatVersion + 1} {
+		t.Run(fmt.Sprintf("version %d", version), func(t *testing.T) {
+			pack := createValidQuestPack()
+			pack.Version = version
+			err := validateQuestPack(&pack)
+			if err == nil {
+				t.Fatalf("validateQuestPack accepted format version %d", version)
+			}
+			if !strings.Contains(err.Error(), "cmd/questmigrate") {
+				t.Errorf("expected the error to name cmd/questmigrate, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoreEntry_JSONRoundTrip(t *testing.T) {
+	entry := LoreEntry{NPC: "chief", Text: "Spade, we got a problem."}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	if string(data) != `{"npc":"chief","text":"Spade, we got a problem."}` {
+		t.Errorf("unexpected serialization: %s", data)
+	}
+
+	var decoded LoreEntry
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if decoded != entry {
+		t.Errorf("round trip lost content: %+v != %+v", decoded, entry)
+	}
+}
+
+// ==================== NPC Roster ====================
+
+func TestValidateQuestPack_NPCs(t *testing.T) {
+	longName := "npc_" + strings.Repeat("a", MaxNPCName)
+	tooMany := make(map[string]string, MaxPackNPCs+1)
+	for i := 0; i <= MaxPackNPCs; i++ {
+		tooMany[fmt.Sprintf("npc_%d", i)] = "assets/npc.png"
+	}
+	// npcsWith merges extra entries into a roster that declares the default
+	// npc, so each case isolates the one entry it means to break.
+	npcsWith := func(extra map[string]string) map[string]string {
+		merged := map[string]string{DefaultNPCKey: "assets/a.png"}
+		maps.Copy(merged, extra)
+		return merged
+	}
+
+	tests := []struct {
+		name        string
+		npcs        map[string]string
+		errFragment string
+	}{
+		{"missing npc section", nil, "at least one npc character"},
+		{"empty npc section", map[string]string{}, "at least one npc character"},
+		{"without the default npc", map[string]string{"chief": "assets/chief.png"}, "default_npc"},
+		{"above the npc cap", tooMany, "npc characters, maximum is"},
+		{"empty npc name", npcsWith(map[string]string{"": "assets/b.png"}), "npcs[0] name cannot be empty"},
+		{"npc name above the length cap", npcsWith(map[string]string{longName: "assets/b.png"}), "npcs[1] name exceeds"},
+		{
+			"npc name with invalid characters",
+			npcsWith(map[string]string{"chief horn": "assets/b.png"}),
+			"npcs[0] name contains invalid",
+		},
+		{
+			"npc name starting with a digit",
+			npcsWith(map[string]string{"3chefs": "assets/b.png"}),
+			"npcs[0] name contains invalid",
+		},
+		{"empty npc image", map[string]string{DefaultNPCKey: ""}, "npcs[0] image cannot be empty"},
+		{
+			"npc image above the length cap",
+			map[string]string{DefaultNPCKey: "assets/" + strings.Repeat("a", MaxNPCImage)},
+			"npcs[0] image exceeds maximum length",
+		},
+		{
+			"npc image outside the assets directory",
+			map[string]string{DefaultNPCKey: "npc.png"},
+			`must start with "assets/"`,
+		},
+		{
+			"npc image escaping the assets directory",
+			map[string]string{DefaultNPCKey: "assets/../secret.png"},
+			"path traversal",
+		},
+		{"npc image without a file name", map[string]string{DefaultNPCKey: "assets/"}, "must name a file"},
+		{
+			"npc image with whitespace",
+			map[string]string{DefaultNPCKey: "assets/the chief.png"},
+			"must not contain whitespace",
+		},
+		{"npc image with a backslash", map[string]string{DefaultNPCKey: "assets/sub\\npc.png"}, "path traversal"},
+		{
+			"npc image with an unlisted extension",
+			map[string]string{DefaultNPCKey: "assets/npc.gif"},
+			"must use one of the extensions",
+		},
+		{
+			"npc image without an extension",
+			map[string]string{DefaultNPCKey: "assets/npc"},
+			"must use one of the extensions",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pack := createValidQuestPack()
+			pack.NPCs = tc.npcs
+			err := validateQuestPack(&pack)
+			if err == nil {
+				t.Fatalf("expected an error mentioning %q, got none", tc.errFragment)
+			}
+			if !strings.Contains(err.Error(), tc.errFragment) {
+				t.Errorf("expected an error mentioning %q, got: %v", tc.errFragment, err)
+			}
+		})
+	}
+}
+
+func TestValidateQuestPack_NPCKeyPatternAcceptsTheDefaultKey(t *testing.T) {
+	// The key the migration tool introduces must itself pass the pattern the
+	// pack is validated against.
+	if !npcKeyPattern.MatchString(DefaultNPCKey) {
+		t.Errorf("DefaultNPCKey %q does not match npcKeyPattern", DefaultNPCKey)
+	}
+}
+
+func TestValidateQuestPack_LoreReferencesUnknownNPC(t *testing.T) {
+	tests := []struct {
+		name        string
+		modify      func(*QuestPack)
+		errFragment string
+	}{
+		{
+			"prologue names an undeclared npc",
+			func(p *QuestPack) { p.Prologue = []LoreEntry{{NPC: "ghost", Text: "Boo."}} },
+			`prologue[0] references npc "ghost"`,
+		},
+		{
+			"epilogue names an undeclared npc",
+			func(p *QuestPack) { p.Epilogue = []LoreEntry{{NPC: "ghost", Text: "Boo."}} },
+			`epilogue[0] references npc "ghost"`,
+		},
+		{
+			"quest lore names an undeclared npc",
+			func(p *QuestPack) { p.Quests[0].DescriptionLore = []LoreEntry{{NPC: "ghost", Text: "Boo."}} },
+			`lore[0] references npc "ghost"`,
+		},
+		{
+			"prologue entry without a speaker",
+			func(p *QuestPack) { p.Prologue = []LoreEntry{{NPC: "", Text: "Who speaks?"}} },
+			"prologue[0] npc cannot be empty",
+		},
+		{
+			"epilogue entry without a speaker",
+			func(p *QuestPack) { p.Epilogue = []LoreEntry{{NPC: "", Text: "Who speaks?"}} },
+			"epilogue[0] npc cannot be empty",
+		},
+		{
+			"quest lore entry without a speaker",
+			func(p *QuestPack) { p.Quests[0].DescriptionLore = []LoreEntry{{NPC: "", Text: "Who speaks?"}} },
+			"lore[0] npc cannot be empty",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pack := createValidQuestPack()
+			tc.modify(&pack)
+			err := validateQuestPack(&pack)
+			if err == nil {
+				t.Fatalf("expected an error mentioning %q, got none", tc.errFragment)
+			}
+			if !strings.Contains(err.Error(), tc.errFragment) {
+				t.Errorf("expected an error mentioning %q, got: %v", tc.errFragment, err)
+			}
+		})
+	}
+}
+
+func TestValidateQuestPack_MultipleSpeakersAreValid(t *testing.T) {
+	pack := createValidQuestPack()
+	pack.NPCs = map[string]string{
+		DefaultNPCKey: "assets/npc-questgiver.png",
+		"chief":       "assets/npc-chief.png",
+		"informant":   "assets/characters/npc-informant.png",
+	}
+	pack.Prologue = []LoreEntry{{NPC: "chief", Text: "The rain never stops."}}
+	pack.Epilogue = []LoreEntry{{NPC: "informant", Text: "Case closed."}}
+	pack.Quests[0].DescriptionLore = []LoreEntry{
+		{NPC: "chief", Text: "We got a problem."},
+		{NPC: "informant", Text: "It was the butler."},
+	}
+
+	if err := validateQuestPack(&pack); err != nil {
+		t.Errorf("a pack with several declared speakers should validate, got: %v", err)
 	}
 }

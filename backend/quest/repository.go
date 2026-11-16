@@ -57,10 +57,44 @@ func IsValidPackID(id string) bool {
 	return !strings.ContainsFunc(id, unicode.IsSpace)
 }
 
+// CheckFormatVersion reads the format marker of raw quests.json before it is
+// decoded into a QuestPack. Decoding an old pack against the v2 structs fails
+// with a type error that tells the author nothing; this answers with the
+// remedy instead: the pack is refused and cmd/questmigrate is named as the
+// way to bring it up to date. Exported so tools (the migration tool, the
+// solution verifier) can state the same verdict as the server.
+func CheckFormatVersion(data []byte) error {
+	var probe struct {
+		Version *int `json:"version"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("cannot read the format version of quests.json: %w "+
+			"(the file must be a JSON object whose \"version\" is a number)", err)
+	}
+	switch {
+	case probe.Version == nil:
+		return fmt.Errorf("quests.json has no \"version\" key: this is the pre-v2 quest format, "+
+			"which this server does not load; run cmd/questmigrate to migrate the pack to format version %d", FormatVersion)
+	case *probe.Version < FormatVersion:
+		return fmt.Errorf("quests.json format version %d is no longer loaded: "+
+			"run cmd/questmigrate to migrate the pack to format version %d", *probe.Version, FormatVersion)
+	case *probe.Version > FormatVersion:
+		return fmt.Errorf("quests.json format version %d is newer than this server understands "+
+			"(format version %d): upgrade the server", *probe.Version, FormatVersion)
+	}
+	return nil
+}
+
 // LoadPack loads a quest pack from the provided bytes.
 func (r *QuestRepository) LoadPack(id string, questData []byte) error {
 	if !IsValidPackID(id) {
 		return fmt.Errorf("invalid pack ID %q: must not be empty, start with a dot, or contain path separators or whitespace", id)
+	}
+
+	// Refuse foreign formats before the decoder produces a type error whose
+	// remedy is invisible.
+	if err := CheckFormatVersion(questData); err != nil {
+		return fmt.Errorf("failed to load pack %s: %w", id, err)
 	}
 
 	var pack QuestPack

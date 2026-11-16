@@ -58,6 +58,13 @@ function expandValue(value) {
     if (Object.prototype.hasOwnProperty.call(value, '$repeatChars')) {
         return (value.char || 'x').repeat(value.$repeatChars);
     }
+    if (Object.prototype.hasOwnProperty.call(value, '$repeatKeys')) {
+        const generated = {};
+        for (let i = 0; i < value.$repeatKeys; i += 1) {
+            generated[`${value.prefix ?? ''}${i}`] = expandValue(value.value);
+        }
+        return generated;
+    }
     const expanded = {};
     for (const [key, item] of Object.entries(value)) {
         expanded[key] = expandValue(item);
@@ -238,7 +245,10 @@ test('duplicate test IDs inside one quest are refused', () => {
 test('every rule has a kind the validator implements', () => {
     const kinds = new Set([
         'nonEmpty', 'maxLength', 'minItems', 'maxItems', 'charset',
-        'urlScheme', 'maxJsonBytes', 'contiguousIds', 'uniqueIds'
+        'urlScheme', 'maxJsonBytes', 'contiguousIds', 'uniqueIds',
+        'formatVersion', 'npcDefaultDefined', 'maxKeys',
+        'npcNameRequired', 'npcNameMaxLength', 'npcNameCharset',
+        'npcImageRequired', 'npcImageMaxLength', 'npcImagePath', 'npcDefined'
     ]);
     const ids = new Set();
     for (const rule of PACK_RULES.rules) {
@@ -255,8 +265,12 @@ test('every rule has a kind the validator implements', () => {
 });
 
 test('the length rules name limits that exist', () => {
+    const limitKinds = [
+        'maxLength', 'maxItems', 'maxJsonBytes',
+        'formatVersion', 'maxKeys', 'npcNameMaxLength', 'npcImageMaxLength'
+    ];
     for (const rule of PACK_RULES.rules) {
-        if (!['maxLength', 'maxItems', 'maxJsonBytes'].includes(rule.kind)) {
+        if (!limitKinds.includes(rule.kind)) {
             continue;
         }
         assert.equal(

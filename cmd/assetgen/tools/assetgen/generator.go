@@ -266,10 +266,10 @@ func createFirstStepsQuest() quest.Quest {
 	return quest.Quest{
 		ID:    1,
 		Title: "First Steps",
-		DescriptionLore: []string{
+		DescriptionLore: loreEntries(
 			"You stand at the beginning of a new path.",
 			"The gatekeeper asks for the password.",
-		},
+		),
 		DescriptionTask: "Allow access if the password is correct.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
@@ -311,10 +311,10 @@ func createInventoryQuest() quest.Quest {
 	return quest.Quest{
 		ID:    2,
 		Title: "Inventory Check",
-		DescriptionLore: []string{
+		DescriptionLore: loreEntries(
 			"The guard checks your bag.",
 			"You need a pass to enter.",
-		},
+		),
 		DescriptionTask: "Allow access if user has a 'pass' in inventory.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
@@ -363,10 +363,10 @@ func createDataLookupQuest() quest.Quest {
 	return quest.Quest{
 		ID:    3,
 		Title: "Data Lookup",
-		DescriptionLore: []string{
+		DescriptionLore: loreEntries(
 			"You need to check the registry.",
 			"Only registered users can pass.",
-		},
+		),
 		DescriptionTask: "Allow access if user is in the registry.",
 		Query:           "data.play.allow",
 		Manual: quest.Manual{
@@ -407,6 +407,17 @@ default allow := false
 	}
 }
 
+// loreEntries wraps texts as lore entries spoken by the pack's default npc:
+// the generated skeleton has a single speaker until the author adds
+// characters to the npcs section and re-assigns lines to them.
+func loreEntries(texts ...string) []quest.LoreEntry {
+	entries := make([]quest.LoreEntry, len(texts))
+	for i, text := range texts {
+		entries[i] = quest.LoreEntry{NPC: quest.DefaultNPCKey, Text: text}
+	}
+	return entries
+}
+
 func createDefaultQuests() []quest.Quest {
 	return []quest.Quest{
 		createFirstStepsQuest(),
@@ -417,6 +428,10 @@ func createDefaultQuests() []quest.Quest {
 
 func generateQuestsJSON(dir, theme string) error {
 	pack := quest.QuestPack{
+		Version: quest.FormatVersion,
+		NPCs: map[string]string{
+			quest.DefaultNPCKey: "assets/npc-questgiver.png",
+		},
 		Meta: quest.MetaData{
 			Title:            fmt.Sprintf("Quest Pack: %s", theme),
 			Description:      "A new adventure awaits.",
@@ -435,14 +450,14 @@ func generateQuestsJSON(dir, theme string) error {
 			PerfectScoreButtonText: "A Secret Awaits...",
 			BeginAdventureButton:   "Begin Adventure",
 		},
-		Prologue: []string{
+		Prologue: loreEntries(
 			"Welcome to the new world.",
 			"Your journey begins here.",
-		},
-		Epilogue: []string{
+		),
+		Epilogue: loreEntries(
 			"You have completed the journey.",
 			"Well done.",
-		},
+		),
 		Quests: createDefaultQuests(),
 	}
 

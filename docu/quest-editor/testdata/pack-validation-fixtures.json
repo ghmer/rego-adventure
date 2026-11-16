@@ -7,10 +7,15 @@
     "patches to a copy of it. A patch sets a value at a dot path whose numeric",
     "segments index arrays; {\"remove\": true} deletes an array element; {\"count\": n,",
     "\"value\": v} repeats v n times; {\"$repeatChars\": n, \"char\": c} expands to a",
-    "string of n copies of c. valid defaults to false, meaning the server and the",
-    "editor must both refuse the pack."
+    "string of n copies of c; {\"$repeatKeys\": n, \"prefix\": p, \"value\": v} expands",
+    "to an object with n keys named p0..p(n-1) each holding v. valid defaults to",
+    "false, meaning the server and the editor must both refuse the pack."
   ],
   "basePack": {
+    "version": 2,
+    "npcs": {
+      "default_npc": "assets/npc-questgiver.png"
+    },
     "meta": {
       "title": "Fixture Adventure",
       "description": "A pack used only by the validation parity tests.",
@@ -30,17 +35,17 @@
       "begin_adventure_button": "Begin adventure"
     },
     "prologue": [
-      "The grimoire has gone quiet."
+      { "npc": "default_npc", "text": "The grimoire has gone quiet." }
     ],
     "epilogue": [
-      "The grimoire answers again."
+      { "npc": "default_npc", "text": "The grimoire answers again." }
     ],
     "quests": [
       {
         "id": 1,
         "title": "The Open Door",
         "description_lore": [
-          "A door stands open on the path."
+          { "npc": "default_npc", "text": "A door stands open on the path." }
         ],
         "description_task": "Allow everyone through the door.",
         "manual": {
@@ -71,8 +76,8 @@
         "id": 2,
         "title": "The Sealed Archive",
         "description_lore": [
-          "The archive stays shut for strangers.",
-          "Only the keeper may enter."
+          { "npc": "default_npc", "text": "The archive stays shut for strangers." },
+          { "npc": "default_npc", "text": "Only the keeper may enter." }
         ],
         "description_task": "Allow the keeper and no one else.",
         "manual": {
@@ -113,7 +118,7 @@
         "id": 3,
         "title": "The Borrowed Sigil",
         "description_lore": [
-          "A sigil was left in the margin."
+          { "npc": "default_npc", "text": "A sigil was left in the margin." }
         ],
         "description_task": "Use the helper module to decide.",
         "manual": {
@@ -170,10 +175,25 @@
     { "ruleId": "ui_perfect_score_button_text_max_length", "patches": [{ "path": "ui_labels.perfect_score_button_text", "value": { "$repeatChars": 101, "char": "x" } }] },
     { "ruleId": "ui_begin_adventure_button_max_length", "patches": [{ "path": "ui_labels.begin_adventure_button", "value": { "$repeatChars": 101, "char": "x" } }] },
 
+    { "ruleId": "pack_version_format", "patches": [{ "path": "version", "value": 1 }] },
+
+    { "ruleId": "pack_npcs_default_npc", "patches": [{ "path": "npcs", "value": { "quest_giver": "assets/npc-questgiver.png" } }] },
+    { "ruleId": "pack_npcs_max_items", "patches": [{ "path": "npcs", "value": { "$repeatKeys": 51, "prefix": "npc_", "value": "assets/npc-questgiver.png" } }] },
+    { "ruleId": "pack_npc_name_required", "patches": [{ "path": "npcs", "value": { "": "assets/npc-questgiver.png", "default_npc": "assets/npc-questgiver.png" } }] },
+    { "ruleId": "pack_npc_name_max_length", "patches": [{ "path": "npcs", "value": { "default_npc": "assets/npc-questgiver.png", "npc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "assets/npc-questgiver.png" } }] },
+    { "ruleId": "pack_npc_name_charset", "patches": [{ "path": "npcs", "value": { "default_npc": "assets/npc-questgiver.png", "chief horn": "assets/chief.png" } }] },
+    { "ruleId": "pack_npc_image_required", "patches": [{ "path": "npcs", "value": { "default_npc": " " } }] },
+    { "ruleId": "pack_npc_image_max_length", "patches": [{ "path": "npcs", "value": { "default_npc": { "$repeatChars": 501, "char": "x" } } }] },
+    { "ruleId": "pack_npc_image_path", "patches": [{ "path": "npcs", "value": { "default_npc": "npc-questgiver.png" } }] },
+
     { "ruleId": "pack_prologue_min_items", "patches": [{ "path": "prologue", "value": [] }] },
-    { "ruleId": "pack_prologue_item_max_length", "patches": [{ "path": "prologue.0", "value": { "$repeatChars": 2001, "char": "x" } }] },
+    { "ruleId": "pack_prologue_item_npc_required", "patches": [{ "path": "prologue.0.npc", "value": "  " }] },
+    { "ruleId": "pack_prologue_item_npc_defined", "patches": [{ "path": "prologue.0.npc", "value": "ghost" }] },
+    { "ruleId": "pack_prologue_item_max_length", "patches": [{ "path": "prologue.0.text", "value": { "$repeatChars": 2001, "char": "x" } }] },
     { "ruleId": "pack_epilogue_min_items", "patches": [{ "path": "epilogue", "value": [] }] },
-    { "ruleId": "pack_epilogue_item_max_length", "patches": [{ "path": "epilogue.0", "value": { "$repeatChars": 2001, "char": "x" } }] },
+    { "ruleId": "pack_epilogue_item_npc_required", "patches": [{ "path": "epilogue.0.npc", "value": "  " }] },
+    { "ruleId": "pack_epilogue_item_npc_defined", "patches": [{ "path": "epilogue.0.npc", "value": "ghost" }] },
+    { "ruleId": "pack_epilogue_item_max_length", "patches": [{ "path": "epilogue.0.text", "value": { "$repeatChars": 2001, "char": "x" } }] },
     { "ruleId": "pack_quests_min_items", "patches": [{ "path": "quests", "value": [] }] },
 
     { "ruleId": "quest_ids_contiguous", "patches": [{ "path": "quests.0.id", "value": 5 }] },
@@ -183,7 +203,9 @@
     { "ruleId": "quest_task_required", "patches": [{ "path": "quests.1.description_task", "value": "" }] },
     { "ruleId": "quest_task_max_length", "patches": [{ "path": "quests.1.description_task", "value": { "$repeatChars": 1001, "char": "x" } }] },
     { "ruleId": "quest_lore_min_items", "patches": [{ "path": "quests.1.description_lore", "value": [] }] },
-    { "ruleId": "quest_lore_item_max_length", "patches": [{ "path": "quests.1.description_lore.0", "value": { "$repeatChars": 2001, "char": "x" } }] },
+    { "ruleId": "quest_lore_npc_required", "patches": [{ "path": "quests.1.description_lore.0.npc", "value": "" }] },
+    { "ruleId": "quest_lore_npc_defined", "patches": [{ "path": "quests.1.description_lore.0.npc", "value": "ghost" }] },
+    { "ruleId": "quest_lore_item_max_length", "patches": [{ "path": "quests.1.description_lore.0.text", "value": { "$repeatChars": 2001, "char": "x" } }] },
     { "ruleId": "quest_hint_item_max_length", "patches": [{ "path": "quests.0.hints.0", "value": { "$repeatChars": 501, "char": "x" } }] },
     { "ruleId": "quest_solution_max_length", "patches": [{ "path": "quests.1.solution", "value": { "$repeatChars": 5001, "char": "x" } }] },
     { "ruleId": "quest_template_max_length", "patches": [{ "path": "quests.1.template", "value": { "$repeatChars": 10001, "char": "x" } }] },
@@ -229,6 +251,20 @@
       "patches": [
         { "path": "quests.2.manual", "value": {} },
         { "path": "quests.2.support_modules", "value": [] }
+      ]
+    },
+    {
+      "name": "a pack with several declared speakers",
+      "valid": true,
+      "patches": [
+        { "path": "npcs", "value": {
+          "default_npc": "assets/npc-questgiver.png",
+          "chief": "assets/npc-chief.png",
+          "informant": "assets/characters/npc-informant.png"
+        } },
+        { "path": "prologue.0.npc", "value": "chief" },
+        { "path": "epilogue.0.npc", "value": "informant" },
+        { "path": "quests.0.description_lore.0.npc", "value": "chief" }
       ]
     },
     {

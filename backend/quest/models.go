@@ -20,7 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -32,19 +34,28 @@ type Manual struct {
 	ExternalLink string `json:"external_link"`
 }
 
+// LoreEntry is one page of narrative text, spoken by one of the npc
+// characters declared in the pack's npcs section. Prologue, epilogue and
+// quest lore are all lists of these, so a pack can give different lines of
+// its story different speakers.
+type LoreEntry struct {
+	NPC  string `json:"npc"`
+	Text string `json:"text"`
+}
+
 // Quest represents a single learning quest.
 type Quest struct {
-	ID              int        `json:"id"`
-	Title           string     `json:"title"`
-	DescriptionLore []string   `json:"description_lore"`
-	DescriptionTask string     `json:"description_task"`
-	Manual          Manual     `json:"manual"`
-	Hints           []string   `json:"hints"`
-	Solution        string     `json:"solution,omitempty"`
-	Tests           []TestCase `json:"tests"`
-	ApplyTemplate   bool       `json:"apply_template"`
-	Template        string     `json:"template"`
-	Query           string     `json:"query"`
+	ID              int         `json:"id"`
+	Title           string      `json:"title"`
+	DescriptionLore []LoreEntry `json:"description_lore"`
+	DescriptionTask string      `json:"description_task"`
+	Manual          Manual      `json:"manual"`
+	Hints           []string    `json:"hints"`
+	Solution        string      `json:"solution,omitempty"`
+	Tests           []TestCase  `json:"tests"`
+	ApplyTemplate   bool        `json:"apply_template"`
+	Template        string      `json:"template"`
+	Query           string      `json:"query"`
 	// SupportModules are optional hidden Rego modules (e.g. a policy under
 	// test) compiled alongside the player's policy during verification.
 	// Each entry must be a complete Rego module including its package.
@@ -108,13 +119,18 @@ type UILabels struct {
 
 // QuestPack represents a collection of quests (e.g., medieval, scifi).
 type QuestPack struct { //nolint:revive // established public name; renaming to Pack would be a breaking API change
-	ID       string         `json:"id"`
-	Meta     MetaData       `json:"meta"`
-	UILabels UILabels       `json:"ui_labels"`
-	Prologue []string       `json:"prologue"`
-	Epilogue []string       `json:"epilogue"`
-	Quests   []Quest        `json:"quests"`
-	questMap map[int]*Quest // Internal map for O(1) quest lookup
+	ID string `json:"id"`
+	// Version is the quest pack format marker. LoadPack refuses a pack whose
+	// version is not FormatVersion before decoding it, so an old pack fails
+	// with a migration message instead of a type error from the decoder.
+	Version  int               `json:"version"`
+	NPCs     map[string]string `json:"npcs"` // npc key -> image path inside the pack's assets directory
+	Meta     MetaData          `json:"meta"`
+	UILabels UILabels          `json:"ui_labels"`
+	Prologue []LoreEntry       `json:"prologue"`
+	Epilogue []LoreEntry       `json:"epilogue"`
+	Quests   []Quest           `json:"quests"`
+	questMap map[int]*Quest    // Internal map for O(1) quest lookup
 }
 
 // Security: Validation and Sanitization Functions
@@ -140,6 +156,21 @@ func validateNonEmpty(s string, fieldName string) error {
 // Pre-compiled regex pattern for alphanumeric validation (compiled once at init)
 var alphanumericPattern = regexp.MustCompile(`^[a-zA-Z0-9\s\-_.,!?']+$`)
 
+// npcKeyPattern bounds npc keys: they name a lore entry's speaker and become
+// frontend option labels, so they stay simple identifiers rather than free
+// text. DefaultNPCKey must match it.
+var npcKeyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
+
+// npcImageExtensions are the image types an npc may point at. They are the
+// raster subset of the extensions the quest asset route serves: an svg can
+// carry script content, so it stays out of a source that lands in an <img>.
+var npcImageExtensions = map[string]bool{
+	".png":  true,
+	".jpg":  true,
+	".jpeg": true,
+	".webp": true,
+}
+
 // validateAlphanumericWithSpaces validates that a string contains only alphanumeric characters,
 // spaces, and basic punctuation.
 func validateAlphanumericWithSpaces(s string, fieldName string) error {
@@ -149,11 +180,12 @@ func validateAlphanumericWithSpaces(s string, fieldName string) error {
 	return nil
 }
 
-// validateQuest validates a single quest's fields.
-func validateQuest(quest *Quest, questIndex int) error {
+// validateQuest validates a single quest's fields. npcs is the pack's npc
+// roster, needed to resolve the speakers lore entries reference.
+func validateQuest(quest *Quest, questIndex int, npcs map[string]string) error {
 	p := fmt.Sprintf("quest %d", questIndex)
 
-	if err := validateQuestNarrative(quest, p); err != nil {
+	if err := validateQuestNarrative(quest, p, npcs); err != nil {
 		return err
 	}
 	if err := validateQuestHintsAndTemplate(quest, p); err != nil {
@@ -174,8 +206,10 @@ func validateQuest(quest *Quest, questIndex int) error {
 	return validateNonEmpty(quest.Query, p+" query")
 }
 
-// validateQuestNarrative validates title, task, and lore entries.
-func validateQuestNarrative(quest *Quest, p string) error {
+// validateQuestNarrative validates title, task, and lore entries. Each lore
+// entry must name an npc the pack declares; a dangling reference would leave
+// the frontend without an image for the speaker mid-story.
+func validateQuestNarrative(quest *Quest, p string, npcs map[string]string) error {
 	if err := validateNonEmpty(quest.Title, p+" title"); err != nil {
 		return err
 	}
@@ -193,8 +227,14 @@ func validateQuestNarrative(quest *Quest, p string) error {
 	if len(quest.DescriptionLore) == 0 {
 		return fmt.Errorf("%s must have at least one lore entry", p)
 	}
-	for i, lore := range quest.DescriptionLore {
-		if err := validateStringLength(lore, MaxQuestDescriptionLore, fmt.Sprintf("%s lore[%d]", p, i)); err != nil {
+	for i, entry := range quest.DescriptionLore {
+		if err := validateNonEmpty(entry.NPC, fmt.Sprintf("%s lore[%d] npc", p, i)); err != nil {
+			return err
+		}
+		if _, declared := npcs[entry.NPC]; !declared {
+			return fmt.Errorf("%s lore[%d] references npc %q, which the pack does not declare", p, i, entry.NPC)
+		}
+		if err := validateStringLength(entry.Text, MaxQuestDescriptionLore, fmt.Sprintf("%s lore[%d]", p, i)); err != nil {
 			return err
 		}
 	}
@@ -325,6 +365,10 @@ func validateUILabels(labels UILabels) error {
 }
 
 func validateQuestPack(pack *QuestPack) error {
+	if pack.Version != FormatVersion {
+		return fmt.Errorf("pack format version is %d, this build understands %d; run cmd/questmigrate to migrate the pack",
+			pack.Version, FormatVersion)
+	}
 	if err := validatePackMeta(pack.Meta); err != nil {
 		return err
 	}
@@ -334,6 +378,12 @@ func validateQuestPack(pack *QuestPack) error {
 	if err := validateUILabels(pack.UILabels); err != nil {
 		return err
 	}
+	// The npc roster comes before the narrative lists and the quests: the
+	// lore entries reference it, and refusing an unusable roster first keeps
+	// every later message about a lore entry meaningful.
+	if err := validatePackNPCs(pack); err != nil {
+		return err
+	}
 	if err := validateNarrativeLists(pack); err != nil {
 		return err
 	}
@@ -341,7 +391,7 @@ func validateQuestPack(pack *QuestPack) error {
 		return fmt.Errorf("pack must have at least one quest")
 	}
 	for i := range pack.Quests {
-		if err := validateQuest(&pack.Quests[i], i+1); err != nil {
+		if err := validateQuest(&pack.Quests[i], i+1, pack.NPCs); err != nil {
 			return err
 		}
 	}
@@ -386,13 +436,102 @@ func validatePackObjectives(meta MetaData) error {
 	return nil
 }
 
-// validateNarrativeLists validates the prologue and epilogue entries.
+// validatePackNPCs validates the npc roster a pack's lore entries draw their
+// speakers from. Entries are visited in sorted key order so the same pack
+// always produces the same message, map iteration order being what it is.
+func validatePackNPCs(pack *QuestPack) error {
+	if len(pack.NPCs) == 0 {
+		return fmt.Errorf("pack must declare at least one npc character in the npcs section")
+	}
+	if len(pack.NPCs) > MaxPackNPCs {
+		return fmt.Errorf("pack has %d npc characters, maximum is %d", len(pack.NPCs), MaxPackNPCs)
+	}
+	if _, ok := pack.NPCs[DefaultNPCKey]; !ok {
+		return fmt.Errorf("pack npcs must declare %q as the fallback speaker", DefaultNPCKey)
+	}
+
+	names := make([]string, 0, len(pack.NPCs))
+	for name := range pack.NPCs {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	for i, name := range names {
+		if err := validateNonEmpty(name, fmt.Sprintf("npcs[%d] name", i)); err != nil {
+			return err
+		}
+		if err := validateStringLength(name, MaxNPCName, fmt.Sprintf("npcs[%d] name", i)); err != nil {
+			return err
+		}
+		if !npcKeyPattern.MatchString(name) {
+			return fmt.Errorf("npcs[%d] name contains invalid characters "+
+				"(must start with a letter and use only letters, numbers, hyphens and underscores)", i)
+		}
+		if err := validateNonEmpty(pack.NPCs[name], fmt.Sprintf("npcs[%d] image", i)); err != nil {
+			return err
+		}
+		if err := validateStringLength(pack.NPCs[name], MaxNPCImage, fmt.Sprintf("npcs[%d] image", i)); err != nil {
+			return err
+		}
+		if err := validateNPCImagePath(pack.NPCs[name], fmt.Sprintf("npcs[%d] image", i)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateNPCImagePath requires an npc image to address a media file inside
+// the pack's assets directory - the only place the asset route serves from.
+// Path traversal, absolute paths, backslashes, whitespace and unlisted file
+// extensions are refused so the frontend can use the path in an <img src>
+// without escaping surprises.
+func validateNPCImagePath(image string, prefix string) error {
+	if !strings.HasPrefix(image, NPCImagePrefix) {
+		return fmt.Errorf("%s must point inside the pack assets directory (must start with %q)", prefix, NPCImagePrefix)
+	}
+	rest := image[len(NPCImagePrefix):]
+	if rest == "" {
+		return fmt.Errorf("%s must name a file inside the pack assets directory", prefix)
+	}
+	if strings.Contains(rest, "..") || strings.Contains(rest, "\\") {
+		return fmt.Errorf("%s must stay inside the pack assets directory (path traversal is not allowed)", prefix)
+	}
+	if strings.ContainsAny(rest, " \t\n") {
+		return fmt.Errorf("%s must not contain whitespace (only URL-safe paths are allowed)", prefix)
+	}
+	ext := strings.ToLower(path.Ext(image))
+	if !npcImageExtensions[ext] {
+		return fmt.Errorf("%s must use one of the extensions: %s",
+			prefix, strings.Join(sortedExtensionList(npcImageExtensions), ", "))
+	}
+	return nil
+}
+
+// sortedExtensionList renders a map of extensions as a stable, sorted, comma
+// separated list for error messages.
+func sortedExtensionList(exts map[string]bool) []string {
+	list := make([]string, 0, len(exts))
+	for ext := range exts {
+		list = append(list, ext)
+	}
+	slices.Sort(list)
+	return list
+}
+
+// validateNarrativeLists validates the prologue and epilogue entries, their
+// npc references included.
 func validateNarrativeLists(pack *QuestPack) error {
 	if len(pack.Prologue) == 0 {
 		return fmt.Errorf("pack must have at least one prologue entry")
 	}
 	for i, entry := range pack.Prologue {
-		if err := validateStringLength(entry, MaxPrologueItem, fmt.Sprintf("prologue[%d]", i)); err != nil {
+		if err := validateNonEmpty(entry.NPC, fmt.Sprintf("prologue[%d] npc", i)); err != nil {
+			return err
+		}
+		if _, declared := pack.NPCs[entry.NPC]; !declared {
+			return fmt.Errorf("prologue[%d] references npc %q, which the pack does not declare", i, entry.NPC)
+		}
+		if err := validateStringLength(entry.Text, MaxPrologueItem, fmt.Sprintf("prologue[%d]", i)); err != nil {
 			return err
 		}
 	}
@@ -400,7 +539,13 @@ func validateNarrativeLists(pack *QuestPack) error {
 		return fmt.Errorf("pack must have at least one epilogue entry")
 	}
 	for i, entry := range pack.Epilogue {
-		if err := validateStringLength(entry, MaxEpilogueItem, fmt.Sprintf("epilogue[%d]", i)); err != nil {
+		if err := validateNonEmpty(entry.NPC, fmt.Sprintf("epilogue[%d] npc", i)); err != nil {
+			return err
+		}
+		if _, declared := pack.NPCs[entry.NPC]; !declared {
+			return fmt.Errorf("epilogue[%d] references npc %q, which the pack does not declare", i, entry.NPC)
+		}
+		if err := validateStringLength(entry.Text, MaxEpilogueItem, fmt.Sprintf("epilogue[%d]", i)); err != nil {
 			return err
 		}
 	}

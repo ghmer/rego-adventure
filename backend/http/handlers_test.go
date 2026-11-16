@@ -47,11 +47,26 @@ func newTestRouter(repo *quest.QuestRepository) *gin.Engine {
 	return router
 }
 
+// handlerTestManual is the manual block both quests of the handler test pack
+// share, extracted to keep the pack builder within its function budget.
+func handlerTestManual() quest.Manual {
+	return quest.Manual{
+		DataModel:    `{"type": "object"}`,
+		RegoSnippet:  "package quest",
+		ExternalLink: "https://www.openpolicyagent.org/docs",
+	}
+}
+
 // loadHandlerTestPack marshals and loads a minimal valid quest pack into repo.
 func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID string) {
 	t.Helper()
 	pack := quest.QuestPack{
-		ID: packID,
+		ID:      packID,
+		Version: quest.FormatVersion,
+		NPCs: map[string]string{
+			"default_npc": "assets/npc-questgiver.png",
+			"villain":     "assets/npc-villain.png",
+		},
 		Meta: quest.MetaData{
 			Title:       "Test Pack",
 			Description: "A test pack description",
@@ -67,23 +82,22 @@ func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID strin
 			PerfectScoreButtonText: "Continue",
 			BeginAdventureButton:   "Begin",
 		},
-		Prologue: []string{"Welcome, adventurer!"},
-		Epilogue: []string{"Congratulations!"},
+		Prologue: []quest.LoreEntry{{NPC: "default_npc", Text: "Welcome, adventurer!"}},
+		Epilogue: []quest.LoreEntry{{NPC: "default_npc", Text: "Congratulations!"}},
 		Quests: []quest.Quest{
 			{
 				ID:              1,
 				Title:           "Quest 1",
 				DescriptionTask: "Write a Rego policy",
-				DescriptionLore: []string{"In the land of OPA..."},
-				Query:           "data.quest.allow",
-				Hints:           []string{"Think about roles.", "Compare the user string."},
-				Solution:        "package quest\n\ndefault allow = false\n\nallow if input.user == \"admin\"\n",
-				SupportModules:  []string{"package helpers\n\nimport rego.v1\n\nhelper if input.user != \"\"\n"},
-				Manual: quest.Manual{
-					DataModel:    `{"type": "object"}`,
-					RegoSnippet:  "package quest",
-					ExternalLink: "https://www.openpolicyagent.org/docs",
+				DescriptionLore: []quest.LoreEntry{
+					{NPC: "default_npc", Text: "In the land of OPA..."},
+					{NPC: "villain", Text: "...where a villain guards the gate."},
 				},
+				Query:          "data.quest.allow",
+				Hints:          []string{"Think about roles.", "Compare the user string."},
+				Solution:       "package quest\n\ndefault allow = false\n\nallow if input.user == \"admin\"\n",
+				SupportModules: []string{"package helpers\n\nimport rego.v1\n\nhelper if input.user != \"\"\n"},
+				Manual:         handlerTestManual(),
 				Tests: []quest.TestCase{
 					{
 						ID:              1,
@@ -105,13 +119,9 @@ func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID strin
 				ID:              2,
 				Title:           "Quest 2",
 				DescriptionTask: "Write another Rego policy",
-				DescriptionLore: []string{"Beyond the mountains..."},
+				DescriptionLore: []quest.LoreEntry{{NPC: "default_npc", Text: "Beyond the mountains..."}},
 				Query:           "data.quest.allow",
-				Manual: quest.Manual{
-					DataModel:    `{"type": "object"}`,
-					RegoSnippet:  "package quest",
-					ExternalLink: "https://www.openpolicyagent.org/docs",
-				},
+				Manual:          handlerTestManual(),
 				Tests: []quest.TestCase{
 					{
 						ID:              1,

@@ -25,6 +25,13 @@ package quest
 // fails if either side changes without the other.
 
 const (
+	// FormatVersion is the quest pack format this build understands. A pack
+	// whose quests.json carries no version key (the pre-v2 format) or a
+	// different one is refused at load with a message pointing at
+	// cmd/questmigrate. It appears in the editor's limit table because the
+	// parity test pins every integer constant in this block.
+	FormatVersion = 2
+
 	// MaxPackTitle is the maximum length for pack title.
 	MaxPackTitle = 100
 	// MaxPackDescription is the maximum length for pack description.
@@ -88,4 +95,24 @@ const (
 
 	// MaxTestPayloadBytes is the maximum size in bytes for test payloads (50KB).
 	MaxTestPayloadBytes = 50000
+
+	// MaxPackNPCs is the maximum number of npc characters a pack may declare.
+	// Without a cap the pack payload and the frontend's asset preload grow
+	// without bound.
+	MaxPackNPCs = 50
+	// MaxNPCName is the maximum length of an npc key in the npcs section.
+	MaxNPCName = 64
+	// MaxNPCImage is the maximum length of an npc image path.
+	MaxNPCImage = 500
 )
+
+// DefaultNPCKey is the npc key every pack must declare in its npcs section.
+// It is the speaker the frontend shows for screens without a lore entry of
+// their own - the quest task, hints, the modals - and the key the migration
+// tool assigns to lore entries of pre-v2 packs, whose single quest-giver
+// image speaks every line.
+const DefaultNPCKey = "default_npc"
+
+// NPCImagePrefix is the required prefix of an npc image path: images live in
+// the pack's assets directory, which is what the asset route serves.
+const NPCImagePrefix = "assets/"
