@@ -192,6 +192,26 @@ func redirectCdnJsLinks(indexContent []byte, css map[string]cssManifest) []byte 
 	})
 }
 
+// convergeLocalVendorLinks rewrites already-local stylesheet hrefs of
+// aliased libraries to the manifest's current directory and file.
+// Running the tools again after a version bump must converge a document
+// that still links the previous vendored directory, exactly as the
+// default mode's version sync does. The rewrite anchors on the href
+// attribute of a stylesheet link, so import map entries inside the same
+// document are never touched.
+func convergeLocalVendorLinks(indexContent []byte, css map[string]cssManifest) []byte {
+	for _, aliased := range css {
+		base := aliased.Dir
+		if at := strings.Index(base, "@"); at >= 0 {
+			base = base[:at]
+		}
+		pattern := regexp.MustCompile(`href="/vendor/` + regexp.QuoteMeta(base) + `@[^"]+"`)
+		indexContent = pattern.ReplaceAll(indexContent,
+			[]byte("href=\""+vendorURL(aliased.Dir, aliased.File)+"\""))
+	}
+	return indexContent
+}
+
 // syncCdnJsVersions rewrites the version segment of cdnjs URLs whose
 // library slug matches a dependency, so stylesheet links track the
 // versions imported through the import map.
@@ -270,7 +290,9 @@ func updateIndexHTML(indexContent []byte, pkg PackageJSON, vendored ...*Manifest
 
 	newIndexContent := importMapRe.ReplaceAll(indexContent, []byte(newScriptTag))
 	if len(vendored) > 0 && vendored[0] != nil {
-		return redirectCdnJsLinks(newIndexContent, buildCSSAliases(vendored[0])), nil
+		cssAliases := buildCSSAliases(vendored[0])
+		converged := convergeLocalVendorLinks(newIndexContent, cssAliases)
+		return redirectCdnJsLinks(converged, cssAliases), nil
 	}
 	return syncCdnJsVersions(newIndexContent, pkg.Dependencies), nil
 }

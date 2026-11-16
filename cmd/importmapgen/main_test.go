@@ -324,3 +324,46 @@ func TestBuildVendoredImportMapErrorsOnEmptyManifest(t *testing.T) {
 		t.Error("a manifest without module packages must error")
 	}
 }
+
+// TestUpdateIndexHTMLManifestModeConvergesStaleHrefs: a document linked
+// to the previous vendor version converges to the manifest's current
+// one, and only inside a link's href - the import map entries of the
+// same document stay untouched.
+func TestUpdateIndexHTMLManifestModeConvergesStaleHrefs(t *testing.T) {
+	stale := strings.Replace(vendoredTestHTML,
+		"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css",
+		"/vendor/fortawesome-fontawesome-free@7.0.1/css/all.min.css", 1)
+	stale = strings.Replace(stale,
+		"https://cdnjs.cloudflare.com/ajax/libs/driver.js/1.14.0/driver.min.css",
+		"/vendor/driver.js@1.14.0/dist/driver.css", 1)
+	stale = strings.Replace(stale,
+		"https://esm.sh/marked@18.2.1",
+		"/vendor/marked@18.2.1/lib/marked.esm.js", 1)
+
+	manifest := vendoredTestManifest()
+	manifest.Packages["@fortawesome/fontawesome-free"] = pkgManifest{
+		Dir: "fortawesome-fontawesome-free@7.3.1", Entry: "",
+	}
+	manifest.CSS["font-awesome"] = cssManifest{
+		Dir: "fortawesome-fontawesome-free@7.3.1", File: "css/all.min.css",
+	}
+
+	pkg := buildPkg(map[string]string{"marked": "18.2.1"}, nil)
+	out, err := updateIndexHTML([]byte(stale), pkg, manifest)
+	if err != nil {
+		t.Fatalf("updateIndexHTML returned error: %v", err)
+	}
+
+	if !strings.Contains(string(out), `href="/vendor/fortawesome-fontawesome-free@7.3.1/css/all.min.css"`) {
+		t.Errorf("the stale href should converge to the manifest version, got:\n%s", out)
+	}
+	if strings.Contains(string(out), "fortawesome-fontawesome-free@7.0.1") {
+		t.Errorf("no stale font-awesome URL should survive, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), `"driver.js": "/vendor/driver.js@1.14.0/dist/driver.js.mjs"`) {
+		t.Errorf("the import map's driver entry is not a stylesheet and must stay, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), `href="/vendor/driver.js@1.14.0/dist/driver.css"`) {
+		t.Errorf("an up-to-date href must survive the convergence pass, got:\n%s", out)
+	}
+}

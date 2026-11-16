@@ -186,7 +186,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | Frontend lint | `npm ci` then `npx eslint src` in `frontend/adventure` | `frontend-ci.yml` |
 | Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
 | Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
-| Vendored library drift | `go run ./cmd/vendorgen/main.go`, then require `frontend/adventure/vendor` unchanged | `frontend-ci.yml` |
+| Vendored library drift | `go run ./cmd/vendorgen`, then require `frontend/adventure/vendor` unchanged | `frontend-ci.yml` |
 | Browser and command-line QA suites | `node docu/qa/run-qa.cjs` (all suites, one shared build, running concurrently), or `node docu/qa/<suite>.cjs` for a single suite | `frontend-ci.yml` (`browser-qa` job) |
 | Clone gate | `npx --yes jscpd@4.0.5 --min-tokens 60 --threshold 0 ... backend cmd main.go frontend/adventure/src docu/quest-editor` (tests and test fixtures excluded) | `go-ci.yml`, `frontend-ci.yml` (`clone-gate` job) |
 
@@ -554,7 +554,7 @@ the vendored tree is present. All of it adds up to roughly 800 KB; the Dockerfil
 at runtime.
 
 Refresh the tree when `package.json` changes (`npm install --package-lock-only`, then
-`go run ./cmd/vendorgen/main.go`, then `go run ./cmd/importmapgen/main.go -manifest frontend/adventure/vendor/manifest.json`);
+`go run ./cmd/vendorgen`, then `go run ./cmd/importmapgen/main.go -manifest frontend/adventure/vendor/manifest.json`);
 CI's `vendor-sync` job fails any PR that ships a stale tree.
 
 A CDN-only fallback remains: without the vendored tree the import map keeps its esm.sh URLs and

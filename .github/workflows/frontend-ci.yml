@@ -139,10 +139,10 @@ jobs:
       # result is committed, so serving needs no network at runtime.
       - name: Regenerate vendor tree and fail on drift
         run: |
-          go run ./cmd/vendorgen/main.go
+          go run ./cmd/vendorgen
           if ! git diff --exit-code -- frontend/adventure/vendor frontend/adventure/package-lock.json; then
             echo "::error::frontend/adventure/vendor or the lockfile is out of sync with frontend/adventure/package.json."
-            echo "Regenerate with: cd frontend/adventure && npm install --package-lock-only && go run ./cmd/vendorgen/main.go"
+            echo "Regenerate with: cd frontend/adventure && npm install --package-lock-only && go run ./cmd/vendorgen"
             git diff -- frontend/adventure/vendor | head -200
             exit 1
           fi

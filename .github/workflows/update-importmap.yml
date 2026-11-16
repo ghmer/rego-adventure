@@ -49,7 +49,7 @@ jobs:
       - name: Refresh the vendored libraries and the import map
         run: |
           npm install --package-lock-only --ignore-scripts
-          go run ${GITHUB_WORKSPACE}/trusted-base/cmd/vendorgen/main.go \
+          go run ${GITHUB_WORKSPACE}/trusted-base/cmd/vendorgen \
             -pkg frontend/adventure/package.json
           go run ${GITHUB_WORKSPACE}/trusted-base/cmd/importmapgen/main.go \
             -pkgPath frontend/adventure/package.json \
