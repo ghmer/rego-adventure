@@ -443,13 +443,13 @@ already-versioned packs are skipped, so a rerun is free.
 **Usage:**
 
 ```bash
-go run cmd/questmigrate/main.go -dir <pack-dir|parent-dir> [-dry-run]
+go run ./cmd/questmigrate -dir <pack-dir|parent-dir> [-dry-run]
 ```
 
 **Example:**
 
 ```bash
-go run cmd/questmigrate/main.go -dir frontend/quests
+go run ./cmd/questmigrate -dir frontend/quests
 
 # migrates every pack folder below frontend/quests
 ```

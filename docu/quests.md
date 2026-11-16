@@ -144,7 +144,7 @@ loads. The quest editor refuses the same packs on open, for the same reason.
 **Migrating a pack** rewrites its `quests.json` in place:
 
 ```bash
-go run cmd/questmigrate/main.go -dir <pack-dir|parent-dir> [-dry-run]
+go run ./cmd/questmigrate -dir <pack-dir|parent-dir> [-dry-run]
 ```
 
 `-dir` takes one pack directory or a directory whose immediate
