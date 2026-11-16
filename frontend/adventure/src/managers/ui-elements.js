@@ -33,6 +33,7 @@ export const uiElementSelectors = {
     lorePageIndicator: '#lore-page-indicator',
     questTask: '#quest-task',
     npcAvatar: '.npc-avatar',
+    heroAvatar: '.avatar',
 
     // Hints
     hintsList: '#hints-list',
@@ -81,6 +82,9 @@ export const uiElementSelectors = {
     closeSupportModulesBtn: '#close-support-modules-btn',
     supportModulesContent: '#support-modules-content',
     checkSupportModulesBtn: '#check-support-modules-btn',
+    portraitModal: '#portrait-modal',
+    portraitModalImage: '#portrait-modal-image',
+    closePortraitBtn: '#close-portrait-btn',
     resultModal: '#result-modal',
     resultIcon: '#result-icon',
     resultTitle: '#result-title',

@@ -192,7 +192,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 The QA suites in `docu/qa/` start their own server on a free port and drive a real browser through
 Playwright, which is resolved from the installed toolchain (a devDependency pinned in the manifest
 and lockfile). Six suites:
-`spa-qa` (the adventure interface), `dialog-qa` (the seven dialogs), `editor-qa` (the quest editor),
+`spa-qa` (the adventure interface), `dialog-qa` (the eight dialogs), `editor-qa` (the quest editor),
 `save-compat` (saved-state compatibility), `cli-qa` (the command-line tools) and `session-qa` (a
 signed session token that expires during a quest, on the start screen and inside a quest). They run by
 hand against the change they test: each keeps its generated quest packs inside a run root of its own

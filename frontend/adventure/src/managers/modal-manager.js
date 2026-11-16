@@ -31,7 +31,7 @@ import { formatPolicyError, formatActualValue, buildHintConfirmationText } from 
 import { parseMarkdown } from '../services/markdown.js';
 
 /**
- * Manages the seven dialogs of the game interface.
+ * Manages the eight dialogs of the game interface.
  *
  * Dismissal policy. Every dialog opens with showModal(), so the page behind
  * it is unreachable while it is open, and focuses the control that states the
@@ -43,6 +43,7 @@ import { parseMarkdown } from '../services/markdown.js';
  * | manual            | closes   | closes   | close button        | -               |
  * | test payload      | closes   | closes   | close button        | -               |
  * | support modules   | closes   | closes   | close button        | -               |
+ * | portrait          | closes   | closes   | close button        | -               |
  * | hint confirmation | closes   | closes   | cancel button       | -               |
  * | restart           | blocked  | blocked  | cancel button       | -               |
  * | result            | closes   | closes   | Next Quest / Close  | effects cleanup |
@@ -106,6 +107,7 @@ export class ModalManager {
             this.ui.elements.manualModal,
             this.ui.elements.testPayloadModal,
             this.ui.elements.supportModulesModal,
+            this.ui.elements.portraitModal,
             this.ui.elements.resultModal,
             this.ui.elements.perfectScoreModal,
             this.ui.elements.hintModal
@@ -247,6 +249,34 @@ export class ModalManager {
      */
     closeSupportModules() {
         this.closeDialog(this.ui.elements.supportModulesModal);
+    }
+
+    /**
+     * Show a larger view of a clicked avatar. The pane boxes (and the header
+     * hero box) show an impression of the artwork at 56-64px; the dialog
+     * shows the same asset larger. The source is copied from the clicked
+     * element, not refetched: it is already the pack asset as resolved for
+     * this pack visit (a blob URL when pack media is token-protected, the
+     * plain path otherwise), and the dialog only lives while that visit -
+     * and the resolved source with it - is current.
+     * @param {HTMLImageElement} source - The avatar image that was clicked
+     */
+    showPortrait(source) {
+        if (!source || !source.src) {
+            return;
+        }
+        const image = this.ui.elements.portraitModalImage;
+        image.src = source.src;
+        image.alt = source.alt || 'Character portrait';
+        this.openDialog(this.ui.elements.portraitModal);
+        this.ui.elements.closePortraitBtn.focus();
+    }
+
+    /**
+     * Close the portrait dialog
+     */
+    closePortrait() {
+        this.closeDialog(this.ui.elements.portraitModal);
     }
 
     /**

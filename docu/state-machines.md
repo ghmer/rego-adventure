@@ -106,7 +106,7 @@ The full index, in machine order:
 | 8 | Async reveal overlay (race control) | `managers/quest-manager.js:51` | `revealPhase`, `revealQuestId`, `revealPromise` | B |
 | 9 | Quest scoring / replay | `services/state-service.js:404` | `questScores`, `totalScore` | B |
 | 10 | Editor persistence (autosave) | `managers/grimoire-autosave.js`, `managers/ui-manager.js:289` | autosave timer, `save-indicator` class | D |
-| 11 | Verify request (client) | `managers/event-manager.js:292` | `verifying`, button label | D |
+| 11 | Verify request (client) | `managers/event-manager.js:345` | `verifying`, button label | D |
 | 12 | Verify pipeline (server) | `backend/http/handlers.go:221`, `backend/quest/verifier.go:334` | `context` + error shape | E |
 | 13 | Verification outcome shape | `backend/quest/verifier.go` | `Error` / `Results` / `Undefined` | E |
 | 14 | Dialogs | `managers/modal-manager.js:83` | `<dialog open>` | C |
@@ -517,7 +517,7 @@ When `loadPack` fails, `rollbackPackEntry` clears the pack pointer and every pac
 
 ### M#14 · Dialogs
 
-**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:85`) / `closeDialog` (`modal-manager.js:95`) · **Persisted:** no
+**Carrier:** `<dialog open>` · **Owner:** `ModalManager.openDialog` (`modal-manager.js:86`) / `closeDialog` (`modal-manager.js:96`) · **Persisted:** no
 
 Seven `<dialog>` elements, each with its own micro-machine, and one open mode.
 
@@ -544,9 +544,9 @@ stateDiagram-v2
     Blocked --> Closed : explicit confirm or cancel
 ```
 
-`openDialog` (`modal-manager.js:85`) and `closeDialog` (`modal-manager.js:95`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:32-53`) and matches the table above.
+`openDialog` (`modal-manager.js:86`) and `closeDialog` (`modal-manager.js:96`) are idempotent: a double open or a double close is a no-op rather than an error. `openDialog` takes no modality switch; `showModal()` is the only call it makes, so the page behind an open dialog is unreachable and the state that dialog describes cannot change under it. `architecture-boundaries.test.js` fails a bare `show()` on a dialog element. The dismissal policy is stated in the `ModalManager` class comment (`modal-manager.js:32-53`) and matches the table above.
 
-Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:129-135`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:139-143`): leaving it takes an explicit click.
+Both dialogs that start an effect attach a `close` listener running `cleanupEffects` (`modal-manager.js:131-137`), which covers the button, ESC and the backdrop alike, so no effect outlives the dialog that triggered it (M#22). The restart confirmation blocks `cancel` (`modal-manager.js:139-143`): leaving it takes an explicit click.
 
 An eighth dialog sits outside the table. The tutorial prompt is created dynamically and follows the same explicit policy: ESC is prevented and forwarded to Decline (`tutorial.js:104-108`; see M#23).
 
@@ -554,7 +554,7 @@ Focus targets differ per dialog and encode an intent: cancel for the destructive
 
 ### M#15 · Result modal
 
-**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:288`); the caller passes points in · **Persisted:** no
+**Carrier:** `open` + `nextQuestBtn` visibility · **Owner:** `showResult` (`modal-manager.js:318`); the caller passes points in · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2
@@ -588,7 +588,7 @@ stateDiagram-v2
 
 The visibility *is* the state; the click handler is wired once at startup (`event-manager.js:270`).
 
-Showing happens at exactly one place: the epilogue, when `hasPerfectScore()` is true (`quest-manager.js:337`). Hiding happens at six: every quest render (`quest-manager.js:245`), either narrative stage (`quest-manager.js:297`), the epilogue without a perfect score (`quest-manager.js:339`), pack entry and pack exit (`pack-manager.js:218`, `:274`), and the restart handler (`event-manager.js:380`). A quest render hides it, so returning from the epilogue into history mode cannot leave it beside an unrelated quest. Closing the dialog changes nothing about the button either (M#17).
+Showing happens at exactly one place: the epilogue, when `hasPerfectScore()` is true (`quest-manager.js:337`). Hiding happens at six: every quest render (`quest-manager.js:245`), either narrative stage (`quest-manager.js:297`), the epilogue without a perfect score (`quest-manager.js:339`), pack entry and pack exit (`pack-manager.js:218`, `:274`), and the restart handler (`event-manager.js:393`). A quest render hides it, so returning from the epilogue into history mode cannot leave it beside an unrelated quest. Closing the dialog changes nothing about the button either (M#17).
 
 ### M#17 · Quest footer visibility
 
@@ -723,7 +723,7 @@ The confetti canvas is hosted by the dialog the celebration belongs to: `showMod
 
 The opt-out is consulted once per effect, at the effect's own edge. `showConfetti` (`effects.js:68`) and `showDarkOverlay` (`effects.js:127`) return immediately while the body carries `effects-disabled`, so `triggerResultEffect` (`effects.js:163`) stays unconditional and its `hideDarkOverlay()` runs effect or not. A result cannot leave an overlay behind, and `showPerfectScore` may call `showConfetti` directly for the same reason: the guard belongs to the effect, not to the caller (M#21).
 
-Both dialogs that can start an effect close through a `close` listener running `cleanupEffects` (`modal-manager.js:125-135`), so confetti and overlay end with the dialog instead of outliving it (M#14).
+Both dialogs that can start an effect close through a `close` listener running `cleanupEffects` (`modal-manager.js:127-137`), so confetti and overlay end with the dialog instead of outliving it (M#14).
 
 The overlay is a **sticky** element: once a failure has happened, `#dark-overlay` stays in the DOM and only its `active` class toggles (`effects.js:127-154`), which makes "never shown" and "currently hidden" the same DOM state. `cleanupEffects` (`effects.js:176`) hides it, clears the interval, resets the burst and removes the dialog-hosted canvas, so a closed dialog cannot keep a celebration running.
 
@@ -831,7 +831,7 @@ stateDiagram-v2
     Saved --> Idle : loadQuest reaches a prologue or an epilogue
 ```
 
-`markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`frontend/adventure/index.html:196`).
+`markDirty` re-arms the timer (`TIMING.GRIMOIRE_AUTOSAVE_DELAY`, `grimoire-autosave.js:45`), `flush` writes at once, and `cancel` drops a pending write the moment a quest is loaded (`quest-manager.js:192`). The flush edges are blur, `pagehide`, `visibilitychange`, Ctrl/Cmd+S, navigation and verify (`event-manager.js:128-163`, `:181`), and the markup starts the indicator in `idle` (`frontend/adventure/index.html:197`).
 
 `saveGrimoire(questId, code)` (`state-service.js:384`) returns the status rather than a boolean: `IDLE` when `isGrimoireScreen(questId)` is false (`state-service.js:372`), `SAVED` only when the storage write succeeded, `FAILED` when storage refused it (quota full, `localStorage` switched off, or a private-mode rejection). A screen without a grimoire reports `IDLE` through `QuestManager.loadQuest` as well, so the prologue and the epilogue show grey instead of the colour the last typed quest left behind. The tour describes exactly these four colours (`tutorial.js:195`).
 
@@ -839,7 +839,7 @@ The draft store is `state.grimoires[questId]`, read back through `loadQuestCode`
 
 ### M#11 · Verify request (client)
 
-**Carrier:** `verifying` + the button label · **Owner:** `handleVerify` (`event-manager.js:292`) · **Persisted:** no
+**Carrier:** `verifying` + the button label · **Owner:** `handleVerify` (`event-manager.js:322`) · **Persisted:** no
 
 ```mermaid
 stateDiagram-v2

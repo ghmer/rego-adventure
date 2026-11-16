@@ -128,7 +128,8 @@
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
                 <div class="avatar-container">
-                    <img src="/public/assets/hero-avatar.png" alt="Your character avatar" class="avatar">
+                    <img src="/public/assets/hero-avatar.png" alt="Your character avatar" class="avatar"
+                        role="button" tabindex="0" aria-haspopup="dialog">
                     <span id="experience-points" class="experience-badge" title="Experience Points">0 XP</span>
                 </div>
                 <span id="quest-counter">Quest 1/X</span>
@@ -140,7 +141,7 @@
             <section id="quest-navigation" class="quest-pane surface-bg" aria-labelledby="quest-title">
                 <div class="pane-header">
                     <img src="/public/assets/npc-questgiver.png" alt="Quest giver character providing guidance"
-                        class="npc-avatar">
+                        class="npc-avatar" role="button" tabindex="0" aria-haspopup="dialog">
                     <h2 id="quest-title">Loading Quest...</h2>
                 </div>
 
@@ -298,6 +299,23 @@
             <div id="support-modules-content" class="support-modules-content">
                 <!-- Support module content populated via JS -->
             </div>
+        </div>
+    </dialog>
+
+    <!-- Portrait Modal
+         A larger view of the avatar that was clicked: the small pane boxes
+         give an impression, the dialog shows the artwork itself. The image
+         source and alt text are copied from the clicked element by the
+         modal manager, so what is shown is exactly the pack asset that
+         element resolved to (plain path or blob), nothing refetched. -->
+    <dialog id="portrait-modal" class="modal" aria-labelledby="portrait-title">
+        <div class="modal-content surface-bg portrait-modal-content">
+            <div class="modal-header">
+                <h2 id="portrait-title">Portrait</h2>
+                <button id="close-portrait-btn" class="close-btn" aria-label="Close Portrait Modal"
+                    title="Close the portrait">&times;</button>
+            </div>
+            <img id="portrait-modal-image" src="" alt="">
         </div>
     </dialog>
 

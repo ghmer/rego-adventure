@@ -81,6 +81,9 @@ function createFixture() {
         <textarea id="editor">${CODE}</textarea>
         <span id="editor-save-indicator" class="save-indicator saved" role="status"
             aria-live="polite"></span>
+        <img class="npc-avatar" src="/public/assets/npc-questgiver.png" role="button" tabindex="0">
+        <img class="avatar" src="/public/assets/hero-avatar.png" role="button" tabindex="0">
+        <button id="close-portrait-btn"></button>
     `;
 
     const ui = new UIManager({ textarea: document.getElementById('editor') });
@@ -128,6 +131,52 @@ describe('event-manager', () => {
             addEventListener(type, listener, options);
         });
         apiMock.verifySolution.mockResolvedValue({ passed: true });
+    });
+
+
+    describe('portrait dialog triggers', () => {
+        it('both avatars open the dialog, with themselves as the source', () => {
+            const { ui, modal, em } = createFixture();
+            modal.showPortrait = vi.fn();
+            modal.closePortrait = vi.fn();
+            em.setupPortraitListeners();
+
+            ui.elements.npcAvatar.click();
+            expect(modal.showPortrait).toHaveBeenLastCalledWith(ui.elements.npcAvatar);
+
+            ui.elements.heroAvatar.click();
+            expect(modal.showPortrait).toHaveBeenLastCalledWith(ui.elements.heroAvatar);
+        });
+
+        it('Enter and Space act as the click on the keyboard-reachable avatars', () => {
+            const { ui, modal, em } = createFixture();
+            modal.showPortrait = vi.fn();
+            em.setupPortraitListeners();
+
+            for (const key of ['Enter', ' ']) {
+                const event = new KeyboardEvent('keydown', { key, cancelable: true, bubbles: true });
+                ui.elements.npcAvatar.dispatchEvent(event);
+                expect(modal.showPortrait, key).toHaveBeenCalledTimes(1);
+                expect(event.defaultPrevented, key).toBe(true);
+                modal.showPortrait.mockClear();
+            }
+
+            // Any other key does nothing.
+            ui.elements.npcAvatar.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'a', cancelable: true, bubbles: true })
+            );
+            expect(modal.showPortrait).not.toHaveBeenCalled();
+        });
+
+        it('the close button dismisses the dialog', () => {
+            const { ui, modal, em } = createFixture();
+            modal.showPortrait = vi.fn();
+            modal.closePortrait = vi.fn();
+            em.setupPortraitListeners();
+
+            ui.elements.closePortraitBtn.click();
+            expect(modal.closePortrait).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('save indicator', () => {

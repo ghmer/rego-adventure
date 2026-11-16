@@ -57,6 +57,7 @@ export class EventManager {
         this.setupManualListeners();
         this.setupTestPayloadListeners();
         this.setupSupportModulesListeners();
+        this.setupPortraitListeners();
         this.setupResultModalListeners();
         this.setupPerfectScoreListeners();
         this.setupVerifyListener();
@@ -244,6 +245,35 @@ export class EventManager {
         this.ui.elements.closeSupportModulesBtn.addEventListener('click', () => {
             this.modal.closeSupportModules();
         });
+    }
+
+    /**
+     * Setup the portrait dialog listeners. Both avatars open it: the pane
+     * portrait of the speaking character and the header hero portrait. The
+     * images carry role="button" and tabindex in the page, so the keyboard
+     * reaches them like any other control and Enter/Space act as the click.
+     */
+    setupPortraitListeners() {
+        for (const avatar of [this.ui.elements.npcAvatar, this.ui.elements.heroAvatar]) {
+            if (!avatar) {
+                continue;
+            }
+            avatar.addEventListener('click', () => {
+                this.modal.showPortrait(avatar);
+            });
+            avatar.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    this.modal.showPortrait(avatar);
+                }
+            });
+        }
+
+        if (this.ui.elements.closePortraitBtn) {
+            this.ui.elements.closePortraitBtn.addEventListener('click', () => {
+                this.modal.closePortrait();
+            });
+        }
     }
 
     /**

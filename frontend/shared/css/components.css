@@ -894,6 +894,23 @@ dialog#result-modal[open] {
     text-align: left;
 }
 
+/* Portrait Dialog */
+.portrait-modal-content {
+    text-align: center;
+}
+
+/* The image renders at its asset's own size and is only shrunk when that
+   exceeds the dialog: a small portrait stays crisp, a large one still
+   fits the screen. */
+#portrait-modal-image {
+    display: block;
+    margin: 0 auto;
+    max-width: min(80vmin, 100%);
+    max-height: 80vmin;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
 .perfect-score-message p {
     margin-bottom: 1rem;
 }
