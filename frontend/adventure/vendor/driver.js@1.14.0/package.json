@@ -1,0 +1,126 @@
+{
+  "name": "driver.js",
+  "license": "MIT",
+  "private": false,
+  "version": "1.14.0",
+  "main": "./dist/driver.js.cjs",
+  "module": "./dist/driver.js.mjs",
+  "types": "./dist/driver.js.d.ts",
+  "homepage": "https://driverjs.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nilbuild/driver.js.git",
+    "directory": "packages/driver"
+  },
+  "author": "Kamran Ahmed <kamranahmed.se@gmail.com>",
+  "bugs": {
+    "url": "https://github.com/nilbuild/driver.js/issues"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/driver.js.d.mts",
+        "default": "./dist/driver.js.mjs"
+      },
+      "require": {
+        "types": "./dist/driver.js.d.cts",
+        "default": "./dist/driver.js.cjs"
+      }
+    },
+    "./hints": {
+      "import": {
+        "types": "./dist/hints.d.mts",
+        "default": "./dist/hints.mjs"
+      },
+      "require": {
+        "types": "./dist/hints.d.cts",
+        "default": "./dist/hints.cjs"
+      }
+    },
+    "./headless": {
+      "import": {
+        "types": "./dist/headless.d.mts",
+        "default": "./dist/headless.mjs"
+      },
+      "require": {
+        "types": "./dist/headless.d.cts",
+        "default": "./dist/headless.cjs"
+      }
+    },
+    "./checklist": {
+      "import": {
+        "types": "./dist/checklist.d.mts",
+        "default": "./dist/checklist.mjs"
+      },
+      "require": {
+        "types": "./dist/checklist.d.cts",
+        "default": "./dist/checklist.cjs"
+      }
+    },
+    "./dist/driver.css": {
+      "import": "./dist/driver.css",
+      "require": "./dist/driver.css",
+      "default": "./dist/driver.css"
+    },
+    "./dist/hints.css": {
+      "import": "./dist/hints.css",
+      "require": "./dist/hints.css",
+      "default": "./dist/hints.css"
+    },
+    "./dist/checklist.css": {
+      "import": "./dist/checklist.css",
+      "require": "./dist/checklist.css",
+      "default": "./dist/checklist.css"
+    }
+  },
+  "scripts": {
+    "build": "tsc && tsdown && node scripts/postbuild.mjs",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint:package": "publint && attw --pack . --exclude-entrypoints ./dist/driver.css ./dist/hints.css ./dist/checklist.css",
+    "release": "release-it",
+    "prepublishOnly": "pnpm build && pnpm lint:package"
+  },
+  "files": [
+    "!tests/**/*",
+    "dist/**/*",
+    "hints/package.json",
+    "checklist/package.json",
+    "headless/package.json",
+    "!dist/**/*.js.map"
+  ],
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.3",
+    "@release-it/keep-a-changelog": "^7.1.0",
+    "@tsdown/css": "^0.22.8",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^26.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "jsdom": "^29.1.1",
+    "publint": "^0.3.21",
+    "release-it": "^20.2.0",
+    "tsdown": "^0.22.8",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  },
+  "keywords": [
+    "driver.js",
+    "driver",
+    "tour",
+    "guide",
+    "overlay",
+    "tooltip",
+    "walkthrough",
+    "product tour",
+    "product walkthrough",
+    "product guide",
+    "product tutorial",
+    "product demo",
+    "modal",
+    "lightbox"
+  ]
+}

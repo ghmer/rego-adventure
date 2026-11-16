@@ -1,0 +1,98 @@
+{
+  "name": "yace",
+  "version": "1.1.1",
+  "description": "tiny text editor with plugins",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
+      "default": "./dist/plugins/index.js"
+    },
+    "./plugins/*": {
+      "types": "./dist/plugins/*.d.ts",
+      "default": "./dist/plugins/*.js"
+    },
+    "./highlighters": {
+      "types": "./dist/highlighters/index.d.ts",
+      "default": "./dist/highlighters/index.js"
+    },
+    "./highlighters/code": {
+      "types": "./dist/highlighters/code.d.ts",
+      "default": "./dist/highlighters/code.js"
+    },
+    "./highlighters/sliceGlitch": {
+      "types": "./dist/highlighters/sliceGlitch.d.ts",
+      "default": "./dist/highlighters/sliceGlitch.js"
+    },
+    "./highlighters/shimmer": {
+      "types": "./dist/highlighters/shimmer.d.ts",
+      "default": "./dist/highlighters/shimmer.js"
+    },
+    "./highlighters/markdown": {
+      "types": "./dist/highlighters/markdown.d.ts",
+      "default": "./dist/highlighters/markdown.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "dev": "node site/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "c8 --all --include 'src/**/*.ts' --check-coverage --lines 100 --functions 100 --branches 99 node --test test/test.js test/highlighters.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "report": "c8 report --all --include 'src/**/*.ts' --reporter=text-lcov > coverage.txt",
+    "build": "rm -rf ./dist && rollup -c && tsc -p tsconfig.build.json && node scripts/build-dts.js && node scripts/check-size.js",
+    "size": "node scripts/check-size.js",
+    "attw": "npm run build && attw --pack . --profile esm-only",
+    "prettier:write": "prettier --write '{src,test,e2e,scripts}/**/*' 'site/**/*.{html,css,js,jsx}' playwright.config.js",
+    "prettier:check": "prettier --check '{src,test,e2e,scripts}/**/*' 'site/**/*.{html,css,js,jsx}' playwright.config.js",
+    "release": "commit-and-tag-version"
+  },
+  "keywords": [
+    "text-editor",
+    "editor",
+    "code-editor",
+    "textarea",
+    "syntax-highlighting",
+    "lightweight",
+    "zero-dependencies",
+    "prism",
+    "react",
+    "framework-agnostic",
+    "markdown"
+  ],
+  "author": "Peter Solopov <peter@solopov.dev>",
+  "homepage": "https://github.com/petersolopov/yace",
+  "bugs": "https://github.com/petersolopov/yace/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/petersolopov/yace"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.4",
+    "@playwright/test": "^1.61.1",
+    "@rollup/plugin-node-resolve": "16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "c8": "^11.0.0",
+    "commit-and-tag-version": "^12.7.3",
+    "mdhl": "0.0.7",
+    "prettier": "^3.9.4",
+    "rollup": "^4.62.2",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.3",
+    "undom": "^0.4.0"
+  }
+}

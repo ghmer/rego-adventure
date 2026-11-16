@@ -106,11 +106,11 @@ jobs:
         with:
           go-version: "1.27.3"
 
-      # The import map in index.html and the synced cdnjs links must be
-      # exactly what cmd/importmapgen derives from package.json. Manual
+      # The import map and the vendored files must be exactly what the
+      # generators derive from package. json and the lockfile. Manual
       # dependency bumps bypass the update-importmap PR workflow, so this
-      # check fails a PR whose index.html has drifted instead of letting
-      # the versions diverge silently.
+      # check fails a PR whose index.html or vendor/ has drifted instead
+      # of letting the versions diverge silently.
       - name: Regenerate import map and fail on drift
         run: |
           go run ./cmd/importmapgen/main.go
@@ -118,6 +118,32 @@ jobs:
             echo "::error::frontend/adventure/index.html is out of sync with frontend/adventure/package.json."
             echo "Regenerate it with: go run ./cmd/importmapgen/main.go"
             git diff -- frontend/adventure/index.html
+            exit 1
+          fi
+
+  vendor-sync:
+    runs-on: ubuntu-latest
+    name: Vendored libraries track the lockfile
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.3"
+
+      # The vendored files must be exactly what cmd/vendorgen extracts
+      # from the integrity-checked tarballs package-lock.json pins. The
+      # download happens here, in CI, never on a release machine: the
+      # result is committed, so serving needs no network at runtime.
+      - name: Regenerate vendor tree and fail on drift
+        run: |
+          go run ./cmd/vendorgen/main.go
+          if ! git diff --exit-code -- frontend/adventure/vendor frontend/adventure/package-lock.json; then
+            echo "::error::frontend/adventure/vendor or the lockfile is out of sync with frontend/adventure/package.json."
+            echo "Regenerate with: cd frontend/adventure && npm install --package-lock-only && go run ./cmd/vendorgen/main.go"
+            git diff -- frontend/adventure/vendor | head -200
             exit 1
           fi
 

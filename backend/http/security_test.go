@@ -16,7 +16,11 @@
 
 package http
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 // ==================== isValidPackName Tests ====================
 
@@ -151,5 +155,41 @@ func TestIsSensitiveFile(t *testing.T) {
 				t.Errorf("isSensitiveFile(%q) = %v, want %v", tt.filename, result, tt.expected)
 			}
 		})
+	}
+}
+
+// TestVendoredManifestDetection: the vendorgen manifest flips the CSP into
+// its vendored mode; a missing, empty or broken manifest leaves the
+// CDN-allowlisting mode untouched.
+func TestVendoredManifestDetection(t *testing.T) {
+	vendorDir := func(t *testing.T, content string, writeManifest bool) string {
+		t.Helper()
+		dir := t.TempDir()
+		if writeManifest {
+			name := filepath.Join(dir, "manifest.json")
+			// #nosec G306 -- test fixture
+			if err := os.WriteFile(name, []byte(content), 0644); err != nil {
+				t.Fatalf("writing manifest: %v", err)
+			}
+		}
+		return dir
+	}
+
+	if vendoredManifest(vendorDir(t, "", false)) {
+		t.Error("no manifest file must not count as vendored")
+	}
+	if vendoredManifest(vendorDir(t, "{", true)) {
+		t.Error("an unparseable manifest must not count as vendored")
+	}
+	if vendoredManifest(vendorDir(t, `{"packages": {}, "css": {}}`, true)) {
+		t.Error("a manifest recording nothing must not count as vendored")
+	}
+	moduleFixture := `{"packages": {"marked": {"dir": "marked@1", "entry": "m.js", "files": ["m.js"]}}}`
+	if !vendoredManifest(vendorDir(t, moduleFixture, true)) {
+		t.Error("a manifest with module packages must count as vendored")
+	}
+	cssFixture := `{"packages": {}, "css": {"font-awesome": {"dir": "fa@1", "file": "css/all.min.css"}}}`
+	if !vendoredManifest(vendorDir(t, cssFixture, true)) {
+		t.Error("a manifest with only style redirects must count as vendored")
 	}
 }

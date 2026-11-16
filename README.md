@@ -186,6 +186,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | Frontend lint | `npm ci` then `npx eslint src` in `frontend/adventure` | `frontend-ci.yml` |
 | Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
 | Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
+| Vendored library drift | `go run ./cmd/vendorgen/main.go`, then require `frontend/adventure/vendor` unchanged | `frontend-ci.yml` |
 | Browser and command-line QA suites | `node docu/qa/run-qa.cjs` (all suites, one shared build, running concurrently), or `node docu/qa/<suite>.cjs` for a single suite | `frontend-ci.yml` (`browser-qa` job) |
 | Clone gate | `npx --yes jscpd@4.0.5 --min-tokens 60 --threshold 0 ... backend cmd main.go frontend/adventure/src docu/quest-editor` (tests and test fixtures excluded) | `go-ci.yml`, `frontend-ci.yml` (`clone-gate` job) |
 
@@ -222,9 +223,10 @@ repository only tracks as a placeholder.
 ├── main.go                # Application entry point
 ├── cmd/
 │   ├── assetgen/          # Quest pack asset generator
-│   ├── importmapgen/      # Quest editor import map generator
+│   ├── importmapgen/      # Import map generator (esm.sh and vendored modes)
 │   ├── questmigrate/      # Quest pack format migrator (pre-v2 packs)
-│   └── solutionverifier/  # Quest pack solution verifier
+│   ├── solutionverifier/  # Quest pack solution verifier
+│   └── vendorgen/         # Vendors the browser libraries from the lockfile
 ├── backend/
 │   ├── config/            # Configuration management
 │   ├── http/              # HTTP server and routing
@@ -536,6 +538,28 @@ until the process restarts.
 
 Quest packs, images, audio, `theme.css` and `custom.css` are read per request and need no restart,
 nor do the SPA's JavaScript modules, which are ordinary static files.
+
+### Vendored Browser Libraries
+
+The browser libraries (`marked`, `dompurify`, `canvas-confetti`, `driver.js`, `yace`,
+`oidc-client-ts`, plus `oidc-client-ts`'s transitive `jwt-decode` and the Font Awesome stylesheet)
+ship inside the release under `frontend/adventure/vendor`, not from a CDN. Every file comes from
+the npm tarball that `package-lock.json` pins with its sha512 integrity hash; `cmd/vendorgen`
+downloads, verifies and extracts exactly the files the browser fetches, and
+`vendor/manifest.json` records the result. The import map resolves the module names to those
+same-origin files (`cmd/importmapgen` in manifest mode), so no third-party origin loads any
+script, style or font, and the Content-Security-Policy allowlists no esm.sh and no cdnjs while
+the vendored tree is present. All of it adds up to roughly 800 KB; the Dockerfile copies
+`frontend/` as is, so the release pipeline gains no step and the release needs no network access
+at runtime.
+
+Refresh the tree when `package.json` changes (`npm install --package-lock-only`, then
+`go run ./cmd/vendorgen/main.go`, then `go run ./cmd/importmapgen/main.go -manifest frontend/adventure/vendor/manifest.json`);
+CI's `vendor-sync` job fails any PR that ships a stale tree.
+
+A CDN-only fallback remains: without the vendored tree the import map keeps its esm.sh URLs and
+the CSP allowlists `esm.sh` and `cdnjs.cloudflare.com` again, exactly as before this section —
+deciding the files it ships, not configuration, selects the mode.
 
 ## License
 

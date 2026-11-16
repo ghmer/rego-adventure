@@ -1,17 +1,26 @@
 // Package main generates import maps for frontend dependencies.
 //
-// In addition to rewriting the <script type="importmap"> block from the
-// package.json dependencies, it keeps cdnjs stylesheet links in sync:
-// for every dependency whose name matches the cdnjs library slug of a
-// <link> in the document (e.g. "driver.js"), the link's version segment
-// is rewritten to the package.json version. This keeps the imported ES
-// module and its stylesheet aligned without manual edits.
+// It has two modes.
+//
+// Default mode rewrites the <script type="importmap"> block from the
+// package.json dependencies (esm.sh URLs) and keeps cdnjs stylesheet
+// links in sync: for every dependency whose name matches the cdnjs
+// library slug of a <link> in the document (e.g. "driver.js"), the
+// link's version segment is rewritten to the package.json version.
+//
+// Manifest mode (the -manifest flag) points the same module names at the
+// files cmd/vendorgen wrote under frontend/adventure/vendor, and
+// redirects the cdnjs links of every library the manifest aliased to its
+// vendored stylesheet, so the browser loads no script or stylesheet from
+// a CDN. Versions never appear in the interpolation path in this mode:
+// they come from the vendored directory names the manifest records.
 package main
 
 import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"strings"
@@ -39,6 +48,10 @@ type ImportMap struct {
 // https://cdnjs.cloudflare.com/ajax/libs/<lib>/<version>/
 var cdnjsLinkRe = regexp.MustCompile(`https://cdnjs\.cloudflare\.com/ajax/libs/(?P<lib>[^/"']+)/?(?P<version>[^/"']*)/`)
 
+// cdnjsHrefRe matches a complete cdnjs URL, including its path and file:
+// manifest mode replaces the whole URL with the vendored file.
+var cdnjsHrefRe = regexp.MustCompile(`https://cdnjs\.cloudflare\.com/ajax/libs/([^/"'\s]+)/[^"'\s]*`)
+
 var importMapRe = regexp.MustCompile(`(?s)<script type="importmap">.*?</script>`)
 
 // versionRe matches a strict semver version: two or three numeric
@@ -47,6 +60,31 @@ var importMapRe = regexp.MustCompile(`(?s)<script type="importmap">.*?</script>`
 // HTML metacharacters must fail here, because versions are interpolated
 // verbatim into esm.sh URLs and rewritten cdnjs links in index.html.
 var versionRe = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)(\.(0|[1-9]\d*))?(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+
+// Manifest mirrors the vendorgen manifest (see cmd/vendorgen): the
+// import-map entries and the redirected stylesheets manifest mode emits.
+type Manifest struct {
+	Packages map[string]pkgManifest `json:"packages"`
+	CSS      map[string]cssManifest `json:"css"`
+}
+
+// pkgManifest is one vendored package: the directory it unpacked into,
+// the file its bare name resolves to, the files of its declared subpath
+// modules, and one stylesheet the document links to through the package
+// (a CSS contribution without an entry makes the package CSS-only).
+type pkgManifest struct {
+	Dir          string            `json:"dir"`
+	Entry        string            `json:"entry"`
+	SubpathFiles map[string]string `json:"subpathFiles"`
+	CSS          string            `json:"css"`
+}
+
+// cssManifest is a stylesheet the document links to directly, keyed by
+// its cdnjs library slug.
+type cssManifest struct {
+	Dir  string `json:"dir"`
+	File string `json:"file"`
+}
 
 // cleanVersion strips the common npm range prefixes (~, ^) and validates
 // the remainder as a strict semver version.
@@ -96,6 +134,64 @@ func buildImportMap(deps map[string]string, subpaths map[string][]string) ([]byt
 	return json.MarshalIndent(ImportMap{Imports: imports}, "        ", "    ")
 }
 
+// buildVendoredImportMap renders the import map JSON block from the
+// vendorgen manifest: every module-bearing package contributes its bare
+// name and its declared subpath keys, all resolved to same-origin vendor
+// URLs. CSS-only packages contribute nothing.
+func buildVendoredImportMap(manifest *Manifest) ([]byte, error) {
+	imports := make(map[string]string)
+	for pkg, entry := range manifest.Packages {
+		if entry.Entry == "" {
+			continue
+		}
+		imports[pkg] = vendorURL(entry.Dir, entry.Entry)
+		for key, file := range entry.SubpathFiles {
+			imports[key] = vendorURL(entry.Dir, file)
+		}
+	}
+	if len(imports) == 0 {
+		return nil, fmt.Errorf("manifest records no module packages")
+	}
+	return json.MarshalIndent(ImportMap{Imports: imports}, "        ", "    ")
+}
+
+// vendorURL is the same-origin URL one vendored file loads from.
+func vendorURL(dir, file string) string {
+	return "/vendor/" + dir + "/" + file
+}
+
+// buildCSSAliases merges the stylesheets manifest mode redirects: the
+// explicit cdnjs aliases (font-awesome) plus every package's own css
+// contribution (driver.js), the package name being its cdnjs slug.
+func buildCSSAliases(manifest *Manifest) map[string]cssManifest {
+	out := make(map[string]cssManifest, len(manifest.CSS))
+	maps.Copy(out, manifest.CSS)
+	for pkg, entry := range manifest.Packages {
+		if _, aliased := out[pkg]; entry.CSS != "" && entry.Dir != "" && !aliased {
+			out[pkg] = cssManifest{Dir: entry.Dir, File: entry.CSS}
+		}
+	}
+	return out
+}
+
+// redirectCdnJsLinks rewrites every cdnjs URL whose library slug the
+// manifest aliased to the vendored stylesheet, replacing the whole URL:
+// the cdnjs file name (driver.min.css) and the vendored file name
+// (driver.css) need no longer agree.
+func redirectCdnJsLinks(indexContent []byte, css map[string]cssManifest) []byte {
+	return cdnjsHrefRe.ReplaceAllFunc(indexContent, func(match []byte) []byte {
+		loc := cdnjsHrefRe.FindSubmatchIndex(match)
+		if loc == nil || loc[2] == loc[3] {
+			return match
+		}
+		aliased, ok := css[string(match[loc[2]:loc[3]])]
+		if !ok {
+			return match
+		}
+		return []byte(vendorURL(aliased.Dir, aliased.File))
+	})
+}
+
 // syncCdnJsVersions rewrites the version segment of cdnjs URLs whose
 // library slug matches a dependency, so stylesheet links track the
 // versions imported through the import map.
@@ -142,12 +238,26 @@ func syncCdnJsVersions(indexContent []byte, deps map[string]string) []byte {
 	})
 }
 
-// updateIndexHTML applies the import map and cdnjs version sync to the
-// document. It fails when no import map block is present.
-func updateIndexHTML(indexContent []byte, pkg PackageJSON) ([]byte, error) {
-	mapContent, err := buildImportMap(pkg.Dependencies, pkg.Importmap.Subpaths)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling import map: %w", err)
+// updateIndexHTML applies the import map and cdnjs handling to the
+// document. It fails when no import map block is present. With a vendored
+// manifest, the map resolves the module names to same-origin vendor URLs
+// and the cdnjs links of aliased libraries are redirected to the vendored
+// stylesheets; without one, the map uses esm.sh URLs and the cdnjs links
+// keep tracking the package.json versions.
+func updateIndexHTML(indexContent []byte, pkg PackageJSON, vendored ...*Manifest) ([]byte, error) {
+	var mapContent []byte
+	if len(vendored) > 0 && vendored[0] != nil {
+		block, err := buildVendoredImportMap(vendored[0])
+		if err != nil {
+			return nil, fmt.Errorf("marshaling vendored import map: %w", err)
+		}
+		mapContent = block
+	} else {
+		block, err := buildImportMap(pkg.Dependencies, pkg.Importmap.Subpaths)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling import map: %w", err)
+		}
+		mapContent = block
 	}
 
 	newScriptTag := fmt.Sprintf(`<script type="importmap">
@@ -159,12 +269,17 @@ func updateIndexHTML(indexContent []byte, pkg PackageJSON) ([]byte, error) {
 	}
 
 	newIndexContent := importMapRe.ReplaceAll(indexContent, []byte(newScriptTag))
+	if len(vendored) > 0 && vendored[0] != nil {
+		return redirectCdnJsLinks(newIndexContent, buildCSSAliases(vendored[0])), nil
+	}
 	return syncCdnJsVersions(newIndexContent, pkg.Dependencies), nil
 }
 
 func main() {
 	flag.StringVar(&pkgPath, "pkgPath", "frontend/adventure/package.json", "full path to package.json")
 	flag.StringVar(&indexPath, "indexPath", "frontend/adventure/index.html", "full path to index.html")
+	manifest := flag.String("manifest", "",
+		"path to the vendorgen manifest; enables vendored mode (local URLs instead of esm.sh)")
 	flag.Parse()
 
 	// 1. Read package.json
@@ -195,14 +310,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 3. Rewrite import map and synced cdnjs links
-	newIndexContent, err := updateIndexHTML(indexContent, pkg)
+	// 3. Load the vendoring manifest, when vendored mode is requested
+	var vendored *Manifest
+	if *manifest != "" {
+		content, err := os.ReadFile(*manifest) // #nosec G304 -- flag path
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading manifest %s: %v\n", *manifest, err)
+			os.Exit(1)
+		}
+		vendored = &Manifest{}
+		if err := json.Unmarshal(content, vendored); err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing manifest %s: %v\n", *manifest, err)
+			os.Exit(1)
+		}
+	}
+
+	// 4. Rewrite import map and cdnjs links
+	newIndexContent, err := updateIndexHTML(indexContent, pkg, vendored)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 4. Write index.html, preserving the original file mode so running
+	// 5. Write index.html, preserving the original file mode so running
 	// the generator locally does not silently change permissions.
 	mode := os.FileMode(0644)
 	if fi, err := os.Stat(indexPath); err == nil {
