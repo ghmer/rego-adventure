@@ -73,6 +73,10 @@
                         <span class="nav-icon"><i class="fas fa-tags"></i></span>
                         <span class="nav-label">UI Labels</span>
                     </a>
+                    <a href="#" class="nav-item" data-view="characters">
+                        <span class="nav-icon"><i class="fas fa-masks-theater"></i></span>
+                        <span class="nav-label">Characters</span>
+                    </a>
                     <a href="#" class="nav-item" data-view="prologue">
                         <span class="nav-icon"><i class="fas fa-book-open"></i></span>
                         <span class="nav-label">Prologue</span>
@@ -182,11 +186,25 @@
                 </div>
             </div>
 
+            <!-- Characters View -->
+            <div class="content-view" id="view-characters">
+                <div class="content-header">
+                    <h2><i class="fas fa-masks-theater"></i> Characters</h2>
+                    <p class="content-description">The named speakers of the adventure; lore entries quote one of
+                        them and the game shows that character's portrait while the line is on screen.
+                        The image is a file inside the quest pack, under its assets/ folder.</p>
+                    <button class="btn btn-secondary" id="addNpcBtn" title="Add a new character"><i class="fas fa-plus"></i> Add Character</button>
+                </div>
+                <div class="content-body">
+                    <div id="npcList" class="item-list"></div>
+                </div>
+            </div>
+
             <!-- Prologue View -->
             <div class="content-view" id="view-prologue">
                 <div class="content-header">
                     <h2><i class="fas fa-book-open"></i> Prologue</h2>
-                    <p class="content-description">Story elements shown at the beginning of the adventure</p>
+                    <p class="content-description">Story elements shown at the beginning of the adventure; each line names the character speaking it</p>
                     <button class="btn btn-secondary" id="addPrologueBtn" title="Add a new prologue item"><i class="fas fa-plus"></i> Add Prologue Item</button>
                 </div>
                 <div class="content-body">
@@ -198,7 +216,7 @@
             <div class="content-view" id="view-epilogue">
                 <div class="content-header">
                     <h2><i class="fas fa-flag-checkered"></i> Epilogue</h2>
-                    <p class="content-description">Story elements shown at the end of the adventure</p>
+                    <p class="content-description">Story elements shown at the end of the adventure; each line names the character speaking it</p>
                     <button class="btn btn-secondary" id="addEpilogueBtn" title="Add a new epilogue item"><i class="fas fa-plus"></i> Add Epilogue Item</button>
                 </div>
                 <div class="content-body">
@@ -264,7 +282,7 @@
 
                 <div class="tab-content" data-tab="lore">
                     <div class="tab-header">
-                        <p>Story and background information for this quest</p>
+                        <p>Story and background information for this quest; each entry names the character speaking it</p>
                         <button class="btn btn-secondary" data-field="addLoreBtn" title="Add a new lore item"><i class="fas fa-plus"></i> Add Lore Item</button>
                     </div>
                     <div data-field="loreList" class="item-list"></div>
@@ -349,6 +367,10 @@
             </div>
         </div>
     </div>
+
+    <!-- The character names feed the speaker fields' autocomplete; renderNpcs
+         keeps it in sync with the roster. -->
+    <datalist id="npcNames"></datalist>
 
     <script src="rules.js"></script>
     <script src="app.js"></script>

@@ -1,5 +1,6 @@
 {
     "id": "",
+    "version": 2,
     "meta": {
         "title": "Quest Pack: qa-editor",
         "description": "A new adventure awaits.",
@@ -11,28 +12,29 @@
         "grimoire_title": "Policy Grimoire",
         "hint_button": "Ask Advisor",
         "verify_button": "Apply Policy",
-        "verifying": "Verifying…",
+        "verifying": "Verifying\u2026",
         "message_success": "Quest Complete!",
         "message_failure": "Quest Failed",
         "perfect_score_message": "You have achieved perfection in mastering Rego policies!",
         "perfect_score_button_text": "A Secret Awaits...",
         "begin_adventure_button": "Begin Adventure"
     },
-    "prologue": [
-        "Welcome to the new world.",
-        "Your journey begins here."
-    ],
-    "epilogue": [
-        "You have completed the journey.",
-        "Well done."
-    ],
+    "npcs": {
+        "default_npc": "assets/npc-questgiver.png"
+    },
     "quests": [
         {
             "id": 1,
             "title": "First Steps",
             "description_lore": [
-                "You stand at the beginning of a new path.",
-                "The gatekeeper asks for the password."
+                {
+                    "npc": "default_npc",
+                    "text": "You stand at the beginning of a new path."
+                },
+                {
+                    "npc": "default_npc",
+                    "text": "The gatekeeper asks for the password."
+                }
             ],
             "description_task": "Allow access if the password is correct.",
             "manual": {
@@ -74,8 +76,14 @@
             "id": 2,
             "title": "Inventory Check",
             "description_lore": [
-                "The guard checks your bag.",
-                "You need a pass to enter."
+                {
+                    "npc": "default_npc",
+                    "text": "The guard checks your bag."
+                },
+                {
+                    "npc": "default_npc",
+                    "text": "You need a pass to enter."
+                }
             ],
             "description_task": "Allow access if user has a 'pass' in inventory.",
             "manual": {
@@ -126,8 +134,14 @@
             "id": 3,
             "title": "Data Lookup",
             "description_lore": [
-                "You need to check the registry.",
-                "Only registered users can pass."
+                {
+                    "npc": "default_npc",
+                    "text": "You need to check the registry."
+                },
+                {
+                    "npc": "default_npc",
+                    "text": "Only registered users can pass."
+                }
             ],
             "description_task": "Allow access if user is in the registry.",
             "manual": {
@@ -180,6 +194,26 @@
             "apply_template": true,
             "template": "package play\n\ndefault allow := false\n\n",
             "query": "data.play.allow"
+        }
+    ],
+    "prologue": [
+        {
+            "npc": "default_npc",
+            "text": "Welcome to the new world."
+        },
+        {
+            "npc": "default_npc",
+            "text": "Your journey begins here."
+        }
+    ],
+    "epilogue": [
+        {
+            "npc": "default_npc",
+            "text": "You have completed the journey."
+        },
+        {
+            "npc": "default_npc",
+            "text": "Well done."
         }
     ]
 }
