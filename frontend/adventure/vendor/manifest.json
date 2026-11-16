@@ -1,7 +1,7 @@
 {
   "packages": {
     "@fortawesome/fontawesome-free": {
-      "dir": "fortawesome-fontawesome-free@7.0.1",
+      "dir": "fortawesome-fontawesome-free@7.3.1",
       "entry": "",
       "css": "css/all.min.css",
       "files": [
@@ -92,7 +92,7 @@
   },
   "css": {
     "font-awesome": {
-      "dir": "fortawesome-fontawesome-free@7.0.1",
+      "dir": "fortawesome-fontawesome-free@7.3.1",
       "file": "css/all.min.css"
     }
   }
