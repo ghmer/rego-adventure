@@ -41,14 +41,16 @@ type PublicQuest struct {
 // PublicQuestPack is the client-facing view of a quest pack. It mirrors
 // QuestPack except that quests are serialized through PublicQuest.
 type PublicQuestPack struct {
-	ID       string            `json:"id"`
-	Version  int               `json:"version"`
-	NPCs     map[string]string `json:"npcs"`
-	Meta     MetaData          `json:"meta"`
-	UILabels UILabels          `json:"ui_labels"`
-	Prologue []LoreEntry       `json:"prologue"`
-	Epilogue []LoreEntry       `json:"epilogue"`
-	Quests   []PublicQuest     `json:"quests"`
+	ID        string            `json:"id"`
+	Version   int               `json:"version"`
+	NPCs      map[string]string `json:"npcs"`
+	HeroNPC   string            `json:"hero_npc"`
+	BackImage string            `json:"background_image"`
+	Meta      MetaData          `json:"meta"`
+	UILabels  UILabels          `json:"ui_labels"`
+	Prologue  []LoreEntry       `json:"prologue"`
+	Epilogue  []LoreEntry       `json:"epilogue"`
+	Quests    []PublicQuest     `json:"quests"`
 }
 
 // PublicView returns the client-facing projection of the quest.
@@ -75,14 +77,16 @@ func (p *QuestPack) PublicView() PublicQuestPack {
 		quests[i] = p.Quests[i].PublicView()
 	}
 	return PublicQuestPack{
-		ID:       p.ID,
-		Version:  p.Version,
-		NPCs:     p.NPCs,
-		Meta:     p.Meta,
-		UILabels: p.UILabels,
-		Prologue: p.Prologue,
-		Epilogue: p.Epilogue,
-		Quests:   quests,
+		ID:        p.ID,
+		Version:   p.Version,
+		NPCs:      p.NPCs,
+		HeroNPC:   p.HeroNPC,
+		BackImage: p.BackImage,
+		Meta:      p.Meta,
+		UILabels:  p.UILabels,
+		Prologue:  p.Prologue,
+		Epilogue:  p.Epilogue,
+		Quests:    quests,
 	}
 }
 

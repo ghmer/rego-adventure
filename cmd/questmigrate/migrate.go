@@ -34,6 +34,18 @@ import (
 // exactly as it did before lore lines gained speakers.
 const defaultNPCImage = quest.NPCImagePrefix + "npc-questgiver.png"
 
+// The migration also gives the pack its two media pointers. heroNPCKey is
+// the roster entry the player character gets: pre-v2 packs shipped their
+// avatar as assets/hero-avatar.png, so the entry keeps that file and the
+// hero can now speak in lore like any character. backgroundImage is the
+// pack's backdrop, which every pre-v2 pack shipped as assets/
+// bg-adventure.jpg. Packs that already declare the pointers are untouched.
+const (
+	heroNPCKey            = "hero"
+	defaultHeroImage      = quest.NPCImagePrefix + "hero-avatar.png"
+	defaultBackgroundPath = quest.NPCImagePrefix + "bg-adventure.jpg"
+)
+
 // errCurrentFormat reports a pack that already declares the format the
 // server loads. It is not a failure: the caller reports "left alone".
 var errCurrentFormat = errors.New("already at the current format")
@@ -46,18 +58,31 @@ type packReport struct {
 	EpilogueEntries  int
 	NPCSectionAdded  bool
 	FallbackAdded    bool
+	HeroPointerAdded bool
+	HeroEntryAdded   bool
+	BackgroundAdded  bool
 }
 
 // String renders the counts as one sentence. A pack that needed nothing
 // beyond the format marker reads honestly: zero wrapped entries is a fact,
 // not an error, and LoadPack has already refused a pack with no lore at all.
 func (r packReport) String() string {
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 5)
 	switch {
 	case r.NPCSectionAdded:
 		parts = append(parts, fmt.Sprintf("npcs section added with %q -> %s", quest.DefaultNPCKey, defaultNPCImage))
 	case r.FallbackAdded:
 		parts = append(parts, fmt.Sprintf("npcs roster gained the fallback speaker %q", quest.DefaultNPCKey))
+	}
+	switch {
+	case r.HeroEntryAdded:
+		parts = append(parts, fmt.Sprintf("hero set to %q and the roster entry added: %q -> %s",
+			heroNPCKey, heroNPCKey, defaultHeroImage))
+	case r.HeroPointerAdded:
+		parts = append(parts, fmt.Sprintf("hero set to the existing roster entry %q", heroNPCKey))
+	}
+	if r.BackgroundAdded {
+		parts = append(parts, fmt.Sprintf("background_image set to %q", defaultBackgroundPath))
 	}
 	parts = append(parts, fmt.Sprintf(
 		"%d prologue, %d quest and %d epilogue lore entries given %q as their speaker",
@@ -78,19 +103,26 @@ func migratePackJSON(packID string, data []byte) ([]byte, packReport, error) {
 	var report packReport
 
 	var probe struct {
-		Version *int `json:"version"`
+		Version   *int    `json:"version"`
+		HeroNPC   *string `json:"hero_npc"`
+		BackImage *string `json:"background_image"`
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return nil, report, fmt.Errorf("quests.json is not a JSON object this tool can read: %w", err)
 	}
 	if probe.Version != nil {
 		switch {
-		case *probe.Version == quest.FormatVersion:
+		case *probe.Version == quest.FormatVersion &&
+			probe.HeroNPC != nil && *probe.HeroNPC != "" &&
+			probe.BackImage != nil && *probe.BackImage != "":
 			return nil, report, errCurrentFormat
 		case *probe.Version > quest.FormatVersion:
 			return nil, report, fmt.Errorf(
 				"quests.json format version %d is newer than the format %d this tool migrates to",
 				*probe.Version, quest.FormatVersion)
+			// A version-2 pack that predates hero_npc and background_image
+			// falls through: the steps below are all idempotent, so it is
+			// healed by adding only what the current format gained.
 		}
 	}
 
@@ -105,6 +137,14 @@ func migratePackJSON(packID string, data []byte) ([]byte, packReport, error) {
 	}
 	report.NPCSectionAdded = npcSectionAdded
 	report.FallbackAdded = fallbackAdded
+
+	heroPointerAdded, heroEntryAdded, backgroundAdded, err := ensureMediaPointers(&root)
+	if err != nil {
+		return nil, report, err
+	}
+	report.HeroPointerAdded = heroPointerAdded
+	report.HeroEntryAdded = heroEntryAdded
+	report.BackgroundAdded = backgroundAdded
 
 	report.PrologueEntries, err = migrateLoreList(&root, "prologue")
 	if err != nil {
@@ -127,6 +167,12 @@ func migratePackJSON(packID string, data []byte) ([]byte, packReport, error) {
 		// describes; one the author already had keeps its own place.
 		root.moveAfter("npcs", "version")
 	}
+	if heroPointerAdded {
+		root.moveAfter("hero_npc", "npcs")
+	}
+	if backgroundAdded {
+		root.moveAfter("background_image", "hero_npc")
+	}
 
 	out, err := marshalLikeOriginal(data, &root)
 	if err != nil {
@@ -138,6 +184,46 @@ func migratePackJSON(packID string, data []byte) ([]byte, packReport, error) {
 		return nil, report, fmt.Errorf("the migrated pack would not load: %w", err)
 	}
 	return out, report, nil
+}
+
+// ensureMediaPointers gives the pack its hero pointer and background path.
+// A pack that already declares a non-empty value keeps it exactly as the
+// author wrote it. The hero entry: if the roster already declares an entry
+// named hero the pointer aims at it (the author meant it); otherwise the
+// entry is added with the avatar file pre-v2 packs shipped.
+func ensureMediaPointers(root *object) (heroPointerAdded, heroEntryAdded, backgroundAdded bool, err error) {
+	raw, present := root.get("npcs")
+	if !present {
+		return false, false, false, fmt.Errorf("internal error: the roster should have been ensured before the media pointers")
+	}
+	var roster object
+	if err := json.Unmarshal(raw, &roster); err != nil {
+		return false, false, false, fmt.Errorf("npcs must be a JSON object of character name to image path: %w", err)
+	}
+
+	if raw, present := root.get("hero_npc"); !present || len(raw) <= 2 { // absent, "", or null
+		if _, declared := roster.get(heroNPCKey); !declared {
+			if err := roster.put(heroNPCKey, defaultHeroImage); err != nil {
+				return false, false, false, err
+			}
+			if err := root.put("npcs", roster); err != nil {
+				return false, false, false, err
+			}
+			heroEntryAdded = true
+		}
+		if err := root.put("hero_npc", heroNPCKey); err != nil {
+			return false, false, false, err
+		}
+		heroPointerAdded = true
+	}
+
+	if raw, present := root.get("background_image"); !present || len(raw) <= 2 {
+		if err := root.put("background_image", defaultBackgroundPath); err != nil {
+			return false, false, false, err
+		}
+		backgroundAdded = true
+	}
+	return heroPointerAdded, heroEntryAdded, backgroundAdded, nil
 }
 
 // ensureDefaultNPC makes sure the pack's npcs roster declares default_npc:

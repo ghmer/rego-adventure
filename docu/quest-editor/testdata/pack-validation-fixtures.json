@@ -14,8 +14,11 @@
   "basePack": {
     "version": 2,
     "npcs": {
-      "default_npc": "assets/npc-questgiver.png"
+      "default_npc": "assets/npc-questgiver.png",
+      "hero": "assets/hero-avatar.png"
     },
+    "hero_npc": "hero",
+    "background_image": "assets/bg-adventure.jpg",
     "meta": {
       "title": "Fixture Adventure",
       "description": "A pack used only by the validation parity tests.",
@@ -35,17 +38,26 @@
       "begin_adventure_button": "Begin adventure"
     },
     "prologue": [
-      { "npc": "default_npc", "text": "The grimoire has gone quiet." }
+      {
+        "npc": "default_npc",
+        "text": "The grimoire has gone quiet."
+      }
     ],
     "epilogue": [
-      { "npc": "default_npc", "text": "The grimoire answers again." }
+      {
+        "npc": "default_npc",
+        "text": "The grimoire answers again."
+      }
     ],
     "quests": [
       {
         "id": 1,
         "title": "The Open Door",
         "description_lore": [
-          { "npc": "default_npc", "text": "A door stands open on the path." }
+          {
+            "npc": "default_npc",
+            "text": "A door stands open on the path."
+          }
         ],
         "description_task": "Allow everyone through the door.",
         "manual": {
@@ -76,8 +88,14 @@
         "id": 2,
         "title": "The Sealed Archive",
         "description_lore": [
-          { "npc": "default_npc", "text": "The archive stays shut for strangers." },
-          { "npc": "default_npc", "text": "Only the keeper may enter." }
+          {
+            "npc": "default_npc",
+            "text": "The archive stays shut for strangers."
+          },
+          {
+            "npc": "default_npc",
+            "text": "Only the keeper may enter."
+          }
         ],
         "description_task": "Allow the keeper and no one else.",
         "manual": {
@@ -118,7 +136,10 @@
         "id": 3,
         "title": "The Borrowed Sigil",
         "description_lore": [
-          { "npc": "default_npc", "text": "A sigil was left in the margin." }
+          {
+            "npc": "default_npc",
+            "text": "A sigil was left in the margin."
+          }
         ],
         "description_task": "Use the helper module to decide.",
         "manual": {
@@ -151,128 +172,927 @@
     ]
   },
   "cases": [
-    { "ruleId": "pack_title_required", "patches": [{ "path": "meta.title", "value": "  " }] },
-    { "ruleId": "pack_title_max_length", "patches": [{ "path": "meta.title", "value": { "$repeatChars": 101, "char": "x" } }] },
-    { "ruleId": "pack_description_required", "patches": [{ "path": "meta.description", "value": "" }] },
-    { "ruleId": "pack_description_max_length", "patches": [{ "path": "meta.description", "value": { "$repeatChars": 501, "char": "x" } }] },
-    { "ruleId": "pack_genre_required", "patches": [{ "path": "meta.genre", "value": "" }] },
-    { "ruleId": "pack_genre_max_length", "patches": [{ "path": "meta.genre", "value": { "$repeatChars": 51, "char": "a" } }] },
-    { "ruleId": "pack_genre_charset", "patches": [{ "path": "meta.genre", "value": "fantasy & dragons" }] },
-    { "ruleId": "pack_genre_charset", "name": "genre with a non-breaking space", "patches": [{ "path": "meta.genre", "value": "fantasy\u00a0dragons" }] },
-    { "ruleId": "pack_initial_objective_max_length", "patches": [{ "path": "meta.initial_objective", "value": { "$repeatChars": 501, "char": "x" } }] },
-    { "ruleId": "pack_final_objective_max_length", "patches": [{ "path": "meta.final_objective", "value": { "$repeatChars": 501, "char": "x" } }] },
-
-    { "ruleId": "ui_grimoire_title_required", "patches": [{ "path": "ui_labels.grimoire_title", "value": "" }] },
-    { "ruleId": "ui_grimoire_title_max_length", "patches": [{ "path": "ui_labels.grimoire_title", "value": { "$repeatChars": 101, "char": "x" } }] },
-    { "ruleId": "ui_hint_button_required", "patches": [{ "path": "ui_labels.hint_button", "value": "" }] },
-    { "ruleId": "ui_hint_button_max_length", "patches": [{ "path": "ui_labels.hint_button", "value": { "$repeatChars": 101, "char": "x" } }] },
-    { "ruleId": "ui_verify_button_required", "patches": [{ "path": "ui_labels.verify_button", "value": "" }] },
-    { "ruleId": "ui_verify_button_max_length", "patches": [{ "path": "ui_labels.verify_button", "value": { "$repeatChars": 101, "char": "x" } }] },
-    { "ruleId": "ui_verifying_max_length", "patches": [{ "path": "ui_labels.verifying", "value": { "$repeatChars": 101, "char": "x" } }] },
-    { "ruleId": "ui_message_success_max_length", "patches": [{ "path": "ui_labels.message_success", "value": { "$repeatChars": 201, "char": "x" } }] },
-    { "ruleId": "ui_message_failure_max_length", "patches": [{ "path": "ui_labels.message_failure", "value": { "$repeatChars": 201, "char": "x" } }] },
-    { "ruleId": "ui_perfect_score_message_max_length", "patches": [{ "path": "ui_labels.perfect_score_message", "value": { "$repeatChars": 1001, "char": "x" } }] },
-    { "ruleId": "ui_perfect_score_button_text_max_length", "patches": [{ "path": "ui_labels.perfect_score_button_text", "value": { "$repeatChars": 101, "char": "x" } }] },
-    { "ruleId": "ui_begin_adventure_button_max_length", "patches": [{ "path": "ui_labels.begin_adventure_button", "value": { "$repeatChars": 101, "char": "x" } }] },
-
-    { "ruleId": "pack_version_format", "patches": [{ "path": "version", "value": 1 }] },
-
-    { "ruleId": "pack_npcs_default_npc", "patches": [{ "path": "npcs", "value": { "quest_giver": "assets/npc-questgiver.png" } }] },
-    { "ruleId": "pack_npcs_max_items", "patches": [{ "path": "npcs", "value": { "$repeatKeys": 51, "prefix": "npc_", "value": "assets/npc-questgiver.png" } }] },
-    { "ruleId": "pack_npc_name_required", "patches": [{ "path": "npcs", "value": { "": "assets/npc-questgiver.png", "default_npc": "assets/npc-questgiver.png" } }] },
-    { "ruleId": "pack_npc_name_max_length", "patches": [{ "path": "npcs", "value": { "default_npc": "assets/npc-questgiver.png", "npc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "assets/npc-questgiver.png" } }] },
-    { "ruleId": "pack_npc_name_charset", "patches": [{ "path": "npcs", "value": { "default_npc": "assets/npc-questgiver.png", "chief horn": "assets/chief.png" } }] },
-    { "ruleId": "pack_npc_image_required", "patches": [{ "path": "npcs", "value": { "default_npc": " " } }] },
-    { "ruleId": "pack_npc_image_max_length", "patches": [{ "path": "npcs", "value": { "default_npc": { "$repeatChars": 501, "char": "x" } } }] },
-    { "ruleId": "pack_npc_image_path", "patches": [{ "path": "npcs", "value": { "default_npc": "npc-questgiver.png" } }] },
-
-    { "ruleId": "pack_prologue_min_items", "patches": [{ "path": "prologue", "value": [] }] },
-    { "ruleId": "pack_prologue_item_npc_required", "patches": [{ "path": "prologue.0.npc", "value": "  " }] },
-    { "ruleId": "pack_prologue_item_npc_defined", "patches": [{ "path": "prologue.0.npc", "value": "ghost" }] },
-    { "ruleId": "pack_prologue_item_max_length", "patches": [{ "path": "prologue.0.text", "value": { "$repeatChars": 2001, "char": "x" } }] },
-    { "ruleId": "pack_epilogue_min_items", "patches": [{ "path": "epilogue", "value": [] }] },
-    { "ruleId": "pack_epilogue_item_npc_required", "patches": [{ "path": "epilogue.0.npc", "value": "  " }] },
-    { "ruleId": "pack_epilogue_item_npc_defined", "patches": [{ "path": "epilogue.0.npc", "value": "ghost" }] },
-    { "ruleId": "pack_epilogue_item_max_length", "patches": [{ "path": "epilogue.0.text", "value": { "$repeatChars": 2001, "char": "x" } }] },
-    { "ruleId": "pack_quests_min_items", "patches": [{ "path": "quests", "value": [] }] },
-
-    { "ruleId": "quest_ids_contiguous", "patches": [{ "path": "quests.0.id", "value": 5 }] },
-    { "ruleId": "quest_ids_unique", "patches": [{ "path": "quests.1.id", "value": 1 }] },
-    { "ruleId": "quest_title_required", "patches": [{ "path": "quests.1.title", "value": "" }] },
-    { "ruleId": "quest_title_max_length", "patches": [{ "path": "quests.1.title", "value": { "$repeatChars": 101, "char": "x" } }] },
-    { "ruleId": "quest_task_required", "patches": [{ "path": "quests.1.description_task", "value": "" }] },
-    { "ruleId": "quest_task_max_length", "patches": [{ "path": "quests.1.description_task", "value": { "$repeatChars": 1001, "char": "x" } }] },
-    { "ruleId": "quest_lore_min_items", "patches": [{ "path": "quests.1.description_lore", "value": [] }] },
-    { "ruleId": "quest_lore_npc_required", "patches": [{ "path": "quests.1.description_lore.0.npc", "value": "" }] },
-    { "ruleId": "quest_lore_npc_defined", "patches": [{ "path": "quests.1.description_lore.0.npc", "value": "ghost" }] },
-    { "ruleId": "quest_lore_item_max_length", "patches": [{ "path": "quests.1.description_lore.0.text", "value": { "$repeatChars": 2001, "char": "x" } }] },
-    { "ruleId": "quest_hint_item_max_length", "patches": [{ "path": "quests.0.hints.0", "value": { "$repeatChars": 501, "char": "x" } }] },
-    { "ruleId": "quest_solution_max_length", "patches": [{ "path": "quests.1.solution", "value": { "$repeatChars": 5001, "char": "x" } }] },
-    { "ruleId": "quest_template_max_length", "patches": [{ "path": "quests.1.template", "value": { "$repeatChars": 10001, "char": "x" } }] },
-    { "ruleId": "quest_query_required", "patches": [{ "path": "quests.1.query", "value": "" }] },
-    { "ruleId": "quest_manual_data_model_max_length", "patches": [{ "path": "quests.0.manual.data_model", "value": { "$repeatChars": 2001, "char": "x" } }] },
-    { "ruleId": "quest_manual_rego_snippet_max_length", "patches": [{ "path": "quests.0.manual.rego_snippet", "value": { "$repeatChars": 5001, "char": "x" } }] },
-    { "ruleId": "quest_manual_external_link_max_length", "patches": [{ "path": "quests.0.manual.external_link", "value": { "$repeatChars": 501, "char": "x" } }] },
-    { "ruleId": "quest_manual_external_link_scheme", "patches": [{ "path": "quests.0.manual.external_link", "value": "javascript:alert(1)" }] },
-    { "ruleId": "quest_support_modules_max_items", "patches": [{ "path": "quests.2.support_modules", "value": { "count": 6, "value": "package helper\n\ndefault ok = false" } }] },
-    { "ruleId": "quest_support_module_non_empty", "patches": [{ "path": "quests.2.support_modules.0", "value": "  " }] },
-    { "ruleId": "quest_support_module_max_length", "patches": [{ "path": "quests.2.support_modules.0", "value": { "$repeatChars": 10001, "char": "x" } }] },
-    { "ruleId": "quest_tests_min_items", "patches": [{ "path": "quests.1.tests", "value": [] }] },
-    { "ruleId": "quest_tests_max_items", "patches": [{ "path": "quests.1.tests", "value": { "count": 101, "value": { "id": 1, "payload": { "input": {} }, "expected_value": true } } }] },
-    { "ruleId": "quest_test_payload_max_bytes", "patches": [{ "path": "quests.0.tests.0.payload", "value": { "input": { "blob": { "$repeatChars": 60000, "char": "x" } } } }] },
-    { "ruleId": "quest_test_ids_unique", "patches": [{ "path": "quests.1.tests", "value": [
-      { "id": 4, "payload": { "input": {} }, "expected_value": true },
-      { "id": 4, "payload": { "input": {} }, "expected_value": false }
-    ] }] },
-
-    { "name": "base pack", "valid": true, "patches": [] },
-    { "name": "genre with a tab", "valid": true, "patches": [{ "path": "meta.genre", "value": "fantasy\tdragons" }] },
+    {
+      "ruleId": "pack_title_required",
+      "patches": [
+        {
+          "path": "meta.title",
+          "value": "  "
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_title_max_length",
+      "patches": [
+        {
+          "path": "meta.title",
+          "value": {
+            "$repeatChars": 101,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_description_required",
+      "patches": [
+        {
+          "path": "meta.description",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_description_max_length",
+      "patches": [
+        {
+          "path": "meta.description",
+          "value": {
+            "$repeatChars": 501,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_genre_required",
+      "patches": [
+        {
+          "path": "meta.genre",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_genre_max_length",
+      "patches": [
+        {
+          "path": "meta.genre",
+          "value": {
+            "$repeatChars": 51,
+            "char": "a"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_genre_charset",
+      "patches": [
+        {
+          "path": "meta.genre",
+          "value": "fantasy & dragons"
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_genre_charset",
+      "name": "genre with a non-breaking space",
+      "patches": [
+        {
+          "path": "meta.genre",
+          "value": "fantasy\u00a0dragons"
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_initial_objective_max_length",
+      "patches": [
+        {
+          "path": "meta.initial_objective",
+          "value": {
+            "$repeatChars": 501,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_final_objective_max_length",
+      "patches": [
+        {
+          "path": "meta.final_objective",
+          "value": {
+            "$repeatChars": 501,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_grimoire_title_required",
+      "patches": [
+        {
+          "path": "ui_labels.grimoire_title",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_grimoire_title_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.grimoire_title",
+          "value": {
+            "$repeatChars": 101,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_hint_button_required",
+      "patches": [
+        {
+          "path": "ui_labels.hint_button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_hint_button_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.hint_button",
+          "value": {
+            "$repeatChars": 101,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_verify_button_required",
+      "patches": [
+        {
+          "path": "ui_labels.verify_button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_verify_button_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.verify_button",
+          "value": {
+            "$repeatChars": 101,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_verifying_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.verifying",
+          "value": {
+            "$repeatChars": 101,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_message_success_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.message_success",
+          "value": {
+            "$repeatChars": 201,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_message_failure_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.message_failure",
+          "value": {
+            "$repeatChars": 201,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_perfect_score_message_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.perfect_score_message",
+          "value": {
+            "$repeatChars": 1001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_perfect_score_button_text_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.perfect_score_button_text",
+          "value": {
+            "$repeatChars": 101,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "ui_begin_adventure_button_max_length",
+      "patches": [
+        {
+          "path": "ui_labels.begin_adventure_button",
+          "value": {
+            "$repeatChars": 101,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_version_format",
+      "patches": [
+        {
+          "path": "version",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_npcs_default_npc",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "quest_giver": "assets/npc-questgiver.png"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_npcs_max_items",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "$repeatKeys": 51,
+            "prefix": "npc_",
+            "value": "assets/npc-questgiver.png"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_npc_name_required",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "": "assets/npc-questgiver.png",
+            "default_npc": "assets/npc-questgiver.png"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_npc_name_max_length",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "default_npc": "assets/npc-questgiver.png",
+            "npc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "assets/npc-questgiver.png"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_npc_name_charset",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "default_npc": "assets/npc-questgiver.png",
+            "chief horn": "assets/chief.png"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_npc_image_required",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "default_npc": " "
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_npc_image_max_length",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "default_npc": {
+              "$repeatChars": 501,
+              "char": "x"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_npc_image_path",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "default_npc": "npc-questgiver.png"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_hero_npc_required",
+      "patches": [
+        {
+          "path": "hero_npc",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_hero_npc_max_length",
+      "patches": [
+        {
+          "path": "hero_npc",
+          "value": {
+            "$repeatChars": 65,
+            "char": "h"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_hero_npc_charset",
+      "patches": [
+        {
+          "path": "npcs",
+          "value": {
+            "default_npc": "assets/npc-questgiver.png",
+            "hero": "assets/hero-avatar.png",
+            "9lives": "assets/npc-cat.png"
+          }
+        },
+        {
+          "path": "hero_npc",
+          "value": "9lives"
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_hero_npc_defined",
+      "patches": [
+        {
+          "path": "hero_npc",
+          "value": "ghost"
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_background_image_required",
+      "patches": [
+        {
+          "path": "background_image",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_background_image_max_length",
+      "patches": [
+        {
+          "path": "background_image",
+          "value": {
+            "$repeatChars": 501,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_background_image_path",
+      "patches": [
+        {
+          "path": "background_image",
+          "value": "bg-adventure.jpg"
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_prologue_min_items",
+      "patches": [
+        {
+          "path": "prologue",
+          "value": []
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_prologue_item_npc_required",
+      "patches": [
+        {
+          "path": "prologue.0.npc",
+          "value": "  "
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_prologue_item_npc_defined",
+      "patches": [
+        {
+          "path": "prologue.0.npc",
+          "value": "ghost"
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_prologue_item_max_length",
+      "patches": [
+        {
+          "path": "prologue.0.text",
+          "value": {
+            "$repeatChars": 2001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_epilogue_min_items",
+      "patches": [
+        {
+          "path": "epilogue",
+          "value": []
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_epilogue_item_npc_required",
+      "patches": [
+        {
+          "path": "epilogue.0.npc",
+          "value": "  "
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_epilogue_item_npc_defined",
+      "patches": [
+        {
+          "path": "epilogue.0.npc",
+          "value": "ghost"
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_epilogue_item_max_length",
+      "patches": [
+        {
+          "path": "epilogue.0.text",
+          "value": {
+            "$repeatChars": 2001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "pack_quests_min_items",
+      "patches": [
+        {
+          "path": "quests",
+          "value": []
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_ids_contiguous",
+      "patches": [
+        {
+          "path": "quests.0.id",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_ids_unique",
+      "patches": [
+        {
+          "path": "quests.1.id",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_title_required",
+      "patches": [
+        {
+          "path": "quests.1.title",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_title_max_length",
+      "patches": [
+        {
+          "path": "quests.1.title",
+          "value": {
+            "$repeatChars": 101,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_task_required",
+      "patches": [
+        {
+          "path": "quests.1.description_task",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_task_max_length",
+      "patches": [
+        {
+          "path": "quests.1.description_task",
+          "value": {
+            "$repeatChars": 1001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_lore_min_items",
+      "patches": [
+        {
+          "path": "quests.1.description_lore",
+          "value": []
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_lore_npc_required",
+      "patches": [
+        {
+          "path": "quests.1.description_lore.0.npc",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_lore_npc_defined",
+      "patches": [
+        {
+          "path": "quests.1.description_lore.0.npc",
+          "value": "ghost"
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_lore_item_max_length",
+      "patches": [
+        {
+          "path": "quests.1.description_lore.0.text",
+          "value": {
+            "$repeatChars": 2001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_hint_item_max_length",
+      "patches": [
+        {
+          "path": "quests.0.hints.0",
+          "value": {
+            "$repeatChars": 501,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_solution_max_length",
+      "patches": [
+        {
+          "path": "quests.1.solution",
+          "value": {
+            "$repeatChars": 5001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_template_max_length",
+      "patches": [
+        {
+          "path": "quests.1.template",
+          "value": {
+            "$repeatChars": 10001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_query_required",
+      "patches": [
+        {
+          "path": "quests.1.query",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_manual_data_model_max_length",
+      "patches": [
+        {
+          "path": "quests.0.manual.data_model",
+          "value": {
+            "$repeatChars": 2001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_manual_rego_snippet_max_length",
+      "patches": [
+        {
+          "path": "quests.0.manual.rego_snippet",
+          "value": {
+            "$repeatChars": 5001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_manual_external_link_max_length",
+      "patches": [
+        {
+          "path": "quests.0.manual.external_link",
+          "value": {
+            "$repeatChars": 501,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_manual_external_link_scheme",
+      "patches": [
+        {
+          "path": "quests.0.manual.external_link",
+          "value": "javascript:alert(1)"
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_support_modules_max_items",
+      "patches": [
+        {
+          "path": "quests.2.support_modules",
+          "value": {
+            "count": 6,
+            "value": "package helper\n\ndefault ok = false"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_support_module_non_empty",
+      "patches": [
+        {
+          "path": "quests.2.support_modules.0",
+          "value": "  "
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_support_module_max_length",
+      "patches": [
+        {
+          "path": "quests.2.support_modules.0",
+          "value": {
+            "$repeatChars": 10001,
+            "char": "x"
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_tests_min_items",
+      "patches": [
+        {
+          "path": "quests.1.tests",
+          "value": []
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_tests_max_items",
+      "patches": [
+        {
+          "path": "quests.1.tests",
+          "value": {
+            "count": 101,
+            "value": {
+              "id": 1,
+              "payload": {
+                "input": {}
+              },
+              "expected_value": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_test_payload_max_bytes",
+      "patches": [
+        {
+          "path": "quests.0.tests.0.payload",
+          "value": {
+            "input": {
+              "blob": {
+                "$repeatChars": 60000,
+                "char": "x"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ruleId": "quest_test_ids_unique",
+      "patches": [
+        {
+          "path": "quests.1.tests",
+          "value": [
+            {
+              "id": 4,
+              "payload": {
+                "input": {}
+              },
+              "expected_value": true
+            },
+            {
+              "id": 4,
+              "payload": {
+                "input": {}
+              },
+              "expected_value": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "base pack",
+      "valid": true,
+      "patches": []
+    },
+    {
+      "name": "genre with a tab",
+      "valid": true,
+      "patches": [
+        {
+          "path": "meta.genre",
+          "value": "fantasy\tdragons"
+        }
+      ]
+    },
     {
       "name": "optional fields left empty",
       "valid": true,
       "patches": [
-        { "path": "meta.initial_objective", "value": "" },
-        { "path": "meta.final_objective", "value": "" },
-        { "path": "ui_labels.verifying", "value": "" },
-        { "path": "ui_labels.message_success", "value": "" },
-        { "path": "ui_labels.message_failure", "value": "" },
-        { "path": "ui_labels.perfect_score_message", "value": "" },
-        { "path": "ui_labels.perfect_score_button_text", "value": "" },
-        { "path": "ui_labels.begin_adventure_button", "value": "" },
-        { "path": "quests.0.hints", "value": [] },
-        { "path": "quests.0.solution", "value": "" },
-        { "path": "quests.0.template", "value": "" },
-        { "path": "quests.0.support_modules", "value": [] }
+        {
+          "path": "meta.initial_objective",
+          "value": ""
+        },
+        {
+          "path": "meta.final_objective",
+          "value": ""
+        },
+        {
+          "path": "ui_labels.verifying",
+          "value": ""
+        },
+        {
+          "path": "ui_labels.message_success",
+          "value": ""
+        },
+        {
+          "path": "ui_labels.message_failure",
+          "value": ""
+        },
+        {
+          "path": "ui_labels.perfect_score_message",
+          "value": ""
+        },
+        {
+          "path": "ui_labels.perfect_score_button_text",
+          "value": ""
+        },
+        {
+          "path": "ui_labels.begin_adventure_button",
+          "value": ""
+        },
+        {
+          "path": "quests.0.hints",
+          "value": []
+        },
+        {
+          "path": "quests.0.solution",
+          "value": ""
+        },
+        {
+          "path": "quests.0.template",
+          "value": ""
+        },
+        {
+          "path": "quests.0.support_modules",
+          "value": []
+        }
       ]
     },
     {
       "name": "a pack authored without support modules or manual entries",
       "valid": true,
       "patches": [
-        { "path": "quests.2.manual", "value": {} },
-        { "path": "quests.2.support_modules", "value": [] }
+        {
+          "path": "quests.2.manual",
+          "value": {}
+        },
+        {
+          "path": "quests.2.support_modules",
+          "value": []
+        }
       ]
     },
     {
       "name": "a pack with several declared speakers",
       "valid": true,
       "patches": [
-        { "path": "npcs", "value": {
-          "default_npc": "assets/npc-questgiver.png",
-          "chief": "assets/npc-chief.png",
-          "informant": "assets/characters/npc-informant.png"
-        } },
-        { "path": "prologue.0.npc", "value": "chief" },
-        { "path": "epilogue.0.npc", "value": "informant" },
-        { "path": "quests.0.description_lore.0.npc", "value": "chief" }
+        {
+          "path": "npcs",
+          "value": {
+            "default_npc": "assets/npc-questgiver.png",
+            "chief": "assets/npc-chief.png",
+            "informant": "assets/characters/npc-informant.png",
+            "hero": "assets/hero-avatar.png"
+          }
+        },
+        {
+          "path": "prologue.0.npc",
+          "value": "chief"
+        },
+        {
+          "path": "epilogue.0.npc",
+          "value": "informant"
+        },
+        {
+          "path": "quests.0.description_lore.0.npc",
+          "value": "chief"
+        }
       ]
     },
     {
       "name": "deleting the middle quest leaves contiguous IDs",
       "valid": true,
       "patches": [
-        { "path": "quests.1", "remove": true },
-        { "path": "quests.1.id", "value": 2 }
+        {
+          "path": "quests.1",
+          "remove": true
+        },
+        {
+          "path": "quests.1.id",
+          "value": 2
+        }
       ]
     }
   ]

@@ -178,11 +178,11 @@ export class PackManager {
     async loadPackAssets(packId, seq) {
         if (seq !== this.loadSeq) return;
 
-        // Resolve and preload all assets in parallel: the fixed shell
-        // images plus every portrait the pack's npc roster declares.
-        const [heroSource, backgroundSource, npcImages] = await Promise.all([
-            this.loadPackImage(packId, 'hero-avatar.png'),
-            this.loadPackImage(packId, 'bg-adventure.jpg'),
+        // Resolve and preload all assets in parallel: the pack's declared
+        // background plus every portrait the npc roster declares — the
+        // hero's own among them, since hero_npc names a roster entry.
+        const [backgroundSource, npcImages] = await Promise.all([
+            this.loadPackImage(packId, this.packBackgroundName()),
             this.loadNpcImages(packId)
         ]);
 
@@ -190,7 +190,7 @@ export class PackManager {
             // Continuations that lose the race can already hold resolved
             // blob URLs; releasing them here keeps the leak bounded to the
             // next handover's releaseMedia sweep.
-            for (const source of [heroSource, backgroundSource, ...Object.values(npcImages)]) {
+            for (const source of [backgroundSource, ...Object.values(npcImages)]) {
                 AssetService.revoke(source);
             }
             return;
@@ -199,15 +199,9 @@ export class PackManager {
         // The lore renderer resolves speakers against this map.
         this.state.npcImages = npcImages;
 
-        // Update hero avatar (now guaranteed to be loaded)
-        const heroAvatar = document.querySelector('.avatar');
-        if (heroAvatar) {
-            heroAvatar.src = heroSource;
-            heroAvatar.onerror = () => {
-                heroAvatar.onerror = null;
-                heroAvatar.src = '/public/assets/hero-avatar.png';
-            };
-        }
+        // The header avatar: the hero's roster image, resolved like any
+        // other portrait (renderHeroAvatar owns the element).
+        this.ui.renderHeroAvatar(this.state.heroNPC, npcImages);
 
         // The speaker portrait belongs to the lore screen: repaint it now
         // that the roster resolved (renderNpcAvatar owned the element all
@@ -219,7 +213,18 @@ export class PackManager {
     }
 
     /**
-     * Resolve and preload one fixed pack image (hero avatar, background).
+     * The pack's background image filename, from background_image (an
+     * assets-relative path reduced to the file part); the shipped
+     * filename covers packs that predate the declaration.
+     * @returns {string} The background filename in the pack's assets
+     */
+    packBackgroundName() {
+        return (this.state.backgroundImage || 'assets/bg-adventure.jpg')
+            .replace(/^assets\//, '');
+    }
+
+    /**
+     * Resolve and preload one pack image (the background).
      * @param {string} packId - Pack identifier
      * @param {string} filename - Image file in the pack's assets directory
      * @returns {Promise<string>} The source to paint with (a blob URL when
@@ -279,13 +284,12 @@ export class PackManager {
         // Reset assets to default
         document.body.style.backgroundImage = '';
 
-        // The speaker portrait falls back to the shipped quest-giver: with
-        // no roster loaded there is nothing to resolve against.
+        // The portraits fall back to the shipped placeholders: with no
+        // roster loaded there is nothing to resolve against.
         this.state.npcImages = {};
+        this.state.heroNPC = null;
         this.ui.renderNpcAvatar(null, null);
-
-        const heroAvatar = document.querySelector('.avatar');
-        if (heroAvatar) heroAvatar.src = '/public/assets/hero-avatar.png';
+        this.ui.renderHeroAvatar(null, null);
         
         // Reset titles to default
         this.ui.updateTitles('Rego Adventure');

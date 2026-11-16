@@ -50,7 +50,9 @@ import { handleApiError } from '../services/error-service.js';
 function packData(packId, questCount = 2) {
     return {
         version: 2,
-        npcs: { default_npc: 'assets/npc-questgiver.png' },
+        npcs: { default_npc: 'assets/npc-questgiver.png', hero: 'assets/hero-avatar.png' },
+        hero_npc: 'hero',
+        background_image: 'assets/bg-adventure.jpg',
         quests: Array.from({ length: questCount }, (_, i) => ({
             id: i + 1,
             title: `${packId} quest ${i + 1}`,
@@ -80,6 +82,7 @@ function createUi() {
         updateTitles: vi.fn(),
         renderPerfectScoreButton: vi.fn(),
         renderNpcAvatar: vi.fn(),
+        renderHeroAvatar: vi.fn(),
         resetInterfaceMinimized: vi.fn(),
         showScreen: vi.fn(),
         updateScoreDisplay: vi.fn()
@@ -202,14 +205,19 @@ describe('PackManager', () => {
 
             await pack.loadPackAssets('alpha', pack.loadSeq);
 
-            expect(fetchMock).toHaveBeenCalledWith('/quests/alpha/assets/npc-questgiver.png',
+            expect(fetchMock).toHaveBeenCalledWith('/quests/alpha/assets/bg-adventure.jpg',
                 expect.objectContaining({ headers: {} }));
-            expect(document.querySelector('.avatar').getAttribute('src')).toBe('blob:test-1');
-            expect(document.body.style.backgroundImage).toContain('blob:test-2');
-            // The speaker portrait is painted by the UI manager, which owns
-            // the element; the pack manager only hands it resolved sources.
+            expect(document.body.style.backgroundImage).toContain('blob:test-1');
+            // The avatar portraits are painted by the UI manager, which owns
+            // the elements; the pack manager only hands it resolved sources.
+            // The hero rides the roster: hero_npc names a declared entry.
             expect(ui.renderNpcAvatar).toHaveBeenCalledWith('default_npc', {
-                default_npc: 'blob:test-3'
+                default_npc: 'blob:test-2',
+                hero: 'blob:test-3'
+            });
+            expect(ui.renderHeroAvatar).toHaveBeenCalledWith('hero', {
+                default_npc: 'blob:test-2',
+                hero: 'blob:test-3'
             });
             restore();
         });
@@ -226,7 +234,8 @@ describe('PackManager', () => {
 
             expect(fetchMock).toHaveBeenCalledTimes(3);
             expect(ui.renderNpcAvatar).toHaveBeenCalledWith('default_npc', {
-                default_npc: '/quests/alpha/assets/npc-questgiver.png'
+                default_npc: '/quests/alpha/assets/npc-questgiver.png',
+                hero: '/quests/alpha/assets/hero-avatar.png'
             });
             restore();
         });
@@ -252,7 +261,12 @@ describe('PackManager', () => {
             await pack.loadPackAssets('alpha', pack.loadSeq);
 
             expect(ui.renderNpcAvatar).toHaveBeenCalledWith('default_npc', {
-                default_npc: 'blob:test-3'
+                default_npc: 'blob:test-2'
+            });
+            // The roster in this test has no hero entry: the ui fallback
+            // chain decides what an unresolved hero reads as.
+            expect(ui.renderHeroAvatar).toHaveBeenCalledWith('hero', {
+                default_npc: 'blob:test-2'
             });
             restore();
         });
@@ -264,18 +278,20 @@ describe('PackManager', () => {
             const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
             const { pack, state } = createFixture();
             state.npcs = { default_npc: 'assets/npc-questgiver.png' };
+            state.backgroundImage = 'assets/bg-adventure.jpg';
+            state.heroNPC = 'hero';
             mountAvatars();
             pack.preloadImage = vi.fn(async src => src);
 
             const inFlight = pack.loadPackAssets('alpha', pack.loadSeq);
-            for (let flush = 0; flush < 20 && deferreds.length < 3; flush++) {
+            for (let flush = 0; flush < 20 && deferreds.length < 2; flush++) {
                 await Promise.resolve();
             }
             deferreds.forEach(resolve => resolve(new Response('png-bytes', { status: 200 })));
             pack.loadSeq++;
             await inFlight;
 
-            expect(revokeSpy).toHaveBeenCalledTimes(3);
+            expect(revokeSpy).toHaveBeenCalledTimes(2);
             revokeSpy.mockRestore();
             restore();
         });
@@ -470,9 +486,6 @@ describe('PackManager', () => {
 
         it('stops painting assets once the generation moved on', async () => {
             const { pack, state, ui } = createFixture();
-            const hero = document.createElement('img');
-            hero.className = 'avatar';
-            document.body.append(hero);
 
             pack.preloadImage = vi.fn(async src => src);
 
@@ -482,22 +495,28 @@ describe('PackManager', () => {
             await pack.loadPackAssets('alpha', seq);
             expect(await inFlight).toBe(false);
 
-            expect(hero.getAttribute('src')).toBe('/public/assets/hero-avatar.png');
             expect(document.body.style.backgroundImage).toBe('');
             expect(themeVariants()).toEqual([]);
-            // The reset fell the speaker portrait back to the shipped one...
+            // The reset fell the portraits back to the shipped ones...
             expect(ui.renderNpcAvatar).toHaveBeenLastCalledWith(null, null);
+            expect(ui.renderHeroAvatar).toHaveBeenLastCalledWith(null, null);
 
             // The superseded load never landed its pack data, so seed the
             // roster the winner is expected to paint from.
-            state.npcs = { default_npc: 'assets/npc-questgiver.png' };
+            state.npcs = { default_npc: 'assets/npc-questgiver.png', hero: 'assets/hero-avatar.png' };
+            state.heroNPC = 'hero';
             await pack.loadPackAssets('alpha', pack.loadSeq);
 
-            expect(hero.getAttribute('src')).toBe('/quests/alpha/assets/hero-avatar.png');
             expect(document.body.style.backgroundImage).toContain('/quests/alpha/assets/bg-adventure.jpg');
-            // ...and the winner paints it from the loaded roster.
+            // ...and the winner paints it from the loaded roster. The hero
+            // avatar reads from the same roster map the lore pane uses.
             expect(ui.renderNpcAvatar).toHaveBeenLastCalledWith('default_npc', {
-                default_npc: '/quests/alpha/assets/npc-questgiver.png'
+                default_npc: '/quests/alpha/assets/npc-questgiver.png',
+                hero: '/quests/alpha/assets/hero-avatar.png'
+            });
+            expect(ui.renderHeroAvatar).toHaveBeenLastCalledWith('hero', {
+                default_npc: '/quests/alpha/assets/npc-questgiver.png',
+                hero: '/quests/alpha/assets/hero-avatar.png'
             });
         });
     });

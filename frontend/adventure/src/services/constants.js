@@ -130,6 +130,10 @@ export const DEFAULT_NPC_KEY = 'default_npc';
  */
 export const DEFAULT_NPC_AVATAR_SRC = '/public/assets/npc-questgiver.png';
 
+// The shipped hero portrait: the .avatar placeholder on the home screen and
+// the fallback when a pack's hero_npc does not resolve to a roster image.
+export const DEFAULT_HERO_AVATAR_SRC = '/public/assets/hero-avatar.png';
+
 /**
  * Confetti animation settings
  */

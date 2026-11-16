@@ -792,9 +792,11 @@ func TestValidateQuest_OptionalFields(t *testing.T) {
 func TestValidateQuestPack_OptionalFields(t *testing.T) {
 	// Test that optional fields can be empty
 	pack := QuestPack{
-		ID:      "test",
-		Version: FormatVersion,
-		NPCs:    validNPCs(),
+		ID:        "test",
+		Version:   FormatVersion,
+		NPCs:      validNPCs(),
+		HeroNPC:   "hero",
+		BackImage: "assets/bg-adventure.jpg",
 		Meta: MetaData{
 			Title:       "Title",
 			Description: "Description",
@@ -1126,7 +1128,7 @@ func TestValidateQuestPack_NPCs(t *testing.T) {
 		{"empty npc image", map[string]string{DefaultNPCKey: ""}, "npcs[0] image cannot be empty"},
 		{
 			"npc image above the length cap",
-			map[string]string{DefaultNPCKey: "assets/" + strings.Repeat("a", MaxNPCImage)},
+			map[string]string{DefaultNPCKey: "assets/" + strings.Repeat("a", MaxImageName)},
 			"npcs[0] image exceeds maximum length",
 		},
 		{
@@ -1238,6 +1240,7 @@ func TestValidateQuestPack_MultipleSpeakersAreValid(t *testing.T) {
 	pack := createValidQuestPack()
 	pack.NPCs = map[string]string{
 		DefaultNPCKey: "assets/npc-questgiver.png",
+		"hero":        "assets/hero-avatar.png",
 		"chief":       "assets/npc-chief.png",
 		"informant":   "assets/characters/npc-informant.png",
 	}

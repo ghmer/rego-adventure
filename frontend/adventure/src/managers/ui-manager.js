@@ -21,7 +21,7 @@
 
 import { getLocalStorage, setLocalStorage, STORAGE_KEYS } from '../services/storage-service.js';
 import { nextReveal } from '../services/reveal-service.js';
-import { DEFAULT_TEXT, DEFAULT_NPC_KEY, DEFAULT_NPC_AVATAR_SRC, SaveStatus } from '../services/constants.js';
+import { DEFAULT_TEXT, DEFAULT_NPC_KEY, DEFAULT_NPC_AVATAR_SRC, DEFAULT_HERO_AVATAR_SRC, SaveStatus } from '../services/constants.js';
 import { show, hide, setHidden, isHidden } from '../services/visibility.js';
 import { parseMarkdown } from '../services/markdown.js';
 import { initializeUiElements } from './ui-elements.js';
@@ -144,6 +144,36 @@ export class UIManager {
         avatar.onerror = () => {
             avatar.onerror = null;
             avatar.src = DEFAULT_NPC_AVATAR_SRC;
+        };
+    }
+
+    /**
+     * Show the hero's portrait in the page header. The hero is a normal
+     * roster entry named by the pack's hero_npc, so its image resolves from
+     * the same preloaded roster map the lore pane uses; a pack without a
+     * resolvable hero reads as the shipped hero portrait.
+     * @param {string|null} heroKey - the pack's hero_npc key
+     * @param {Object.<string,string>|null} [npcImages=null] - Resolved
+     *   image sources by npc key
+     */
+    renderHeroAvatar(heroKey, npcImages = null) {
+        const avatar = this.elements.heroAvatar;
+        if (!avatar) return;
+
+        // Fallback chain: the hero's own roster portrait, else the pack's
+        // default speaker, else the shipped hero portrait.
+        const src = npcImages?.[heroKey] || npcImages?.[DEFAULT_NPC_KEY] || DEFAULT_HERO_AVATAR_SRC;
+
+        // Skip identical writes so CSS transitions do not replay.
+        if (avatar.dataset.heroKey === heroKey && avatar.dataset.heroSrc === src) return;
+
+        avatar.dataset.heroKey = heroKey;
+        avatar.dataset.heroSrc = src;
+        avatar.alt = 'Your character avatar';
+        avatar.src = src;
+        avatar.onerror = () => {
+            avatar.onerror = null;
+            avatar.src = DEFAULT_HERO_AVATAR_SRC;
         };
     }
 

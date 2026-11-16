@@ -434,9 +434,13 @@ plain strings, no `npcs` roster - are refused at scan until they are brought
 up to date. The migrator rewrites a pack's `quests.json` in place, wrapping
 every narrative string in a `{npc, text}` entry spoken by `default_npc` and
 pointing that speaker at the pack's `npc-questgiver.png`, so the pack plays
-as it did before. The original is kept as `quests.json.v1.bak`, the result is
-loaded through the server's own validation before anything is written, and
-already-versioned packs are skipped, so a rerun is free.
+as it did before. It also declares the pack's media pointers: `hero_npc`
+naming the roster entry that holds the player avatar (`assets/
+hero-avatar.png`), and `background_image` (`assets/bg-adventure.jpg`). The
+original is kept as `quests.json.v1.bak`, the result is loaded through the
+server's own validation before anything is written, and already-current
+packs are skipped (packs that only miss the media pointers are healed), so a
+rerun is free.
 
 **Location:** [`cmd/questmigrate/`](cmd/questmigrate/)
 

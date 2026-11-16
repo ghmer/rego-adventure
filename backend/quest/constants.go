@@ -102,8 +102,9 @@ const (
 	MaxPackNPCs = 50
 	// MaxNPCName is the maximum length of an npc key in the npcs section.
 	MaxNPCName = 64
-	// MaxNPCImage is the maximum length of an npc image path.
-	MaxNPCImage = 500
+	// MaxImageName is the maximum length for an image path inside the pack:
+	// an npc portrait or the pack background.
+	MaxImageName = 500
 )
 
 // DefaultNPCKey is the npc key every pack must declare in its npcs section.

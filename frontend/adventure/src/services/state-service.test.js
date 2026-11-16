@@ -844,6 +844,26 @@ describe('state-service', () => {
             expect(state.npcImages).toEqual({});
         });
 
+        it('carries the hero pointer and the background path a pack declares', () => {
+            const state = loadedState({
+                npcs: { default_npc: 'assets/npc-questgiver.png', hero: 'assets/hero-avatar.png' },
+                hero_npc: 'hero',
+                background_image: 'assets/bg-adventure.jpg'
+            });
+
+            expect(state.heroNPC).toBe('hero');
+            expect(state.backgroundImage).toBe('assets/bg-adventure.jpg');
+        });
+
+        it('a new pack load clears the hero pointer and the background path', () => {
+            const state = loadedState({ hero_npc: 'hero', background_image: 'assets/bg-adventure.jpg' });
+
+            state.loadPackData({ quests: [], prologue: [], epilogue: [], meta: null, ui_labels: {} });
+
+            expect(state.heroNPC).toBeNull();
+            expect(state.backgroundImage).toBeNull();
+        });
+
         it('a new pack load replaces the roster and drops resolved images', () => {
             const state = loadedState({ npcs: { default_npc: 'assets/npc-questgiver.png' } });
             state.npcImages = { default_npc: 'blob:stale' };

@@ -120,7 +120,7 @@ func TestMigratePackJSONKeepsTheAuthorsKeyOrder(t *testing.T) {
 	if err := json.Unmarshal(out, &root); err != nil {
 		t.Fatalf("migrated pack does not parse as an ordered object: %v", err)
 	}
-	want := []string{"version", "npcs", "meta", "ui_labels", "prologue", "epilogue", "quests"}
+	want := []string{"version", "npcs", "hero_npc", "background_image", "meta", "ui_labels", "prologue", "epilogue", "quests"}
 	if strings.Join(root.keys, ",") != strings.Join(want, ",") {
 		t.Errorf("top-level key order is %v, want %v", root.keys, want)
 	}
@@ -167,7 +167,7 @@ func TestMigratePackJSONRefusesPacksItCannotUnderstand(t *testing.T) {
 		packJSON    string
 		errFragment string
 	}{
-		{"current format already", `{"version": 2}`, "already at the current format"},
+		{"current format already", `{"version": 2, "npcs": {"default_npc": "assets/npc-questgiver.png", "hero": "assets/hero-avatar.png"}, "hero_npc": "hero", "background_image": "assets/bg-adventure.jpg"}`, "already at the current format"},
 		{"newer format", `{"version": 3}`, "newer than the format"},
 		{"not an object", `[1,2]`, "not a JSON object"},
 		{"prologue entry is a number", `{"prologue": [7]}`, "prologue[0] is neither a v1 string nor a v2 lore object"},
@@ -193,6 +193,87 @@ func TestMigratePackJSONRefusesPacksItCannotUnderstand(t *testing.T) {
 				t.Errorf("expected an error mentioning %q, got: %v", tc.errFragment, err)
 			}
 		})
+	}
+}
+
+func TestMigratePackJSONHealsAPackMissingTheMediaPointers(t *testing.T) {
+	// A pack authored against the previous v2 (lore objects and a roster,
+	// but no hero_npc and no background_image): the migration adds exactly
+	// what the format gained, leaves the authored roster alone, and the
+	// second run reports the pack as current.
+	incomplete := `{
+  "version": 2,
+  "npcs": {"default_npc": "assets/npc-questgiver.png", "chief": "assets/chief.png"},
+  "meta": {"title": "T", "description": "D", "genre": "g"},
+  "ui_labels": {"grimoire_title": "G", "hint_button": "H", "verify_button": "V"},
+  "prologue": [{"npc": "chief", "text": "Rain again."}],
+  "epilogue": [{"npc": "default_npc", "text": "Sun."}],
+  "quests": [{
+    "id": 1, "title": "Q", "description_task": "t", "query": "data.play.allow",
+    "description_lore": [{"npc": "chief", "text": "Spade, a job."}],
+    "tests": [{"id": 1, "payload": {"input": {}}, "expected_value": true}]
+  }]
+}`
+
+	out, report, err := migratePackJSON("pack", []byte(incomplete))
+	if err != nil {
+		t.Fatalf("healing failed: %v", err)
+	}
+	if !report.HeroPointerAdded || !report.HeroEntryAdded || !report.BackgroundAdded {
+		t.Errorf("report should record the pointer and entry additions: %+v", report)
+	}
+
+	var pack quest.QuestPack
+	if err := json.Unmarshal(out, &pack); err != nil {
+		t.Fatalf("healed pack does not parse: %v", err)
+	}
+	if pack.HeroNPC != "hero" || pack.NPCs["hero"] != defaultHeroImage {
+		t.Errorf("hero pointer is %q with entry %q, want %q pointing at the added avatar entry",
+			pack.HeroNPC, pack.NPCs["hero"], "hero")
+	}
+	if pack.BackImage != defaultBackgroundPath {
+		t.Errorf("background_image is %q, want %q", pack.BackImage, defaultBackgroundPath)
+	}
+	if pack.NPCs["chief"] != "assets/chief.png" {
+		t.Errorf("the authored roster was not kept: %v", pack.NPCs)
+	}
+
+	if _, _, err := migratePackJSON("pack", out); !errors.Is(err, errCurrentFormat) {
+		t.Errorf("the healed pack should read as current, got: %v", err)
+	}
+}
+
+func TestMigratePackJSONKeepsAnExistingHeroEntry(t *testing.T) {
+	// A pack that already names a character "hero" gets the pointer aimed
+	// at that entry, not a second one.
+	incomplete := `{
+  "version": 2,
+  "npcs": {"default_npc": "assets/npc-questgiver.png", "hero": "assets/my-persona.png"},
+  "meta": {"title": "T", "description": "D", "genre": "g"},
+  "ui_labels": {"grimoire_title": "G", "hint_button": "H", "verify_button": "V"},
+  "prologue": [{"npc": "default_npc", "text": "Rain."}],
+  "epilogue": [{"npc": "default_npc", "text": "Sun."}],
+  "quests": [{
+    "id": 1, "title": "Q", "description_task": "t", "query": "data.play.allow",
+    "description_lore": [{"npc": "hero", "text": "Another case."}],
+    "tests": [{"id": 1, "payload": {"input": {}}, "expected_value": true}]
+  }]
+}`
+
+	out, report, err := migratePackJSON("pack", []byte(incomplete))
+	if err != nil {
+		t.Fatalf("healing failed: %v", err)
+	}
+	if report.HeroEntryAdded {
+		t.Errorf("a second hero entry was added although the roster declared one: %+v", report)
+	}
+	var pack quest.QuestPack
+	if err := json.Unmarshal(out, &pack); err != nil {
+		t.Fatalf("healed pack does not parse: %v", err)
+	}
+	if pack.HeroNPC != "hero" || pack.NPCs["hero"] != "assets/my-persona.png" {
+		t.Errorf("hero pointer is %q with entry %q, want the authored persona kept",
+			pack.HeroNPC, pack.NPCs["hero"])
 	}
 }
 
@@ -230,7 +311,7 @@ func TestMigratePackJSONKeepsAuthoredSpeakersAndRoster(t *testing.T) {
 	if err := json.Unmarshal(out, &root); err != nil {
 		t.Fatalf("migrated pack does not parse as an ordered object: %v", err)
 	}
-	wantOrder := []string{"meta", "ui_labels", "npcs", "prologue", "epilogue", "quests"}
+	wantOrder := []string{"meta", "ui_labels", "npcs", "hero_npc", "background_image", "prologue", "epilogue", "quests"}
 	rootKeys := root.keys
 	if i := root.keyIndex("version"); i == 0 {
 		rootKeys = rootKeys[1:] // the marker is always first; the rest must keep their order

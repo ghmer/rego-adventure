@@ -65,8 +65,11 @@ func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID strin
 		Version: quest.FormatVersion,
 		NPCs: map[string]string{
 			"default_npc": "assets/npc-questgiver.png",
+			"hero":        "assets/hero-avatar.png",
 			"villain":     "assets/npc-villain.png",
 		},
+		HeroNPC:   "hero",
+		BackImage: "assets/bg-adventure.jpg",
 		Meta: quest.MetaData{
 			Title:       "Test Pack",
 			Description: "A test pack description",

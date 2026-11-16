@@ -20,8 +20,11 @@
         "begin_adventure_button": "Begin Adventure"
     },
     "npcs": {
-        "default_npc": "assets/npc-questgiver.png"
+        "default_npc": "assets/npc-questgiver.png",
+        "hero": "assets/hero-avatar.png"
     },
+    "hero_npc": "hero",
+    "background_image": "assets/bg-adventure.jpg",
     "quests": [
         {
             "id": 1,

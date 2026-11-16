@@ -93,7 +93,8 @@ function initializeMaxLengthAttributes() {
         'meta-description': PACK_LIMITS.MaxPackDescription,
         'meta-genre': PACK_LIMITS.MaxPackGenre,
         'meta-initial_objective': PACK_LIMITS.MaxPackObjective,
-        'meta-final_objective': PACK_LIMITS.MaxPackObjective
+        'meta-final_objective': PACK_LIMITS.MaxPackObjective,
+        'meta-background_image': PACK_LIMITS.MaxImageName
     };
     
     // UI Labels fields
@@ -175,6 +176,16 @@ function normalizeTestPayloads() {
 function loadEditor() {
     if (!questData.npcs || typeof questData.npcs !== 'object' || Array.isArray(questData.npcs)) {
         questData.npcs = {};
+    }
+    // The media pointers: the hero names one roster entry and the
+    // background is the image behind the game screens. Absent values are
+    // filled with the roster's first entry and the shipped background, so
+    // a pack opened pre-edit keeps its meaning and the export carries them.
+    if (!questData.hero_npc || !Object.prototype.hasOwnProperty.call(questData.npcs, questData.hero_npc)) {
+        questData.hero_npc = Object.keys(questData.npcs)[0] || 'default_npc';
+    }
+    if (!questData.background_image) {
+        questData.background_image = 'assets/bg-adventure.jpg';
     }
 
     normalizeTestPayloads();
@@ -359,6 +370,7 @@ function renderMeta() {
     document.getElementById('meta-genre').value = questData.meta.genre || '';
     document.getElementById('meta-initial_objective').value = questData.meta.initial_objective || '';
     document.getElementById('meta-final_objective').value = questData.meta.final_objective || '';
+    document.getElementById('meta-background_image').value = questData.background_image || '';
 }
 
 function renderUILabels() {
@@ -398,7 +410,32 @@ function renderNpcs() {
         container.appendChild(createNpcItem(key, image, index));
     });
 
+    renderHeroNpcSelect();
     updateNpcDatalist();
+}
+
+// renderHeroNpcSelect: the player-character picker lists every roster
+// entry and keeps the declared hero selected. When the current hero was
+// removed from the roster it falls back to the first remaining entry, so
+// the pointer is never left dangling.
+function renderHeroNpcSelect() {
+    const select = document.getElementById('hero-npc');
+    if (!select) return;
+
+    if (!questData.hero_npc || !Object.prototype.hasOwnProperty.call(questData.npcs, questData.hero_npc)) {
+        questData.hero_npc = Object.keys(questData.npcs)[0] || 'default_npc';
+    }
+
+    select.innerHTML = '';
+    Object.keys(questData.npcs).forEach(key => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = key;
+        if (key === questData.hero_npc) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
 }
 
 // The roster doubles as the autocomplete source for every speaker field.
@@ -708,7 +745,7 @@ function createNpcItem(key, image, index) {
     imageInput.type = 'text';
     imageInput.className = 'form-control npc-image';
     imageInput.placeholder = 'assets/npc-portrait.png';
-    imageInput.maxLength = PACK_LIMITS.MaxNPCImage;
+    imageInput.maxLength = PACK_LIMITS.MaxImageName;
     imageInput.value = image;
     imageInput.addEventListener('change', () => {
         updateNpcEntry(index, nameInput.value.trim() || key, imageInput.value.trim());
@@ -742,8 +779,15 @@ function normalizeLoreEntry(list, index) {
 
 function updateNpcEntry(index, key, image) {
     const entries = Object.entries(questData.npcs);
+    const renamedFrom = entries[index][0];
     entries[index] = [key, image];
     questData.npcs = Object.fromEntries(entries);
+    // A rename must not drop the hero pointer: the renamed entry stays the
+    // player character; renderHeroNpcSelect only re-points when the pointed
+    // entry vanished entirely.
+    if (questData.hero_npc === renamedFrom) {
+        questData.hero_npc = key;
+    }
     renderNpcs();
 }
 
@@ -837,6 +881,8 @@ function removeNpcItem(index) {
     const entries = Object.entries(questData.npcs);
     entries.splice(index, 1);
     questData.npcs = Object.fromEntries(entries);
+    // A deleted hero leaves the pointer dangling; renderHeroNpcSelect
+    // re-points it at the first remaining entry.
     renderNpcs();
 }
 
@@ -1058,6 +1104,20 @@ function setupFormListeners() {
         }
     });
     
+    // Pack media pointers (top-level keys, not meta fields)
+    const backgroundEl = document.getElementById('meta-background_image');
+    if (backgroundEl) {
+        backgroundEl.addEventListener('change', () => {
+            questData.background_image = backgroundEl.value.trim();
+        });
+    }
+    const heroSelect = document.getElementById('hero-npc');
+    if (heroSelect) {
+        heroSelect.addEventListener('change', () => {
+            questData.hero_npc = heroSelect.value;
+        });
+    }
+
     // UI Labels fields
     ['grimoire_title', 'hint_button', 'verify_button', 'verifying', 'message_success', 'message_failure', 'perfect_score_message', 'perfect_score_button_text', 'begin_adventure_button'].forEach(field => {
         const el = document.getElementById(`ui_labels-${field}`);

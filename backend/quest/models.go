@@ -123,14 +123,16 @@ type QuestPack struct { //nolint:revive // established public name; renaming to 
 	// Version is the quest pack format marker. LoadPack refuses a pack whose
 	// version is not FormatVersion before decoding it, so an old pack fails
 	// with a migration message instead of a type error from the decoder.
-	Version  int               `json:"version"`
-	NPCs     map[string]string `json:"npcs"` // npc key -> image path inside the pack's assets directory
-	Meta     MetaData          `json:"meta"`
-	UILabels UILabels          `json:"ui_labels"`
-	Prologue []LoreEntry       `json:"prologue"`
-	Epilogue []LoreEntry       `json:"epilogue"`
-	Quests   []Quest           `json:"quests"`
-	questMap map[int]*Quest    // Internal map for O(1) quest lookup
+	Version   int               `json:"version"`
+	NPCs      map[string]string `json:"npcs"`             // npc key -> image path inside the pack's assets directory
+	HeroNPC   string            `json:"hero_npc"`         // npc key of the player character, speakable like any other
+	BackImage string            `json:"background_image"` // pack background, a path inside the pack's assets directory
+	Meta      MetaData          `json:"meta"`
+	UILabels  UILabels          `json:"ui_labels"`
+	Prologue  []LoreEntry       `json:"prologue"`
+	Epilogue  []LoreEntry       `json:"epilogue"`
+	Quests    []Quest           `json:"quests"`
+	questMap  map[int]*Quest    // Internal map for O(1) quest lookup
 }
 
 // Security: Validation and Sanitization Functions
@@ -384,6 +386,9 @@ func validateQuestPack(pack *QuestPack) error {
 	if err := validatePackNPCs(pack); err != nil {
 		return err
 	}
+	if err := validatePackMediaPointers(pack); err != nil {
+		return err
+	}
 	if err := validateNarrativeLists(pack); err != nil {
 		return err
 	}
@@ -470,7 +475,7 @@ func validatePackNPCs(pack *QuestPack) error {
 		if err := validateNonEmpty(pack.NPCs[name], fmt.Sprintf("npcs[%d] image", i)); err != nil {
 			return err
 		}
-		if err := validateStringLength(pack.NPCs[name], MaxNPCImage, fmt.Sprintf("npcs[%d] image", i)); err != nil {
+		if err := validateStringLength(pack.NPCs[name], MaxImageName, fmt.Sprintf("npcs[%d] image", i)); err != nil {
 			return err
 		}
 		if err := validateNPCImagePath(pack.NPCs[name], fmt.Sprintf("npcs[%d] image", i)); err != nil {
@@ -478,6 +483,35 @@ func validatePackNPCs(pack *QuestPack) error {
 		}
 	}
 	return nil
+}
+
+// validatePackMediaPointers validates the two keys that single out pack
+// media from the roster: the hero pointer names the roster entry that is
+// the player character, and the background image is a pack path like an
+// npc portrait. The hero is an npc like any other, so it may speak lore
+// entries; the pointer only says which entry the header portrait shows.
+func validatePackMediaPointers(pack *QuestPack) error {
+	if err := validateNonEmpty(pack.HeroNPC, "hero_npc"); err != nil {
+		return err
+	}
+	if err := validateStringLength(pack.HeroNPC, MaxNPCName, "hero_npc"); err != nil {
+		return err
+	}
+	if !npcKeyPattern.MatchString(pack.HeroNPC) {
+		return fmt.Errorf("hero_npc contains invalid characters " +
+			"(must start with a letter and use only letters, numbers, hyphens and underscores)")
+	}
+	if _, declared := pack.NPCs[pack.HeroNPC]; !declared {
+		return fmt.Errorf("hero_npc %q is not a character declared in the npcs section", pack.HeroNPC)
+	}
+
+	if err := validateNonEmpty(pack.BackImage, "background_image"); err != nil {
+		return err
+	}
+	if err := validateStringLength(pack.BackImage, MaxImageName, "background_image"); err != nil {
+		return err
+	}
+	return validateNPCImagePath(pack.BackImage, "background_image")
 }
 
 // validateNPCImagePath requires an npc image to address a media file inside

@@ -248,7 +248,8 @@ test('every rule has a kind the validator implements', () => {
         'urlScheme', 'maxJsonBytes', 'contiguousIds', 'uniqueIds',
         'formatVersion', 'npcDefaultDefined', 'maxKeys',
         'npcNameRequired', 'npcNameMaxLength', 'npcNameCharset',
-        'npcImageRequired', 'npcImageMaxLength', 'npcImagePath', 'npcDefined'
+        'npcImageRequired', 'npcImageMaxLength', 'npcImagePath', 'npcDefined',
+        'heroNpcCharset', 'heroNpcDefined', 'imagePath'
     ]);
     const ids = new Set();
     for (const rule of PACK_RULES.rules) {

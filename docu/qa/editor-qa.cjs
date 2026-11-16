@@ -215,27 +215,29 @@ async function main() {
             }));
             report.check(
                 'the roster shows the pack characters, their portraits, and feeds the speaker autocomplete',
-                roster.rows.length === 1 &&
+                roster.rows.length === 2 &&
                 roster.rows[0][0] === 'default_npc' &&
                 roster.rows[0][1] === 'assets/npc-questgiver.png' &&
-                roster.speakers.join('|') === 'default_npc',
+                roster.rows[1][0] === 'hero' &&
+                roster.rows[1][1] === 'assets/hero-avatar.png' &&
+                roster.speakers.join('|') === 'default_npc|hero',
                 JSON.stringify(roster)
             );
             await page.click('#addNpcBtn');
             const rosterAdded = await page.$$eval('#npcList .npc-item .npc-name', (els) => els.map((el) => el.value));
             report.check(
                 'adding a character appends an editable row that autocompletes speakers',
-                rosterAdded.length === 2 && rosterAdded[1] === 'new_character' &&
-                (await page.$$eval('#npcNames option', (els) => els.map((el) => el.value).join('|'))) === 'default_npc|new_character',
+                rosterAdded.length === 3 && rosterAdded[2] === 'new_character' &&
+                (await page.$$eval('#npcNames option', (els) => els.map((el) => el.value).join('|'))) === 'default_npc|hero|new_character',
                 JSON.stringify(rosterAdded)
             );
             // Remove it again: the export phase below judges the pack on its
             // original content, and an unpointed portrait would be refused.
-            await page.locator('#npcList .npc-item').nth(1).locator('.btn-danger').click();
+            await page.locator('#npcList .npc-item').nth(2).locator('.btn-danger').click();
             const afterRemove = await page.$$eval('#npcList .npc-item .npc-name', (els) => els.map((el) => el.value));
             report.check(
                 'a character row can be removed again',
-                afterRemove.length === 1 && afterRemove[0] === 'default_npc',
+                afterRemove.length === 2 && afterRemove.join('|') === 'default_npc|hero',
                 JSON.stringify(afterRemove)
             );
 

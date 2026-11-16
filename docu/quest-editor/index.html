@@ -129,6 +129,11 @@
                             <label for="meta-final_objective">Final Objective</label>
                             <input type="text" id="meta-final_objective" class="form-control" placeholder="Ending objective">
                         </div>
+                        <div class="form-group full-width">
+                            <label for="meta-background_image">Background image</label>
+                            <input type="text" id="meta-background_image" class="form-control" placeholder="assets/bg-adventure.jpg">
+                            <p class="field-hint">The image behind the game screens, from the pack's assets/ folder.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -196,6 +201,14 @@
                     <button class="btn btn-secondary" id="addNpcBtn" title="Add a new character"><i class="fas fa-plus"></i> Add Character</button>
                 </div>
                 <div class="content-body">
+                    <div class="form-group">
+                        <label for="hero-npc">Player character</label>
+                        <select id="hero-npc" class="form-control"
+                                title="The roster entry this pack presents as the player;
+                                       its portrait shows in the page header and the entry can speak in lore">
+                        </select>
+                        <p class="field-hint">The game shows this character's portrait as the player avatar.</p>
+                    </div>
                     <div id="npcList" class="item-list"></div>
                 </div>
             </div>

@@ -34,6 +34,12 @@ The `quests/<theme>/quests.json` files define the tutorial quests the player mus
     quest-giver image speaks every line.
   - The game shows the portrait of whichever lore entry is on screen, so a
     quest's dialogue reads as a small cast; see `description_lore` below.
+- `hero_npc`: Required. Names the roster entry that is the player character:
+    the page header's avatar shows that entry's portrait, and the entry is
+    free to speak in lore like any other character. Must be a key of `npcs`.
+- `background_image`: Required. The image behind the game screens, a path
+    inside the pack under its `assets/` folder (same rules as a roster
+    portrait path).
 - `prologue`: Array of lore entries (see quest lore entries below) containing the introductory narrative
 - `epilogue`: Array of lore entries containing the concluding narrative
 - `quests`: Array of individual `quest` objects (see below)
@@ -152,11 +158,15 @@ subdirectories are packs. The original file is kept beside the rewritten one
 as `quests.json.v1.bak`. Every narrative string becomes a lore entry spoken
 by `default_npc`, whose portrait is set to the pack's `npc-questgiver.png` -
 the image the old format showed for every line - so a migrated pack plays
-exactly as it did before. The pack is loaded through the server's own
+exactly as it did before. The migration also gives the pack its media
+pointers: the hero entry (`npcs.hero -> assets/hero-avatar.png`, the avatar
+the old format showed) named by `hero_npc`, and `background_image` pointing
+at the pack's `bg-adventure.jpg`. The pack is loaded through the server's own
 validation before anything is written, and a pack that still does not load
-is left untouched. The run is idempotent: an already-versioned pack is
-skipped, so rerunning after a partial batch costs nothing. `-dry-run` reports
-what would change without writing.
+is left untouched. The run is idempotent: a pack already at the current
+format is skipped, a pack that predates the media pointers is healed by
+adding exactly those keys, so rerunning after a partial batch costs nothing.
+`-dry-run` reports what would change without writing.
 
 After migrating, authors can rename `default_npc` references and declare real
 characters with the quest editor's Characters view.

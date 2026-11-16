@@ -45,7 +45,10 @@ func verificationTestCases() []TestCase {
 // validNPCs returns the minimal npc roster the shared fixtures speak with.
 // Tests that need another speaker add it to the returned map.
 func validNPCs() map[string]string {
-	return map[string]string{DefaultNPCKey: "assets/npc-questgiver.png"}
+	return map[string]string{
+		DefaultNPCKey: "assets/npc-questgiver.png",
+		"hero":        "assets/hero-avatar.png",
+	}
 }
 
 // loreEntries wraps texts as lore entries spoken by the default npc, for
@@ -80,9 +83,11 @@ func createValidQuest() Quest {
 
 func createValidQuestPack() QuestPack {
 	return QuestPack{
-		ID:      "test-pack",
-		Version: FormatVersion,
-		NPCs:    validNPCs(),
+		ID:        "test-pack",
+		Version:   FormatVersion,
+		NPCs:      validNPCs(),
+		HeroNPC:   "hero",
+		BackImage: "assets/bg-adventure.jpg",
 		Meta: MetaData{
 			Title:            "Test Pack Title",
 			Description:      "A test quest pack description",

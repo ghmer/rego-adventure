@@ -68,6 +68,10 @@ export class GameState {
         this.prologue = [];
         this.epilogue = [];
         this.npcs = {};
+        // The roster entry the pack names as the player character, and the
+        // pack's background image path; null between packs.
+        this.heroNPC = null;
+        this.backgroundImage = null;
         // Resolved image sources by npc key, written by the pack manager
         // once the pack's roster is preloaded; empty until then, and empty
         // again once the pack is left.
@@ -231,6 +235,10 @@ export class GameState {
         // The pack's npc roster: lore-entry speakers resolve against it, and
         // the pack manager preloads every declared portrait.
         this.npcs = packData.npcs ?? {};
+        // hero_npc names the roster entry that is the player character; the
+        // pack manager paints the header avatar from its roster image.
+        this.heroNPC = packData.hero_npc || null;
+        this.backgroundImage = packData.background_image || null;
         this.npcImages = {};
         this.meta = packData.meta;
 

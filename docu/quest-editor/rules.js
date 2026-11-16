@@ -33,7 +33,7 @@
 //                formatVersion | npcDefaultDefined | maxKeys |
 //                npcNameRequired | npcNameMaxLength | npcNameCharset |
 //                npcImageRequired | npcImageMaxLength | npcImagePath |
-//                npcDefined
+//                npcDefined | heroNpcCharset | heroNpcDefined | imagePath
 //   path         where the value sits; a `[]` suffix takes the elements of an
 //                array, so `quests[].hints[]` selects every hint of every quest
 //   host, field  for the ID rules: the array whose elements carry the IDs
@@ -85,7 +85,7 @@ const PACK_RULES = JSON.parse(`{
     "MaxTestPayloadBytes": 50000,
     "MaxPackNPCs": 50,
     "MaxNPCName": 64,
-    "MaxNPCImage": 500
+    "MaxImageName": 500
   },
   "defaultNPCKey": "default_npc",
   "rules": [
@@ -120,8 +120,17 @@ const PACK_RULES = JSON.parse(`{
     { "id": "pack_npc_name_max_length", "path": "npcs", "kind": "npcNameMaxLength", "limit": "MaxNPCName", "serverLabel": "npcs[{i}] name" },
     { "id": "pack_npc_name_charset", "path": "npcs", "kind": "npcNameCharset" },
     { "id": "pack_npc_image_required", "path": "npcs", "kind": "npcImageRequired", "serverLabel": "npcs[{i}] image" },
-    { "id": "pack_npc_image_max_length", "path": "npcs", "kind": "npcImageMaxLength", "limit": "MaxNPCImage", "serverLabel": "npcs[{i}] image" },
+    { "id": "pack_npc_image_max_length", "path": "npcs", "kind": "npcImageMaxLength", "limit": "MaxImageName", "serverLabel": "npcs[{i}] image" },
     { "id": "pack_npc_image_path", "path": "npcs", "kind": "npcImagePath" },
+
+    { "id": "pack_hero_npc_required", "path": "hero_npc", "kind": "nonEmpty", "serverLabel": "hero_npc" },
+    { "id": "pack_hero_npc_max_length", "path": "hero_npc", "kind": "maxLength", "limit": "MaxNPCName", "serverLabel": "hero_npc" },
+    { "id": "pack_hero_npc_charset", "path": "hero_npc", "kind": "heroNpcCharset" },
+    { "id": "pack_hero_npc_defined", "path": "hero_npc", "kind": "heroNpcDefined" },
+
+    { "id": "pack_background_image_required", "path": "background_image", "kind": "nonEmpty", "serverLabel": "background_image" },
+    { "id": "pack_background_image_max_length", "path": "background_image", "kind": "maxLength", "limit": "MaxImageName", "serverLabel": "background_image" },
+    { "id": "pack_background_image_path", "path": "background_image", "kind": "imagePath" },
 
     { "id": "pack_prologue_min_items", "path": "prologue", "kind": "minItems", "min": 1 },
     { "id": "pack_prologue_item_npc_required", "path": "prologue[].npc", "kind": "nonEmpty", "serverLabel": "prologue[{i}] npc" },
@@ -399,12 +408,49 @@ const RULE_CHECKS = {
         if (rest === '') {
             return 'image must name a file inside the pack assets directory';
         }
-        if (rest.includes('..') || image.includes('\\')) {
+        if (rest.includes('..') || rest.includes('\\')) {
             return 'image must stay inside the pack assets directory (path traversal is not allowed)';
         }
-        if (rest.match(/[ \t\n]/)) {
+        if (/\s/.test(rest)) {
             return 'image must not contain whitespace (only URL-safe paths are allowed)';
         }
+        return RULE_CHECKS.imageExtension(rule, image);
+    },
+
+    // heroNpcCharset checks the hero pointer names a well-formed npc key;
+    // an empty value is left to the required rule, like the roster names.
+    heroNpcCharset(rule, site) {
+        const name = typeof site.value === 'string' ? site.value : '';
+        return name === '' || NPC_NAME_PATTERN.test(name)
+            ? null
+            : 'contains invalid characters (must start with a letter and use only letters, numbers, hyphens and underscores)';
+    },
+
+    // imagePath checks a pack media path (the background) the way npc
+    // portraits are checked: inside the pack assets directory, media
+    // extension. The empty value is left to the required rule.
+    imagePath(rule, site) {
+        const image = typeof site.value === 'string' ? site.value : '';
+        if (image.trim() === '') {
+            return null;
+        }
+        if (!image.startsWith(NPC_IMAGE_PREFIX)) {
+            return `must point inside the pack assets directory (must start with ${JSON.stringify(NPC_IMAGE_PREFIX)})`;
+        }
+        const rest = image.slice(NPC_IMAGE_PREFIX.length);
+        if (rest === '') {
+            return 'must name a file inside the pack assets directory';
+        }
+        if (rest.includes('..') || rest.includes('\\')) {
+            return 'must stay inside the pack assets directory (path traversal is not allowed)';
+        }
+        if (/\s/.test(rest)) {
+            return 'must not contain whitespace (only URL-safe paths are allowed)';
+        }
+        return RULE_CHECKS.imageExtension(rule, image);
+    },
+
+    imageExtension(rule, image) {
         const ext = (image.match(/\.[^.]*$/)?.[0] ?? '').toLowerCase();
         return NPC_IMAGE_EXTENSIONS.includes(ext)
             ? null
@@ -511,6 +557,20 @@ function validatePack(pack) {
                         message: `${renderTrail(site.trail)} references npc "${speaker ?? ''}", which the pack does not declare`
                     });
                 }
+            }
+            continue;
+        }
+
+        if (rule.kind === 'heroNpcDefined') {
+            const npcs = pack ? pack.npcs : null;
+            const hero = pack ? pack.hero_npc : undefined;
+            const declared = npcs !== null && typeof npcs === 'object' && !Array.isArray(npcs)
+                && Object.prototype.hasOwnProperty.call(npcs, hero);
+            if (!declared) {
+                problems.push({
+                    ruleId: rule.id,
+                    message: `hero_npc "${hero ?? ''}" is not a character declared in the npcs section`
+                });
             }
             continue;
         }

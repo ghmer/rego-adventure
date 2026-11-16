@@ -735,4 +735,76 @@ describe('ui-manager', () => {
             expect(el.getAttribute('src')).toBe('/public/assets/npc-questgiver.png');
         });
     });
+
+    describe('the hero avatar', () => {
+        const ROSTER = {
+            hero: '/quests/p/assets/hero.png',
+            default_npc: '/quests/p/assets/quest-giver.png'
+        };
+
+        /**
+         * Build a UIManager over the page-header hero avatar.
+         * @returns {UIManager} Manager wired to the fixture document
+         */
+        function createHeroUi() {
+            document.body.innerHTML = `
+                <img class="avatar" src="/public/assets/hero-avatar.png"
+                     alt="Your character avatar">
+                <div id="editor-pane"></div>
+                <textarea id="editor"></textarea>
+            `;
+            return new UIManager({ textarea: document.getElementById('editor') });
+        }
+
+        const avatar = () => document.querySelector('.avatar');
+
+        it('paints the hero from its roster entry, named by hero_npc', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar('hero', ROSTER);
+
+            expect(avatar().getAttribute('src')).toBe(ROSTER.hero);
+            expect(avatar().getAttribute('alt')).toBe('Your character avatar');
+        });
+
+        it('does not rewrite an identical portrait', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar('hero', ROSTER);
+            avatar().src = ''; // a direct write the next call must not replay
+            ui.renderHeroAvatar('hero', ROSTER);
+
+            expect(avatar().getAttribute('src')).toBe('');
+        });
+
+        it('falls back to the pack default speaker when the hero entry did not resolve', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar('hero', { default_npc: ROSTER.default_npc });
+
+            expect(avatar().getAttribute('src')).toBe(ROSTER.default_npc);
+        });
+
+        it('falls back to the shipped hero portrait without a roster', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar(null, null);
+
+            expect(avatar().getAttribute('src')).toBe('/public/assets/hero-avatar.png');
+        });
+
+        it('applies the shipped portrait once when a hero image fails at the element', () => {
+            const ui = createHeroUi();
+
+            ui.renderHeroAvatar('hero', ROSTER);
+            const el = avatar();
+            el.dispatchEvent(new Event('error'));
+
+            expect(el.getAttribute('src')).toBe('/public/assets/hero-avatar.png');
+            expect(el.onerror).toBeNull();
+
+            el.dispatchEvent(new Event('error'));
+            expect(el.getAttribute('src')).toBe('/public/assets/hero-avatar.png');
+        });
+    });
 });
