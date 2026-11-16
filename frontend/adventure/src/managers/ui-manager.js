@@ -149,10 +149,10 @@ export class UIManager {
 
     /**
      * Show the hero's portrait in the page header. The hero is a normal
-     * roster entry named by the pack's hero_npc, so its image resolves from
+     * roster entry named by the pack's hero_avatar, so its image resolves from
      * the same preloaded roster map the lore pane uses; a pack without a
      * resolvable hero reads as the shipped hero portrait.
-     * @param {string|null} heroKey - the pack's hero_npc key
+     * @param {string|null} heroKey - the pack's hero_avatar key
      * @param {Object.<string,string>|null} [npcImages=null] - Resolved
      *   image sources by npc key
      */

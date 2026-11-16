@@ -23,7 +23,7 @@
         "default_npc": "assets/npc-questgiver.png",
         "hero": "assets/hero-avatar.png"
     },
-    "hero_npc": "hero",
+    "hero_avatar": "hero",
     "background_image": "assets/bg-adventure.jpg",
     "quests": [
         {

@@ -44,7 +44,7 @@ type PublicQuestPack struct {
 	ID        string            `json:"id"`
 	Version   int               `json:"version"`
 	NPCs      map[string]string `json:"npcs"`
-	HeroNPC   string            `json:"hero_npc"`
+	HeroNPC   string            `json:"hero_avatar"`
 	BackImage string            `json:"background_image"`
 	Meta      MetaData          `json:"meta"`
 	UILabels  UILabels          `json:"ui_labels"`

@@ -51,7 +51,7 @@ function packData(packId, questCount = 2) {
     return {
         version: 2,
         npcs: { default_npc: 'assets/npc-questgiver.png', hero: 'assets/hero-avatar.png' },
-        hero_npc: 'hero',
+        hero_avatar: 'hero',
         background_image: 'assets/bg-adventure.jpg',
         quests: Array.from({ length: questCount }, (_, i) => ({
             id: i + 1,
@@ -210,7 +210,7 @@ describe('PackManager', () => {
             expect(document.body.style.backgroundImage).toContain('blob:test-1');
             // The avatar portraits are painted by the UI manager, which owns
             // the elements; the pack manager only hands it resolved sources.
-            // The hero rides the roster: hero_npc names a declared entry.
+            // The hero rides the roster: hero_avatar names a declared entry.
             expect(ui.renderNpcAvatar).toHaveBeenCalledWith('default_npc', {
                 default_npc: 'blob:test-2',
                 hero: 'blob:test-3'

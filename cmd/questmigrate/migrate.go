@@ -104,7 +104,7 @@ func migratePackJSON(packID string, data []byte) ([]byte, packReport, error) {
 
 	var probe struct {
 		Version   *int    `json:"version"`
-		HeroNPC   *string `json:"hero_npc"`
+		HeroNPC   *string `json:"hero_avatar"`
 		BackImage *string `json:"background_image"`
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
@@ -120,7 +120,7 @@ func migratePackJSON(packID string, data []byte) ([]byte, packReport, error) {
 			return nil, report, fmt.Errorf(
 				"quests.json format version %d is newer than the format %d this tool migrates to",
 				*probe.Version, quest.FormatVersion)
-			// A version-2 pack that predates hero_npc and background_image
+			// A version-2 pack that predates hero_avatar and background_image
 			// falls through: the steps below are all idempotent, so it is
 			// healed by adding only what the current format gained.
 		}
@@ -168,10 +168,10 @@ func migratePackJSON(packID string, data []byte) ([]byte, packReport, error) {
 		root.moveAfter("npcs", "version")
 	}
 	if heroPointerAdded {
-		root.moveAfter("hero_npc", "npcs")
+		root.moveAfter("hero_avatar", "npcs")
 	}
 	if backgroundAdded {
-		root.moveAfter("background_image", "hero_npc")
+		root.moveAfter("background_image", "hero_avatar")
 	}
 
 	out, err := marshalLikeOriginal(data, &root)
@@ -201,7 +201,7 @@ func ensureMediaPointers(root *object) (heroPointerAdded, heroEntryAdded, backgr
 		return false, false, false, fmt.Errorf("npcs must be a JSON object of character name to image path: %w", err)
 	}
 
-	if raw, present := root.get("hero_npc"); !present || len(raw) <= 2 { // absent, "", or null
+	if raw, present := root.get("hero_avatar"); !present || len(raw) <= 2 { // absent, "", or null
 		if _, declared := roster.get(heroNPCKey); !declared {
 			if err := roster.put(heroNPCKey, defaultHeroImage); err != nil {
 				return false, false, false, err
@@ -211,7 +211,7 @@ func ensureMediaPointers(root *object) (heroPointerAdded, heroEntryAdded, backgr
 			}
 			heroEntryAdded = true
 		}
-		if err := root.put("hero_npc", heroNPCKey); err != nil {
+		if err := root.put("hero_avatar", heroNPCKey); err != nil {
 			return false, false, false, err
 		}
 		heroPointerAdded = true

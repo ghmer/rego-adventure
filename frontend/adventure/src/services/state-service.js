@@ -235,9 +235,9 @@ export class GameState {
         // The pack's npc roster: lore-entry speakers resolve against it, and
         // the pack manager preloads every declared portrait.
         this.npcs = packData.npcs ?? {};
-        // hero_npc names the roster entry that is the player character; the
+        // hero_avatar names the roster entry that is the player character; the
         // pack manager paints the header avatar from its roster image.
-        this.heroNPC = packData.hero_npc || null;
+        this.heroNPC = packData.hero_avatar || null;
         this.backgroundImage = packData.background_image || null;
         this.npcImages = {};
         this.meta = packData.meta;

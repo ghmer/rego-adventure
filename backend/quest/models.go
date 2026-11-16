@@ -125,7 +125,7 @@ type QuestPack struct { //nolint:revive // established public name; renaming to 
 	// with a migration message instead of a type error from the decoder.
 	Version   int               `json:"version"`
 	NPCs      map[string]string `json:"npcs"`             // npc key -> image path inside the pack's assets directory
-	HeroNPC   string            `json:"hero_npc"`         // npc key of the player character, speakable like any other
+	HeroNPC   string            `json:"hero_avatar"`      // npc key of the player character, speakable like any other
 	BackImage string            `json:"background_image"` // pack background, a path inside the pack's assets directory
 	Meta      MetaData          `json:"meta"`
 	UILabels  UILabels          `json:"ui_labels"`
@@ -491,18 +491,18 @@ func validatePackNPCs(pack *QuestPack) error {
 // npc portrait. The hero is an npc like any other, so it may speak lore
 // entries; the pointer only says which entry the header portrait shows.
 func validatePackMediaPointers(pack *QuestPack) error {
-	if err := validateNonEmpty(pack.HeroNPC, "hero_npc"); err != nil {
+	if err := validateNonEmpty(pack.HeroNPC, "hero_avatar"); err != nil {
 		return err
 	}
-	if err := validateStringLength(pack.HeroNPC, MaxNPCName, "hero_npc"); err != nil {
+	if err := validateStringLength(pack.HeroNPC, MaxNPCName, "hero_avatar"); err != nil {
 		return err
 	}
 	if !npcKeyPattern.MatchString(pack.HeroNPC) {
-		return fmt.Errorf("hero_npc contains invalid characters " +
+		return fmt.Errorf("hero_avatar contains invalid characters " +
 			"(must start with a letter and use only letters, numbers, hyphens and underscores)")
 	}
 	if _, declared := pack.NPCs[pack.HeroNPC]; !declared {
-		return fmt.Errorf("hero_npc %q is not a character declared in the npcs section", pack.HeroNPC)
+		return fmt.Errorf("hero_avatar %q is not a character declared in the npcs section", pack.HeroNPC)
 	}
 
 	if err := validateNonEmpty(pack.BackImage, "background_image"); err != nil {

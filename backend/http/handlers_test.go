@@ -64,9 +64,9 @@ func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID strin
 		ID:      packID,
 		Version: quest.FormatVersion,
 		NPCs: map[string]string{
-			"default_npc": "assets/npc-questgiver.png",
-			"hero":        "assets/hero-avatar.png",
-			"villain":     "assets/npc-villain.png",
+			quest.DefaultNPCKey: "assets/npc-questgiver.png",
+			"hero":              "assets/hero-avatar.png",
+			"villain":           "assets/npc-villain.png",
 		},
 		HeroNPC:   "hero",
 		BackImage: "assets/bg-adventure.jpg",
@@ -87,55 +87,7 @@ func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID strin
 		},
 		Prologue: []quest.LoreEntry{{NPC: "default_npc", Text: "Welcome, adventurer!"}},
 		Epilogue: []quest.LoreEntry{{NPC: "default_npc", Text: "Congratulations!"}},
-		Quests: []quest.Quest{
-			{
-				ID:              1,
-				Title:           "Quest 1",
-				DescriptionTask: "Write a Rego policy",
-				DescriptionLore: []quest.LoreEntry{
-					{NPC: "default_npc", Text: "In the land of OPA..."},
-					{NPC: "villain", Text: "...where a villain guards the gate."},
-				},
-				Query:          "data.quest.allow",
-				Hints:          []string{"Think about roles.", "Compare the user string."},
-				Solution:       "package quest\n\ndefault allow = false\n\nallow if input.user == \"admin\"\n",
-				SupportModules: []string{"package helpers\n\nimport rego.v1\n\nhelper if input.user != \"\"\n"},
-				Manual:         handlerTestManual(),
-				Tests: []quest.TestCase{
-					{
-						ID:              1,
-						ExpectedOutcome: true,
-						Payload: quest.TestPayload{
-							Input: map[string]any{"user": "admin"},
-						},
-					},
-					{
-						ID:              2,
-						ExpectedOutcome: false,
-						Payload: quest.TestPayload{
-							Input: map[string]any{"user": "guest"},
-						},
-					},
-				},
-			},
-			{
-				ID:              2,
-				Title:           "Quest 2",
-				DescriptionTask: "Write another Rego policy",
-				DescriptionLore: []quest.LoreEntry{{NPC: "default_npc", Text: "Beyond the mountains..."}},
-				Query:           "data.quest.allow",
-				Manual:          handlerTestManual(),
-				Tests: []quest.TestCase{
-					{
-						ID:              1,
-						ExpectedOutcome: true,
-						Payload: quest.TestPayload{
-							Input: map[string]any{"user": "root"},
-						},
-					},
-				},
-			},
-		},
+		Quests:   handlerTestQuests(),
 	}
 
 	data, err := json.Marshal(pack)
@@ -144,6 +96,60 @@ func loadHandlerTestPack(t *testing.T, repo *quest.QuestRepository, packID strin
 	}
 	if err := repo.LoadPack(packID, data); err != nil {
 		t.Fatalf("failed to load test pack: %v", err)
+	}
+}
+
+// handlerTestQuests builds the two quests the handler test pack carries.
+func handlerTestQuests() []quest.Quest {
+	return []quest.Quest{
+
+		{
+			ID:              1,
+			Title:           "Quest 1",
+			DescriptionTask: "Write a Rego policy",
+			DescriptionLore: []quest.LoreEntry{
+				{NPC: "default_npc", Text: "In the land of OPA..."},
+				{NPC: "villain", Text: "...where a villain guards the gate."},
+			},
+			Query:          "data.quest.allow",
+			Hints:          []string{"Think about roles.", "Compare the user string."},
+			Solution:       "package quest\n\ndefault allow = false\n\nallow if input.user == \"admin\"\n",
+			SupportModules: []string{"package helpers\n\nimport rego.v1\n\nhelper if input.user != \"\"\n"},
+			Manual:         handlerTestManual(),
+			Tests: []quest.TestCase{
+				{
+					ID:              1,
+					ExpectedOutcome: true,
+					Payload: quest.TestPayload{
+						Input: map[string]any{"user": "admin"},
+					},
+				},
+				{
+					ID:              2,
+					ExpectedOutcome: false,
+					Payload: quest.TestPayload{
+						Input: map[string]any{"user": "guest"},
+					},
+				},
+			},
+		},
+		{
+			ID:              2,
+			Title:           "Quest 2",
+			DescriptionTask: "Write another Rego policy",
+			DescriptionLore: []quest.LoreEntry{{NPC: "default_npc", Text: "Beyond the mountains..."}},
+			Query:           "data.quest.allow",
+			Manual:          handlerTestManual(),
+			Tests: []quest.TestCase{
+				{
+					ID:              1,
+					ExpectedOutcome: true,
+					Payload: quest.TestPayload{
+						Input: map[string]any{"user": "root"},
+					},
+				},
+			},
+		},
 	}
 }
 

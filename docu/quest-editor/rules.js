@@ -123,10 +123,10 @@ const PACK_RULES = JSON.parse(`{
     { "id": "pack_npc_image_max_length", "path": "npcs", "kind": "npcImageMaxLength", "limit": "MaxImageName", "serverLabel": "npcs[{i}] image" },
     { "id": "pack_npc_image_path", "path": "npcs", "kind": "npcImagePath" },
 
-    { "id": "pack_hero_npc_required", "path": "hero_npc", "kind": "nonEmpty", "serverLabel": "hero_npc" },
-    { "id": "pack_hero_npc_max_length", "path": "hero_npc", "kind": "maxLength", "limit": "MaxNPCName", "serverLabel": "hero_npc" },
-    { "id": "pack_hero_npc_charset", "path": "hero_npc", "kind": "heroNpcCharset" },
-    { "id": "pack_hero_npc_defined", "path": "hero_npc", "kind": "heroNpcDefined" },
+    { "id": "pack_hero_avatar_required", "path": "hero_avatar", "kind": "nonEmpty", "serverLabel": "hero_avatar" },
+    { "id": "pack_hero_avatar_max_length", "path": "hero_avatar", "kind": "maxLength", "limit": "MaxNPCName", "serverLabel": "hero_avatar" },
+    { "id": "pack_hero_avatar_charset", "path": "hero_avatar", "kind": "heroNpcCharset" },
+    { "id": "pack_hero_avatar_defined", "path": "hero_avatar", "kind": "heroNpcDefined" },
 
     { "id": "pack_background_image_required", "path": "background_image", "kind": "nonEmpty", "serverLabel": "background_image" },
     { "id": "pack_background_image_max_length", "path": "background_image", "kind": "maxLength", "limit": "MaxImageName", "serverLabel": "background_image" },
@@ -563,13 +563,13 @@ function validatePack(pack) {
 
         if (rule.kind === 'heroNpcDefined') {
             const npcs = pack ? pack.npcs : null;
-            const hero = pack ? pack.hero_npc : undefined;
+            const hero = pack ? pack.hero_avatar : undefined;
             const declared = npcs !== null && typeof npcs === 'object' && !Array.isArray(npcs)
                 && Object.prototype.hasOwnProperty.call(npcs, hero);
             if (!declared) {
                 problems.push({
                     ruleId: rule.id,
-                    message: `hero_npc "${hero ?? ''}" is not a character declared in the npcs section`
+                    message: `hero_avatar "${hero ?? ''}" is not a character declared in the npcs section`
                 });
             }
             continue;

@@ -28,7 +28,7 @@ The quest editor loads `quests.json` files, lets you edit them, and saves them b
 - Meta Info - title, description, genre, objectives, background image
 - UI Labels - button text, messages, theme-specific labels
 - Characters - the roster of speaking characters and the pack's player
-  character (`hero_npc`): the game shows that entry's portrait as the
+  character (`hero_avatar`): the game shows that entry's portrait as the
   player's avatar, and the entry can speak in lore like any other character
 - Prologue - intro story elements (each line names the character speaking it)
 - Epilogue - ending story elements (each line names the character speaking it)
@@ -94,7 +94,7 @@ A new test is proposed an ID the quest does not use yet. A blank, non-numeric or
 problem it found in a panel under the top bar instead of one per attempt. The
 rules it checks are the same ones the server enforces when a pack is loaded -
 required text, length limits, a format version the build understands, a
-`default_npc` in the character roster, a `hero_npc` naming a declared roster
+`default_npc` in the character roster, a `hero_avatar` naming a declared roster
 entry, a `background_image` under the pack's `assets/` folder, lore entries
 that name a declared character, at least one lore entry and one test case per
 quest, quest IDs numbered 1, 2, 3 in order, unique test IDs - and they are

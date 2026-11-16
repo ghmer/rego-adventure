@@ -180,7 +180,7 @@ export class PackManager {
 
         // Resolve and preload all assets in parallel: the pack's declared
         // background plus every portrait the npc roster declares — the
-        // hero's own among them, since hero_npc names a roster entry.
+        // hero's own among them, since hero_avatar names a roster entry.
         const [backgroundSource, npcImages] = await Promise.all([
             this.loadPackImage(packId, this.packBackgroundName()),
             this.loadNpcImages(packId)

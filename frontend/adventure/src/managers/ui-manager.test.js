@@ -758,7 +758,7 @@ describe('ui-manager', () => {
 
         const avatar = () => document.querySelector('.avatar');
 
-        it('paints the hero from its roster entry, named by hero_npc', () => {
+        it('paints the hero from its roster entry, named by hero_avatar', () => {
             const ui = createHeroUi();
 
             ui.renderHeroAvatar('hero', ROSTER);

@@ -120,7 +120,8 @@ func TestMigratePackJSONKeepsTheAuthorsKeyOrder(t *testing.T) {
 	if err := json.Unmarshal(out, &root); err != nil {
 		t.Fatalf("migrated pack does not parse as an ordered object: %v", err)
 	}
-	want := []string{"version", "npcs", "hero_npc", "background_image", "meta", "ui_labels", "prologue", "epilogue", "quests"}
+	want := []string{"version", "npcs", "hero_avatar", "background_image",
+		"meta", "ui_labels", "prologue", "epilogue", "quests"}
 	if strings.Join(root.keys, ",") != strings.Join(want, ",") {
 		t.Errorf("top-level key order is %v, want %v", root.keys, want)
 	}
@@ -167,7 +168,10 @@ func TestMigratePackJSONRefusesPacksItCannotUnderstand(t *testing.T) {
 		packJSON    string
 		errFragment string
 	}{
-		{"current format already", `{"version": 2, "npcs": {"default_npc": "assets/npc-questgiver.png", "hero": "assets/hero-avatar.png"}, "hero_npc": "hero", "background_image": "assets/bg-adventure.jpg"}`, "already at the current format"},
+		{"current format already", `{"version": 2,
+			"npcs": {"default_npc": "assets/npc-questgiver.png", "hero": "assets/hero-avatar.png"},
+			"hero_avatar": "hero", "background_image": "assets/bg-adventure.jpg"}`,
+			"already at the current format"},
 		{"newer format", `{"version": 3}`, "newer than the format"},
 		{"not an object", `[1,2]`, "not a JSON object"},
 		{"prologue entry is a number", `{"prologue": [7]}`, "prologue[0] is neither a v1 string nor a v2 lore object"},
@@ -198,7 +202,7 @@ func TestMigratePackJSONRefusesPacksItCannotUnderstand(t *testing.T) {
 
 func TestMigratePackJSONHealsAPackMissingTheMediaPointers(t *testing.T) {
 	// A pack authored against the previous v2 (lore objects and a roster,
-	// but no hero_npc and no background_image): the migration adds exactly
+	// but no hero_avatar and no background_image): the migration adds exactly
 	// what the format gained, leaves the authored roster alone, and the
 	// second run reports the pack as current.
 	incomplete := `{
@@ -311,7 +315,7 @@ func TestMigratePackJSONKeepsAuthoredSpeakersAndRoster(t *testing.T) {
 	if err := json.Unmarshal(out, &root); err != nil {
 		t.Fatalf("migrated pack does not parse as an ordered object: %v", err)
 	}
-	wantOrder := []string{"meta", "ui_labels", "npcs", "hero_npc", "background_image", "prologue", "epilogue", "quests"}
+	wantOrder := []string{"meta", "ui_labels", "npcs", "hero_avatar", "background_image", "prologue", "epilogue", "quests"}
 	rootKeys := root.keys
 	if i := root.keyIndex("version"); i == 0 {
 		rootKeys = rootKeys[1:] // the marker is always first; the rest must keep their order

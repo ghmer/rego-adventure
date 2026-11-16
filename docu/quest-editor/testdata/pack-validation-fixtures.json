@@ -17,7 +17,7 @@
       "default_npc": "assets/npc-questgiver.png",
       "hero": "assets/hero-avatar.png"
     },
-    "hero_npc": "hero",
+    "hero_avatar": "hero",
     "background_image": "assets/bg-adventure.jpg",
     "meta": {
       "title": "Fixture Adventure",
@@ -519,19 +519,19 @@
       ]
     },
     {
-      "ruleId": "pack_hero_npc_required",
+      "ruleId": "pack_hero_avatar_required",
       "patches": [
         {
-          "path": "hero_npc",
+          "path": "hero_avatar",
           "value": ""
         }
       ]
     },
     {
-      "ruleId": "pack_hero_npc_max_length",
+      "ruleId": "pack_hero_avatar_max_length",
       "patches": [
         {
-          "path": "hero_npc",
+          "path": "hero_avatar",
           "value": {
             "$repeatChars": 65,
             "char": "h"
@@ -540,7 +540,7 @@
       ]
     },
     {
-      "ruleId": "pack_hero_npc_charset",
+      "ruleId": "pack_hero_avatar_charset",
       "patches": [
         {
           "path": "npcs",
@@ -551,16 +551,16 @@
           }
         },
         {
-          "path": "hero_npc",
+          "path": "hero_avatar",
           "value": "9lives"
         }
       ]
     },
     {
-      "ruleId": "pack_hero_npc_defined",
+      "ruleId": "pack_hero_avatar_defined",
       "patches": [
         {
-          "path": "hero_npc",
+          "path": "hero_avatar",
           "value": "ghost"
         }
       ]

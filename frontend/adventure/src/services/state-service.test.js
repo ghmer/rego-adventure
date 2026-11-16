@@ -847,7 +847,7 @@ describe('state-service', () => {
         it('carries the hero pointer and the background path a pack declares', () => {
             const state = loadedState({
                 npcs: { default_npc: 'assets/npc-questgiver.png', hero: 'assets/hero-avatar.png' },
-                hero_npc: 'hero',
+                hero_avatar: 'hero',
                 background_image: 'assets/bg-adventure.jpg'
             });
 
@@ -856,7 +856,7 @@ describe('state-service', () => {
         });
 
         it('a new pack load clears the hero pointer and the background path', () => {
-            const state = loadedState({ hero_npc: 'hero', background_image: 'assets/bg-adventure.jpg' });
+            const state = loadedState({ hero_avatar: 'hero', background_image: 'assets/bg-adventure.jpg' });
 
             state.loadPackData({ quests: [], prologue: [], epilogue: [], meta: null, ui_labels: {} });
 

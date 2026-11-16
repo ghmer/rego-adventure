@@ -181,8 +181,8 @@ function loadEditor() {
     // background is the image behind the game screens. Absent values are
     // filled with the roster's first entry and the shipped background, so
     // a pack opened pre-edit keeps its meaning and the export carries them.
-    if (!questData.hero_npc || !Object.prototype.hasOwnProperty.call(questData.npcs, questData.hero_npc)) {
-        questData.hero_npc = Object.keys(questData.npcs)[0] || 'default_npc';
+    if (!questData.hero_avatar || !Object.prototype.hasOwnProperty.call(questData.npcs, questData.hero_avatar)) {
+        questData.hero_avatar = Object.keys(questData.npcs)[0] || 'default_npc';
     }
     if (!questData.background_image) {
         questData.background_image = 'assets/bg-adventure.jpg';
@@ -422,8 +422,8 @@ function renderHeroNpcSelect() {
     const select = document.getElementById('hero-npc');
     if (!select) return;
 
-    if (!questData.hero_npc || !Object.prototype.hasOwnProperty.call(questData.npcs, questData.hero_npc)) {
-        questData.hero_npc = Object.keys(questData.npcs)[0] || 'default_npc';
+    if (!questData.hero_avatar || !Object.prototype.hasOwnProperty.call(questData.npcs, questData.hero_avatar)) {
+        questData.hero_avatar = Object.keys(questData.npcs)[0] || 'default_npc';
     }
 
     select.innerHTML = '';
@@ -431,7 +431,7 @@ function renderHeroNpcSelect() {
         const option = document.createElement('option');
         option.value = key;
         option.textContent = key;
-        if (key === questData.hero_npc) {
+        if (key === questData.hero_avatar) {
             option.selected = true;
         }
         select.appendChild(option);
@@ -785,8 +785,8 @@ function updateNpcEntry(index, key, image) {
     // A rename must not drop the hero pointer: the renamed entry stays the
     // player character; renderHeroNpcSelect only re-points when the pointed
     // entry vanished entirely.
-    if (questData.hero_npc === renamedFrom) {
-        questData.hero_npc = key;
+    if (questData.hero_avatar === renamedFrom) {
+        questData.hero_avatar = key;
     }
     renderNpcs();
 }
@@ -1114,7 +1114,7 @@ function setupFormListeners() {
     const heroSelect = document.getElementById('hero-npc');
     if (heroSelect) {
         heroSelect.addEventListener('change', () => {
-            questData.hero_npc = heroSelect.value;
+            questData.hero_avatar = heroSelect.value;
         });
     }
 
