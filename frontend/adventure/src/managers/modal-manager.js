@@ -320,8 +320,12 @@ export class ModalManager {
 
         const isSuccess = !result.error && result.passed;
 
-        // Set icon
-        const iconPath = `/quests/${encodePathSegment(this.state.currentPackId)}/assets/${isSuccess ? 'icon-success.png' : 'icon-failure.png'}`;
+        // Set icon: the pack may declare its own image (icon_success_image /
+        // icon_failure_image); the shipped filename is the fallback.
+        const iconPath = this.packImagePath(
+            isSuccess ? this.state.iconSuccessImage : this.state.iconFailureImage,
+            isSuccess ? 'icon-success.png' : 'icon-failure.png'
+        );
         this.setPackImage(this.ui.elements.resultIcon, iconPath);
         this.ui.elements.resultIcon.alt = isSuccess ? 'Success - Quest completed' : 'Failure - Quest not completed';
 
@@ -340,21 +344,8 @@ export class ModalManager {
             }
 
             hide(this.ui.elements.scoreSummary);
-        } else if (isSuccess) {
-            this.ui.elements.resultTitle.textContent = this.state.label('messageSuccess');
-            this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
-
-            const pointsPossible = SCORING.POINTS_PER_QUEST;
-
-            this.ui.elements.pointsEarned.textContent = pointsEarned;
-            this.ui.elements.pointsPossible.textContent = pointsPossible;
-            show(this.ui.elements.scoreSummary);
-
-            this.ui.updateScoreDisplay(this.state.totalScore);
         } else {
-            this.ui.elements.resultTitle.textContent = this.state.label('messageFailure');
-            this.ui.elements.resultMessage.textContent = "Some tests did not pass. Review the results below.";
-            hide(this.ui.elements.scoreSummary);
+            this.renderResultOutcome(isSuccess, pointsEarned);
         }
         
         // Render test results
@@ -401,10 +392,51 @@ export class ModalManager {
     }
 
     /**
+     * Render the non-error outcome of the verify dialog: title, message and
+     * the score summary the earned points feed.
+     * @param {boolean} isSuccess - true when every test passed
+     * @param {number|null} pointsEarned - Points earned on this attempt
+     */
+    renderResultOutcome(isSuccess, pointsEarned) {
+        if (!isSuccess) {
+            this.ui.elements.resultTitle.textContent = this.state.label('messageFailure');
+            this.ui.elements.resultMessage.textContent = "Some tests did not pass. Review the results below.";
+            hide(this.ui.elements.scoreSummary);
+            return;
+        }
+
+        this.ui.elements.resultTitle.textContent = this.state.label('messageSuccess');
+        this.ui.elements.resultMessage.textContent = "All tests passed. Well done!";
+
+        const pointsPossible = SCORING.POINTS_PER_QUEST;
+
+        this.ui.elements.pointsEarned.textContent = pointsEarned;
+        this.ui.elements.pointsPossible.textContent = pointsPossible;
+        show(this.ui.elements.scoreSummary);
+
+        this.ui.updateScoreDisplay(this.state.totalScore);
+    }
+
+    /**
      * Close result modal
      */
     closeResult() {
         this.closeDialog(this.ui.elements.resultModal);
+    }
+
+    /**
+     * The URL of a pack image from its pack-relative declaration.
+     * An empty declaration keeps the shipped filename the frontend
+     * carries for packs that do not declare the image.
+     * @param {string|null} declaredPath - The pack's declared
+     *   assets-relative path, or null
+     * @param {string} fallbackName - The shipped filename
+     * @returns {string} The URL the pack image loads from
+     */
+    packImagePath(declaredPath, fallbackName) {
+        const packPath = declaredPath || `assets/${fallbackName}`;
+        return `/quests/${encodePathSegment(this.state.currentPackId)}/` +
+            packPath.split('/').map(encodePathSegment).join('/');
     }
 
     /**
@@ -413,11 +445,10 @@ export class ModalManager {
      * effects off.
      */
     showPerfectScore() {
-        const packAssets = `/quests/${encodePathSegment(this.state.currentPackId)}/assets/`;
         this.setPackImage(
             this.ui.elements.perfectScoreImage,
-            `${packAssets}perfect_score.png`,
-            `${packAssets}icon-success.png`
+            this.packImagePath(this.state.perfectScoreImage, 'perfect_score.png'),
+            this.packImagePath(this.state.iconSuccessImage, 'icon-success.png')
         );
         
         this.ui.elements.perfectScoreMessage.innerHTML = parseMarkdown(this.state.label('perfectScoreMessage'));

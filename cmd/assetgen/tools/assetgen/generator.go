@@ -433,8 +433,11 @@ func generateQuestsJSON(dir, theme string) error {
 			quest.DefaultNPCKey: "assets/npc-questgiver.png",
 			"hero":              "assets/hero-avatar.png",
 		},
-		HeroNPC:   "hero",
-		BackImage: "assets/bg-adventure.jpg",
+		HeroNPC:      "hero",
+		BackImage:    "assets/bg-adventure.jpg",
+		IconSuccess:  "assets/icon-success.png",
+		IconFailure:  "assets/icon-failure.png",
+		PerfectScore: "assets/perfect_score.png",
 		Meta: quest.MetaData{
 			Title:            fmt.Sprintf("Quest Pack: %s", theme),
 			Description:      "A new adventure awaits.",

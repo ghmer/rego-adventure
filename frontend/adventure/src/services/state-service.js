@@ -68,10 +68,15 @@ export class GameState {
         this.prologue = [];
         this.epilogue = [];
         this.npcs = {};
-        // The roster entry the pack names as the player character, and the
-        // pack's background image path; null between packs.
+        // The roster entry the pack names as the player character, plus the
+        // declared pack images (background, dialog icons, perfect score);
+        // all null between packs, so the modals fall back to the shipped
+        // filenames.
         this.heroNPC = null;
         this.backgroundImage = null;
+        this.iconSuccessImage = null;
+        this.iconFailureImage = null;
+        this.perfectScoreImage = null;
         // Resolved image sources by npc key, written by the pack manager
         // once the pack's roster is preloaded; empty until then, and empty
         // again once the pack is left.
@@ -239,6 +244,10 @@ export class GameState {
         // pack manager paints the header avatar from its roster image.
         this.heroNPC = packData.hero_avatar || null;
         this.backgroundImage = packData.background_image || null;
+        // The optional image overrides: absent keys keep the shipped files.
+        this.iconSuccessImage = packData.icon_success_image || null;
+        this.iconFailureImage = packData.icon_failure_image || null;
+        this.perfectScoreImage = packData.perfect_score_image || null;
         this.npcImages = {};
         this.meta = packData.meta;
 

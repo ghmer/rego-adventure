@@ -83,11 +83,14 @@ func createValidQuest() Quest {
 
 func createValidQuestPack() QuestPack {
 	return QuestPack{
-		ID:        "test-pack",
-		Version:   FormatVersion,
-		NPCs:      validNPCs(),
-		HeroNPC:   "hero",
-		BackImage: "assets/bg-adventure.jpg",
+		ID:           "test-pack",
+		Version:      FormatVersion,
+		NPCs:         validNPCs(),
+		HeroNPC:      "hero",
+		BackImage:    "assets/bg-adventure.jpg",
+		IconSuccess:  "assets/icon-success.png",
+		IconFailure:  "assets/icon-failure.png",
+		PerfectScore: "assets/perfect_score.png",
 		Meta: MetaData{
 			Title:            "Test Pack Title",
 			Description:      "A test quest pack description",

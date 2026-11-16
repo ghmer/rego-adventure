@@ -94,7 +94,10 @@ function initializeMaxLengthAttributes() {
         'meta-genre': PACK_LIMITS.MaxPackGenre,
         'meta-initial_objective': PACK_LIMITS.MaxPackObjective,
         'meta-final_objective': PACK_LIMITS.MaxPackObjective,
-        'meta-background_image': PACK_LIMITS.MaxImageName
+        'meta-background_image': PACK_LIMITS.MaxImageName,
+        'meta-icon_success_image': PACK_LIMITS.MaxImageName,
+        'meta-icon_failure_image': PACK_LIMITS.MaxImageName,
+        'meta-perfect_score_image': PACK_LIMITS.MaxImageName
     };
     
     // UI Labels fields
@@ -371,6 +374,9 @@ function renderMeta() {
     document.getElementById('meta-initial_objective').value = questData.meta.initial_objective || '';
     document.getElementById('meta-final_objective').value = questData.meta.final_objective || '';
     document.getElementById('meta-background_image').value = questData.background_image || '';
+    document.getElementById('meta-icon_success_image').value = questData.icon_success_image || '';
+    document.getElementById('meta-icon_failure_image').value = questData.icon_failure_image || '';
+    document.getElementById('meta-perfect_score_image').value = questData.perfect_score_image || '';
 }
 
 function renderUILabels() {

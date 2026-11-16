@@ -855,6 +855,32 @@ describe('state-service', () => {
             expect(state.backgroundImage).toBe('assets/bg-adventure.jpg');
         });
 
+        it('carries the optional image overrides and clears them with the pack', () => {
+            const state = loadedState({
+                icon_success_image: 'assets/icon-success.jpg',
+                icon_failure_image: 'assets/icon-failure.jpg',
+                perfect_score_image: 'assets/perfect_score.jpg'
+            });
+
+            expect(state.iconSuccessImage).toBe('assets/icon-success.jpg');
+            expect(state.iconFailureImage).toBe('assets/icon-failure.jpg');
+            expect(state.perfectScoreImage).toBe('assets/perfect_score.jpg');
+
+            state.loadPackData({ quests: [], prologue: [], epilogue: [], meta: null, ui_labels: {} });
+
+            expect(state.iconSuccessImage).toBeNull();
+            expect(state.iconFailureImage).toBeNull();
+            expect(state.perfectScoreImage).toBeNull();
+        });
+
+        it('a pack without the optional image overrides keeps the shipped filenames', () => {
+            const state = loadedState({});
+
+            expect(state.iconSuccessImage).toBeNull();
+            expect(state.iconFailureImage).toBeNull();
+            expect(state.perfectScoreImage).toBeNull();
+        });
+
         it('a new pack load clears the hero pointer and the background path', () => {
             const state = loadedState({ hero_avatar: 'hero', background_image: 'assets/bg-adventure.jpg' });
 

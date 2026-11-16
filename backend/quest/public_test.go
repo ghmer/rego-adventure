@@ -208,8 +208,9 @@ func TestQuestPack_PublicView_KeysMatchAllowlist(t *testing.T) {
 		t.Fatalf("failed to marshal public pack view: %v", err)
 	}
 
-	want := []string{"background_image", "epilogue", "hero_avatar", "id",
-		"meta", "npcs", "prologue", "quests", "ui_labels", "version"}
+	want := []string{"background_image", "epilogue", "hero_avatar",
+		"icon_failure_image", "icon_success_image",
+		"id", "meta", "npcs", "perfect_score_image", "prologue", "quests", "ui_labels", "version"}
 	got := sortedJSONKeys(t, data)
 	if !slices.Equal(got, want) {
 		t.Errorf("public pack key set drifted: got %v, want %v", got, want)

@@ -25,7 +25,9 @@ The quest editor loads `quests.json` files, lets you edit them, and saves them b
 
 **Global Settings:**
 
-- Meta Info - title, description, genre, objectives, background image
+- Meta Info - title, description, genre, objectives, background image, and the
+  optional images the dialogs show (success/failure icons, perfect-score image)
+  declared as pack paths so any format (jpeg, webp) works
 - UI Labels - button text, messages, theme-specific labels
 - Characters - the roster of speaking characters and the pack's player
   character (`hero_avatar`): the game shows that entry's portrait as the
@@ -95,7 +97,9 @@ problem it found in a panel under the top bar instead of one per attempt. The
 rules it checks are the same ones the server enforces when a pack is loaded -
 required text, length limits, a format version the build understands, a
 `default_npc` in the character roster, a `hero_avatar` naming a declared roster
-entry, a `background_image` under the pack's `assets/` folder, lore entries
+entry, a `background_image` under the pack's `assets/` folder, the optional
+image overrides when a pack declares them (`icon_success_image`,
+`icon_failure_image`, `perfect_score_image`), lore entries
 that name a declared character, at least one lore entry and one test case per
 quest, quest IDs numbered 1, 2, 3 in order, unique test IDs - and they are
 declared once in [`docu/quest-editor/rules.js`](docu/quest-editor/rules.js).

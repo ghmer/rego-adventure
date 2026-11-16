@@ -132,6 +132,13 @@ const PACK_RULES = JSON.parse(`{
     { "id": "pack_background_image_max_length", "path": "background_image", "kind": "maxLength", "limit": "MaxImageName", "serverLabel": "background_image" },
     { "id": "pack_background_image_path", "path": "background_image", "kind": "imagePath" },
 
+    { "id": "pack_icon_success_image_path", "path": "icon_success_image", "kind": "imagePath" },
+    { "id": "pack_icon_success_image_max_length", "path": "icon_success_image", "kind": "maxLength", "limit": "MaxImageName", "optional": true, "serverLabel": "icon_success_image" },
+    { "id": "pack_icon_failure_image_path", "path": "icon_failure_image", "kind": "imagePath" },
+    { "id": "pack_icon_failure_image_max_length", "path": "icon_failure_image", "kind": "maxLength", "limit": "MaxImageName", "optional": true, "serverLabel": "icon_failure_image" },
+    { "id": "pack_perfect_score_image_path", "path": "perfect_score_image", "kind": "imagePath" },
+    { "id": "pack_perfect_score_image_max_length", "path": "perfect_score_image", "kind": "maxLength", "limit": "MaxImageName", "optional": true, "serverLabel": "perfect_score_image" },
+
     { "id": "pack_prologue_min_items", "path": "prologue", "kind": "minItems", "min": 1 },
     { "id": "pack_prologue_item_npc_required", "path": "prologue[].npc", "kind": "nonEmpty", "serverLabel": "prologue[{i}] npc" },
     { "id": "pack_prologue_item_npc_defined", "path": "prologue[]", "kind": "npcDefined" },

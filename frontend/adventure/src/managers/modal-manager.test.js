@@ -543,5 +543,36 @@ describe('modal-manager', () => {
             expect(ui.elements.perfectScoreImage.getAttribute('src'))
                 .toBe('/quests/fantasy/assets/icon-success.png');
         });
+
+        it('loads the images a pack declares instead of the shipped filenames', async () => {
+            state.iconSuccessImage = 'assets/media/icon-success.jpg';
+            state.iconFailureImage = 'assets/media/icon-failure.jpg';
+            state.perfectScoreImage = 'assets/media/perfect-score.jpg';
+
+            modal.showResult({ passed: true, results: [] }, 10);
+            await flushImageResolution();
+            expect(ui.elements.resultIcon.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/media/icon-success.jpg');
+
+            modal.showResult({ passed: false, results: [] }, 0);
+            await flushImageResolution();
+            expect(ui.elements.resultIcon.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/media/icon-failure.jpg');
+
+            modal.showPerfectScore();
+            await flushImageResolution();
+            expect(ui.elements.perfectScoreImage.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/media/perfect-score.jpg');
+
+            // Clearing the success declaration and re-showing binds the
+            // fallback to the shipped filename again.
+            state.iconSuccessImage = null;
+            modal.showPerfectScore();
+            await flushImageResolution();
+            ui.elements.perfectScoreImage.dispatchEvent(new Event('error'));
+            await flushImageResolution();
+            expect(ui.elements.perfectScoreImage.getAttribute('src'))
+                .toBe('/quests/fantasy/assets/icon-success.png');
+        });
     });
 });

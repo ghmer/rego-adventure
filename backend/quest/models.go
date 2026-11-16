@@ -127,12 +127,18 @@ type QuestPack struct { //nolint:revive // established public name; renaming to 
 	NPCs      map[string]string `json:"npcs"`             // npc key -> image path inside the pack's assets directory
 	HeroNPC   string            `json:"hero_avatar"`      // npc key of the player character, speakable like any other
 	BackImage string            `json:"background_image"` // pack background, a path inside the pack's assets directory
-	Meta      MetaData          `json:"meta"`
-	UILabels  UILabels          `json:"ui_labels"`
-	Prologue  []LoreEntry       `json:"prologue"`
-	Epilogue  []LoreEntry       `json:"epilogue"`
-	Quests    []Quest           `json:"quests"`
-	questMap  map[int]*Quest    // Internal map for O(1) quest lookup
+	// Optional pack images, overriding the filenames the frontend ships
+	// with: the verify-dialog icons and the perfect-score celebration
+	// image. Empty (or absent) means "use the shipped file by convention".
+	IconSuccess  string         `json:"icon_success_image,omitempty"`
+	IconFailure  string         `json:"icon_failure_image,omitempty"`
+	PerfectScore string         `json:"perfect_score_image,omitempty"`
+	Meta         MetaData       `json:"meta"`
+	UILabels     UILabels       `json:"ui_labels"`
+	Prologue     []LoreEntry    `json:"prologue"`
+	Epilogue     []LoreEntry    `json:"epilogue"`
+	Quests       []Quest        `json:"quests"`
+	questMap     map[int]*Quest // Internal map for O(1) quest lookup
 }
 
 // Security: Validation and Sanitization Functions
@@ -511,7 +517,38 @@ func validatePackMediaPointers(pack *QuestPack) error {
 	if err := validateStringLength(pack.BackImage, MaxImageName, "background_image"); err != nil {
 		return err
 	}
-	return validateNPCImagePath(pack.BackImage, "background_image")
+	if err := validateNPCImagePath(pack.BackImage, "background_image"); err != nil {
+		return err
+	}
+
+	// The three optional images: an absent or empty value keeps the
+	// frontend's shipped filename; anything declared must be a valid
+	// pack-internal media path.
+	if pack.IconSuccess != "" {
+		if err := validateStringLength(pack.IconSuccess, MaxImageName, "icon_success_image"); err != nil {
+			return err
+		}
+		if err := validateNPCImagePath(pack.IconSuccess, "icon_success_image"); err != nil {
+			return err
+		}
+	}
+	if pack.IconFailure != "" {
+		if err := validateStringLength(pack.IconFailure, MaxImageName, "icon_failure_image"); err != nil {
+			return err
+		}
+		if err := validateNPCImagePath(pack.IconFailure, "icon_failure_image"); err != nil {
+			return err
+		}
+	}
+	if pack.PerfectScore != "" {
+		if err := validateStringLength(pack.PerfectScore, MaxImageName, "perfect_score_image"); err != nil {
+			return err
+		}
+		if err := validateNPCImagePath(pack.PerfectScore, "perfect_score_image"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // validateNPCImagePath requires an npc image to address a media file inside

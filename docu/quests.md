@@ -40,6 +40,12 @@ The `quests/<theme>/quests.json` files define the tutorial quests the player mus
 - `background_image`: Required. The image behind the game screens, a path
     inside the pack under its `assets/` folder (same rules as a roster
     portrait path).
+- `icon_success_image`, `icon_failure_image`, `perfect_score_image`: Optional.
+    The images the verify dialog and the perfect-score dialog show. When a
+    key is absent or empty, the frontend falls back to its shipped file
+    (`assets/icon-success.png`, `assets/icon-failure.png`,
+    `assets/perfect_score.png`); anything a pack declares takes the same
+    inside-`assets/` rules as a roster portrait path, including jpeg.
 - `prologue`: Array of lore entries (see quest lore entries below) containing the introductory narrative
 - `epilogue`: Array of lore entries containing the concluding narrative
 - `quests`: Array of individual `quest` objects (see below)
