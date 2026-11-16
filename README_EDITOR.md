@@ -4,7 +4,7 @@ A browser-based tool for creating and editing quest packs for the Rego Adventure
 
 ## What It Does
 
-The quest editor loads `quests.json` files, lets you edit them, and saves them back out. It handles all the quest pack structure: metadata, UI labels, prologue/epilogue text, individual quests, and test cases.
+The quest editor loads `quests.json` files, lets you edit them, and saves them back out. It handles all the quest pack structure: metadata, UI labels, the character roster, prologue/epilogue text, individual quests, and test cases. It opens format-version-2 packs only: a pre-v2 file is refused with a pointer to the migration tool (`cmd/questmigrate`), never quietly rewritten.
 
 ## Gallery
 
@@ -90,7 +90,9 @@ A new test is proposed an ID the quest does not use yet. A blank, non-numeric or
 **Save** refuses to export a pack that the backend would refuse, and lists every
 problem it found in a panel under the top bar instead of one per attempt. The
 rules it checks are the same ones the server enforces when a pack is loaded -
-required text, length limits, at least one lore entry and one test case per
+required text, length limits, a format version the build understands, a
+`default_npc` in the character roster, lore entries that name a declared
+character, at least one lore entry and one test case per
 quest, quest IDs numbered 1, 2, 3 in order, unique test IDs - and they are
 declared once in [`docu/quest-editor/rules.js`](docu/quest-editor/rules.js).
 `backend/quest/rules_parity_test.go` compares that list with the server's own

@@ -4,6 +4,9 @@ The `quests/<theme>/quests.json` files define the tutorial quests the player mus
 
 ## Top-Level Structure
 
+- `version`: Format marker for the pack. Must be `2`; a pack that carries no
+  version key or a different one is refused at load. See "Format Version and
+  Migration" below.
 - `meta`: Object containing quest metadata
   - `title`: The overall quest/adventure title
   - `description`: Brief description of the quest scenario
@@ -19,8 +22,20 @@ The `quests/<theme>/quests.json` files define the tutorial quests the player mus
   - `message_failure`: Message displayed when a quest fails
   - `perfect_score_button_text`: Text for the button shown when a perfect score is achieved
   - `perfect_score_message`: Message displayed when the player achieves a perfect score (all quests completed without errors). Supports markdown formatting and newlines (`\n`) for multi-paragraph text.
-- `prologue`: Array of strings containing the introductory narrative
-- `epilogue`: Array of strings containing the concluding narrative
+- `npcs`: Object naming the characters that speak the pack's narrative. Each
+  key is a character the lore entries can quote, and its value is the image
+  that portrait uses, a path inside the pack that must start with `assets/`
+  and end in `.png`, `.jpg`, `.jpeg` or `.webp` (svg stays out: it can carry
+  script content and the image lands in an `<img>`). Keys start with a letter
+  and continue with letters, digits, `_` and `-`.
+  - `default_npc`: Required. The speaker shown for screens that have no lore
+    entry of their own - the quest task, the hints, the modals - and the
+    speaker the migration tool gives to lines of pre-v2 packs, whose single
+    quest-giver image speaks every line.
+  - The game shows the portrait of whichever lore entry is on screen, so a
+    quest's dialogue reads as a small cast; see `description_lore` below.
+- `prologue`: Array of lore entries (see quest lore entries below) containing the introductory narrative
+- `epilogue`: Array of lore entries containing the concluding narrative
 - `quests`: Array of individual `quest` objects (see below)
 
 ## Quest Object Structure
@@ -29,7 +44,9 @@ Each element in the `quests` array is a `quest` specification with the following
 
 - `id`: Numeric quest identifier
 - `title`: Short imperative name for the quest
-- `description_lore`: Array of strings with narrative fluff text describing the scene
+- `description_lore`: Array of lore entries describing the scene. Each entry is an object:
+  - `npc`: The speaking character, a key of the pack's `npcs` section; while the entry is on screen the game shows that character's portrait
+  - `text`: The narrative fluff text the character speaks
 - `description_task`: Short instructions describing what the player must do
 - `manual`: An object containing reference documentation for the quest with the following fields:
   - `data_model`: Markdown-formatted text describing the input data fields available for this quest (e.g., `input.user.id`, `data.registry`)
@@ -81,14 +98,20 @@ All text fields in the quest JSON structure are validated against maximum length
 
 ### Narrative Content Limits
 
-- `prologue` array items: 2000 characters each (at least one item required)
-- `epilogue` array items: 2000 characters each (at least one item required)
+- `prologue` lore entries: 2000 characters of text each (at least one entry required)
+- `epilogue` lore entries: 2000 characters of text each (at least one entry required)
+
+### Character Limits
+
+- `npcs`: maximum of 50 characters
+- `npcs` keys: 64 characters, and they must match the key pattern above
+- `npcs` image paths: 500 characters
 
 ### Quest Field Limits
 
 - `quest.title`: 100 characters
 - `quest.description_task`: 1000 characters
-- `quest.description_lore` array items: 2000 characters each (at least one item required)
+- `quest.description_lore` lore entries: 2000 characters of text each (at least one entry required)
 - `quest.hints` array items: 500 characters each (optional)
 - `quest.solution`: 5000 characters (optional)
 - `quest.template`: 10000 characters (optional)
@@ -105,3 +128,35 @@ All text fields in the quest JSON structure are validated against maximum length
 ### Test Payload Limits
 
 - `test.payload`: 50KB maximum (total JSON serialized size; enforced server-side during quest pack validation and in the quest editor HTML forms)
+
+## Format Version and Migration
+
+Packs declare their format with a top-level `version` key. This build writes
+and reads version `2`, the format that introduces the `npcs` section and the
+`{npc, text}` lore entries.
+
+A pack without a `version` key - the pre-v2 format, where prologue, epilogue
+and quest lore are plain string arrays and a single quest-giver image speaks
+every line - is refused when the server scans its pack directories: the log
+names the pack and points at the migration tool, and the pack simply never
+loads. The quest editor refuses the same packs on open, for the same reason.
+
+**Migrating a pack** rewrites its `quests.json` in place:
+
+```bash
+go run cmd/questmigrate/main.go -dir <pack-dir|parent-dir> [-dry-run]
+```
+
+`-dir` takes one pack directory or a directory whose immediate
+subdirectories are packs. The original file is kept beside the rewritten one
+as `quests.json.v1.bak`. Every narrative string becomes a lore entry spoken
+by `default_npc`, whose portrait is set to the pack's `npc-questgiver.png` -
+the image the old format showed for every line - so a migrated pack plays
+exactly as it did before. The pack is loaded through the server's own
+validation before anything is written, and a pack that still does not load
+is left untouched. The run is idempotent: an already-versioned pack is
+skipped, so rerunning after a partial batch costs nothing. `-dry-run` reports
+what would change without writing.
+
+After migrating, authors can rename `default_npc` references and declare real
+characters with the quest editor's Characters view.

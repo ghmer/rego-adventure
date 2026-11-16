@@ -223,6 +223,7 @@ repository only tracks as a placeholder.
 ├── cmd/
 │   ├── assetgen/          # Quest pack asset generator
 │   ├── importmapgen/      # Quest editor import map generator
+│   ├── questmigrate/      # Quest pack format migrator (pre-v2 packs)
 │   └── solutionverifier/  # Quest pack solution verifier
 ├── backend/
 │   ├── config/            # Configuration management
@@ -362,6 +363,12 @@ Quest packs are defined in JSON format in a dedicated folder under [`frontend/qu
 - Quest definitions with test cases
 - Theme-specific assets (images, audio, styles)
 
+Pack files declare their format with a top-level `version` key; this build
+loads version 2, the format with the `npcs` character roster and `{npc, text}`
+lore entries. Older packs are refused at pack scan with a log line naming the
+pack and the migration tool; see [`docu/quests.md`](docu/quests.md) and the
+Quest Pack Migrator below.
+
 ### What the Browser Receives
 
 `GET /api/packs/{packId}` serves a projection of the pack, not the pack file. It omits the solution,
@@ -419,6 +426,33 @@ go run cmd/assetgen/main.go -theme western -output frontend/quests
   - `bg-music.m4a` - Silent placeholder track for background music
 
 All generated images are solid color placeholders. Replace with theme-appropriate artwork before deployment.
+
+### Quest Pack Migrator
+
+Packs written before format version 2 - no `version` key, narrative lines as
+plain strings, no `npcs` roster - are refused at scan until they are brought
+up to date. The migrator rewrites a pack's `quests.json` in place, wrapping
+every narrative string in a `{npc, text}` entry spoken by `default_npc` and
+pointing that speaker at the pack's `npc-questgiver.png`, so the pack plays
+as it did before. The original is kept as `quests.json.v1.bak`, the result is
+loaded through the server's own validation before anything is written, and
+already-versioned packs are skipped, so a rerun is free.
+
+**Location:** [`cmd/questmigrate/`](cmd/questmigrate/)
+
+**Usage:**
+
+```bash
+go run cmd/questmigrate/main.go -dir <pack-dir|parent-dir> [-dry-run]
+```
+
+**Example:**
+
+```bash
+go run cmd/questmigrate/main.go -dir frontend/quests
+
+# migrates every pack folder below frontend/quests
+```
 
 ### Mounting Quest Packs
 
