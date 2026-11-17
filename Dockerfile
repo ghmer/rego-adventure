@@ -20,6 +20,20 @@ RUN go run ./cmd/vendorgen -pkg frontend/adventure/package.json \
        -indexPath frontend/adventure/index.html \
        -manifest frontend/adventure/vendor/manifest.json
 
+# Prune the development-only files the frontend ships with but that have no
+# part in a release: the vitest suites and their config, and the npm
+# postinstall hook that resolves the vendored tree (this image has no Node
+# runtime - the vendored files above are that hook's resolved result).
+# Nothing at runtime reads them, and the server would serve them as plain
+# static modules. package.json and its lockfile stay: they are the reviewed
+# dependency surface the vendored tree derives from, and keeping them lets
+# SBOM and audit tooling read the image itself. rmdir fails if scripts/ ever
+# gains a second file, which is the signal to revisit this list.
+RUN find frontend/adventure -name '*.test.js' -delete \
+    && rm -f frontend/adventure/vitest.config.mjs \
+             frontend/adventure/scripts/vendor.cjs \
+    && rmdir frontend/adventure/scripts
+
 # Build for target architecture
 ARG TARGETOS TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-s -w" -trimpath -o bin/rego-adventure .
@@ -31,8 +45,11 @@ WORKDIR /app
 
 # Runtime dependencies and the non-root user in one layer; the fixed UID
 # keeps ownership metadata stable across rebuilds.
+# busybox adduser leaves the empty home directory 2755 (setgid plus world
+# readable); 700 keeps it private to the account that never receives a file.
 RUN apk add --no-cache ca-certificates \
-    && adduser -D -u 10001 appuser
+    && adduser -D -u 10001 appuser \
+    && chmod 700 /home/appuser
 
 # Copy the frontend from the builder, where the vendored libraries were
 # resolved and the import map was rewritten to the local files. The image is
