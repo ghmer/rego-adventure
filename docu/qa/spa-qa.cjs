@@ -223,7 +223,9 @@ async function theTour(browser, report, port, baseUrl) {
     armPageTimeouts(quiet);
     const pageErrors = [];
     quiet.on('pageerror', (error) => pageErrors.push(error.message));
-    await quiet.route('**/esm.sh/driver.js*', (route) => route.fulfill({
+    // The import map resolves driver.js to the vendored file; a route
+    // stub swaps its bytes for a driver that throws.
+    await quiet.route('**/vendor/driver.js@**', (route) => route.fulfill({
         status: 200,
         contentType: 'application/javascript',
         body: 'export const driver = () => { throw new Error("driver unavailable"); };\nexport default driver;\n'

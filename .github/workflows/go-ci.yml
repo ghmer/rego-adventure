@@ -43,6 +43,14 @@ jobs:
         with:
           go-version: "1.27.3"
 
+      # The server refuses to boot while the vendorgen manifest names
+      # libraries whose files are missing (the import map cannot resolve
+      # them). The tests exercise real server construction, so the vendored
+      # tree must exist: resolve it from the integrity-pinned tarballs, the
+      # same step the Docker builder and the npm postinstall hook run.
+      - name: Resolve vendored browser libraries
+        run: go run ./cmd/vendorgen
+
       - name: Run tests
         run: go test -race -count=1 ./...
 

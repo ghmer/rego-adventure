@@ -9,8 +9,16 @@ RUN apk add --no-cache git
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
+# Copy the source and resolve the frontend's browser libraries: vendorgen
+# extracts the files the lockfile pins (integrity-verified) into
+# frontend/adventure/vendor, and importmapgen's manifest mode rewires the
+# import map to those same-origin files. The release image serves without
+# any runtime network dependency; only the builder stage downloads.
 COPY . .
+RUN go run ./cmd/vendorgen -pkg frontend/adventure/package.json \
+    && go run ./cmd/importmapgen -pkgPath frontend/adventure/package.json \
+       -indexPath frontend/adventure/index.html \
+       -manifest frontend/adventure/vendor/manifest.json
 
 # Build for target architecture
 ARG TARGETOS TARGETARCH
@@ -26,9 +34,10 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates \
     && adduser -D -u 10001 appuser
 
-# Copy the entire frontend directory, owned by the runtime user.
-# The app only reads these files, so no post-copy chown layer is needed.
-COPY --chown=appuser:appuser frontend ./frontend
+# Copy the frontend from the builder, where the vendored libraries were
+# resolved and the import map was rewritten to the local files. The image is
+# self-contained: nothing under frontend/ downloads anything at runtime.
+COPY --from=builder --chown=appuser:appuser /app/frontend ./frontend
 
 # Copy the binary. go build emits a mode-0755 executable, so no chmod
 # layer is needed either.

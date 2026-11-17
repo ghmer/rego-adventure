@@ -136,7 +136,18 @@ func (s *Server) SetupRoutes() error {
 	// below defaults to protected, and only publicRoutePaths opens an
 	// exception. Unmatched paths fall through to the public SPA handler
 	// (see servePublicly and createSPAHandler).
-	s.router.Use(SecurityHeaders(s.config, importMapHash))
+	// The release serves its browser libraries from frontend/adventure/vendor
+	// (cmd/vendorgen output, resolved from the lockfile at build or bootstrap
+	// time). A manifest that names packages whose files are missing means
+	// the import map cannot resolve: refusing to boot names the one command
+	// that fixes it instead of answering 404s for every module. The CSP drops
+	// the external origins when the vendored files carry the load.
+	vendored, missing := vendorStatus()
+	if len(missing) > 0 {
+		return fmt.Errorf("security: vendored browser libraries missing (%s); run go run ./cmd/vendorgen",
+			strings.Join(missing, ", "))
+	}
+	s.router.Use(SecurityHeaders(s.config, importMapHash, vendored))
 	s.router.Use(BodySizeLimit())
 	s.router.Use(setupCORS(s.config.AllowedOrigin))
 	s.router.Use(Auth(s.config))

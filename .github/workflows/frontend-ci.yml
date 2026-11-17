@@ -94,9 +94,9 @@ jobs:
       - name: Run quest editor rule tests
         run: node --test docu/quest-editor/
 
-  importmap-sync:
+  vendoring-contract:
     runs-on: ubuntu-latest
-    name: Import map tracks package.json
+    name: Import map and vendoring contract track the lockfile
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,18 +106,20 @@ jobs:
         with:
           go-version: "1.27.3"
 
-      # The import map in index.html and the synced cdnjs links must be
-      # exactly what cmd/importmapgen derives from package.json. Manual
-      # dependency bumps bypass the update-importmap PR workflow, so this
-      # check fails a PR whose index.html has drifted instead of letting
-      # the versions diverge silently.
-      - name: Regenerate import map and fail on drift
+      # The import map and the committed vendoring contract must be
+      # exactly what the generators derive from package.json and the
+      # lockfile. The vendored FILES are derived, gitignored build output;
+      # what is reviewed is the contract (vendor/manifest.json), and it is
+      # regenerated here from the integrity-pinned tarballs so a manual
+      # dependency bump cannot leave it (or index.html) drifted.
+      - name: Regenerate and fail on drift
         run: |
-          go run ./cmd/importmapgen/main.go
-          if ! git diff --exit-code -- frontend/adventure/index.html; then
-            echo "::error::frontend/adventure/index.html is out of sync with frontend/adventure/package.json."
-            echo "Regenerate it with: go run ./cmd/importmapgen/main.go"
-            git diff -- frontend/adventure/index.html
+          go run ./cmd/vendorgen
+          go run ./cmd/importmapgen -manifest frontend/adventure/vendor/manifest.json
+          if ! git diff --exit-code -- frontend/adventure/vendor/manifest.json frontend/adventure/index.html; then
+            echo "::error::frontend/adventure/vendor/manifest.json or index.html is out of sync with frontend/adventure/package.json."
+            echo "Regenerate with: go run ./cmd/vendorgen && go run ./cmd/importmapgen -manifest frontend/adventure/vendor/manifest.json"
+            git diff -- frontend/adventure/vendor/manifest.json frontend/adventure/index.html | head -200
             exit 1
           fi
 

@@ -229,3 +229,141 @@ func TestBuildImportMapErrorsOnUnknownDependency(t *testing.T) {
 		t.Fatal("expected error when subpaths are declared for a missing dependency")
 	}
 }
+
+// vendoredTestHTML is the document manifest mode starts from: the map
+// resolves to local paths and both stylesheets still point at cdnjs.
+const vendoredTestHTML = `<!DOCTYPE html>
+<html>
+<head>
+    <script type="importmap">
+        {
+            "imports": {
+                "marked": "https://esm.sh/marked@18.2.1"
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/driver.js/1.14.0/driver.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+</head>
+</html>`
+
+// vendoredTestManifest mirrors what vendorgen writes: two module
+// packages (one with subpaths), one CSS-only package and one explicit
+// cdnjs alias.
+func vendoredTestManifest() *Manifest {
+	return &Manifest{
+		Packages: map[string]pkgManifest{
+			"marked": {Dir: "marked@18.2.1", Entry: "lib/marked.esm.js"},
+			"driver.js": {
+				Dir: "driver.js@1.14.0", Entry: "dist/driver.js.mjs",
+				CSS: "dist/driver.css",
+			},
+			"yace": {
+				Dir: "yace@1.1.1", Entry: "dist/index.js",
+				SubpathFiles: map[string]string{"yace/plugins/tab": "dist/plugins/tab.js"},
+			},
+			"@fortawesome/fontawesome-free": {Dir: "fortawesome-fontawesome-free@7.0.1", Entry: ""},
+		},
+		CSS: map[string]cssManifest{
+			"font-awesome": {Dir: "fortawesome-fontawesome-free@7.0.1", File: "css/all.min.css"},
+		},
+	}
+}
+
+func TestUpdateIndexHTMLManifestModePointsAtVendor(t *testing.T) {
+	pkg := buildPkg(map[string]string{"marked": "18.2.1"}, nil)
+	out, err := updateIndexHTML([]byte(vendoredTestHTML), pkg, vendoredTestManifest())
+	if err != nil {
+		t.Fatalf("updateIndexHTML returned error: %v", err)
+	}
+
+	if !strings.Contains(string(out), `"marked": "/vendor/marked@18.2.1/lib/marked.esm.js"`) {
+		t.Errorf("the module should resolve to its vendored file, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), `"yace/plugins/tab": "/vendor/yace@1.1.1/dist/plugins/tab.js"`) {
+		t.Errorf("the subpath should resolve to its vendored file, got:\n%s", out)
+	}
+	if strings.Contains(string(out), "esm.sh") {
+		t.Errorf("manifest mode must not emit CDN URLs, got:\n%s", out)
+	}
+}
+
+func TestUpdateIndexHTMLManifestModeRedirectsStylesheets(t *testing.T) {
+	pkg := buildPkg(map[string]string{"marked": "18.2.1"}, nil)
+	out, err := updateIndexHTML([]byte(vendoredTestHTML), pkg, vendoredTestManifest())
+	if err != nil {
+		t.Fatalf("updateIndexHTML returned error: %v", err)
+	}
+
+	if !strings.Contains(string(out), `href="/vendor/driver.js@1.14.0/dist/driver.css"`) {
+		t.Errorf("the package stylesheet should be redirected in full, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), `href="/vendor/fortawesome-fontawesome-free@7.0.1/css/all.min.css"`) {
+		t.Errorf("the aliased stylesheet should be redirected in full, got:\n%s", out)
+	}
+	if strings.Contains(string(out), "cdnjs.cloudflare.com") {
+		t.Errorf("manifest mode must not leave cdnjs URLs, got:\n%s", out)
+	}
+}
+
+func TestBuildVendoredImportMapSkipsCSSOnlyPackages(t *testing.T) {
+	out, err := buildVendoredImportMap(vendoredTestManifest())
+	if err != nil {
+		t.Fatalf("buildVendoredImportMap: %v", err)
+	}
+	if strings.Contains(string(out), "@fortawesome/fontawesome-free") {
+		t.Errorf("a CSS-only package must not get an import-map key, got:\n%s", out)
+	}
+}
+
+func TestBuildVendoredImportMapErrorsOnEmptyManifest(t *testing.T) {
+	empty := &Manifest{Packages: map[string]pkgManifest{
+		"fontawesome": {Dir: "fa@7", Entry: ""},
+	}}
+	if _, err := buildVendoredImportMap(empty); err == nil {
+		t.Error("a manifest without module packages must error")
+	}
+}
+
+// TestUpdateIndexHTMLManifestModeConvergesStaleHrefs: a document linked
+// to the previous vendor version converges to the manifest's current
+// one, and only inside a link's href - the import map entries of the
+// same document stay untouched.
+func TestUpdateIndexHTMLManifestModeConvergesStaleHrefs(t *testing.T) {
+	stale := strings.Replace(vendoredTestHTML,
+		"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css",
+		"/vendor/fortawesome-fontawesome-free@7.0.1/css/all.min.css", 1)
+	stale = strings.Replace(stale,
+		"https://cdnjs.cloudflare.com/ajax/libs/driver.js/1.14.0/driver.min.css",
+		"/vendor/driver.js@1.14.0/dist/driver.css", 1)
+	stale = strings.Replace(stale,
+		"https://esm.sh/marked@18.2.1",
+		"/vendor/marked@18.2.1/lib/marked.esm.js", 1)
+
+	manifest := vendoredTestManifest()
+	manifest.Packages["@fortawesome/fontawesome-free"] = pkgManifest{
+		Dir: "fortawesome-fontawesome-free@7.3.1", Entry: "",
+	}
+	manifest.CSS["font-awesome"] = cssManifest{
+		Dir: "fortawesome-fontawesome-free@7.3.1", File: "css/all.min.css",
+	}
+
+	pkg := buildPkg(map[string]string{"marked": "18.2.1"}, nil)
+	out, err := updateIndexHTML([]byte(stale), pkg, manifest)
+	if err != nil {
+		t.Fatalf("updateIndexHTML returned error: %v", err)
+	}
+
+	if !strings.Contains(string(out), `href="/vendor/fortawesome-fontawesome-free@7.3.1/css/all.min.css"`) {
+		t.Errorf("the stale href should converge to the manifest version, got:\n%s", out)
+	}
+	if strings.Contains(string(out), "fortawesome-fontawesome-free@7.0.1") {
+		t.Errorf("no stale font-awesome URL should survive, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), `"driver.js": "/vendor/driver.js@1.14.0/dist/driver.js.mjs"`) {
+		t.Errorf("the import map's driver entry is not a stylesheet and must stay, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), `href="/vendor/driver.js@1.14.0/dist/driver.css"`) {
+		t.Errorf("an up-to-date href must survive the convergence pass, got:\n%s", out)
+	}
+}

@@ -6,3 +6,9 @@ frontend/adventure/node_modules/
 frontend/quests/
 __pycache__/
 FINDINGS.md
+
+# The vendored browser libraries are derived, integrity-checked build output
+# (cmd/vendorgen resolves them from package-lock.json). Only the manifest
+# contract is committed; the files themselves never enter git history.
+frontend/adventure/vendor/*
+!frontend/adventure/vendor/manifest.json

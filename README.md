@@ -185,7 +185,7 @@ Configuration is managed via ConfigMap. Update [`configmap.yaml`](docu/deploy/k8
 | Frontend unit tests | `npm ci` then `npm test` in `frontend/adventure` (toolchain = devDependencies, pinned by the committed lockfile) | `frontend-ci.yml` |
 | Frontend lint | `npm ci` then `npx eslint src` in `frontend/adventure` | `frontend-ci.yml` |
 | Quest editor rule tests | `node --test docu/quest-editor/` | `frontend-ci.yml` |
-| Import map drift | `go run ./cmd/importmapgen/main.go`, then require `frontend/adventure/index.html` unchanged | `frontend-ci.yml` |
+| Import map and vendoring contract drift | `go run ./cmd/vendorgen && go run ./cmd/importmapgen -manifest frontend/adventure/vendor/manifest.json`, then require `frontend/adventure/vendor/manifest.json` and `frontend/adventure/index.html` unchanged | `frontend-ci.yml` (`vendoring-contract` job) |
 | Browser and command-line QA suites | `node docu/qa/run-qa.cjs` (all suites, one shared build, running concurrently), or `node docu/qa/<suite>.cjs` for a single suite | `frontend-ci.yml` (`browser-qa` job) |
 | Clone gate | `npx --yes jscpd@4.0.5 --min-tokens 60 --threshold 0 ... backend cmd main.go frontend/adventure/src docu/quest-editor` (tests and test fixtures excluded) | `go-ci.yml`, `frontend-ci.yml` (`clone-gate` job) |
 
@@ -222,9 +222,10 @@ repository only tracks as a placeholder.
 ├── main.go                # Application entry point
 ├── cmd/
 │   ├── assetgen/          # Quest pack asset generator
-│   ├── importmapgen/      # Quest editor import map generator
+│   ├── importmapgen/      # Import map generator (vendored manifest mode)
 │   ├── questmigrate/      # Quest pack format migrator (pre-v2 packs)
-│   └── solutionverifier/  # Quest pack solution verifier
+│   ├── solutionverifier/  # Quest pack solution verifier
+│   └── vendorgen/         # Vendors the browser libraries from the lockfile
 ├── backend/
 │   ├── config/            # Configuration management
 │   ├── http/              # HTTP server and routing
@@ -536,6 +537,42 @@ until the process restarts.
 
 Quest packs, images, audio, `theme.css` and `custom.css` are read per request and need no restart,
 nor do the SPA's JavaScript modules, which are ordinary static files.
+
+### Vendored Browser Libraries
+
+The browser libraries (`marked`, `dompurify`, `canvas-confetti`, `driver.js`, `yace`,
+`oidc-client-ts`, plus `oidc-client-ts`'s transitive `jwt-decode` and the Font Awesome stylesheet)
+load from the release itself, under `frontend/adventure/vendor`, never from a CDN. The import map
+resolves the module names to those same-origin files (`cmd/importmapgen` in manifest mode), so no
+third-party origin loads any script, style or font, and the Content-Security-Policy allowlists no
+esm.sh and no cdnjs. All of it adds up to roughly 800 KB; the release image is self-contained and
+needs no network at runtime.
+
+What git carries and what it does not:
+
+- **Committed**: the dependency surface (`package.json`, its exact-versions lockfile with the
+  sha512 integrity hashes) and the extraction contract, `vendor/manifest.json` - a two-kilobyte
+  document that names, per package, the directory it unpacks into and the files the browser fetches.
+- **Derived, gitignored**: the vendored files themselves, never in git history. `cmd/vendorgen`
+  downloads the pinned tarballs, verifies each against the lockfile's integrity hash, and extracts
+  exactly the files the contract names plus their relative-import and CSS `url()` closures and each
+  package's license.
+
+Every environment that serves resolves them:
+
+- **Docker build**: the builder stage runs `vendorgen` and `importmapgen -manifest`, so the image
+  ships the resolved tree; the final stage copies the frontend out of the builder.
+- **Local development**: `npm ci` in `frontend/adventure` runs the `postinstall` hook, which
+  resolves the tree (skipped with a notice on toolchain-only machines without Go; `npm run vendor`
+  forces it).
+- **QA**: the harness preflight (`docu/qa/qa-lib.cjs`) resolves the tree when it is missing, so the
+  suites always drive the shipped configuration.
+- **The server refuses to boot** while the contract names packages whose files are missing, with
+  the one command that fixes it - the import map cannot resolve half-served libraries.
+
+A dependency bump regenerates four small text files (`package.json`, the lock, the contract,
+`index.html`); the CI `vendoring-contract` job fails any PR where either has drifted, and the
+update-importmap workflow produces the commit for Dependabot bumps.
 
 ## License
 

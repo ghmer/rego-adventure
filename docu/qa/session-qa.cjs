@@ -27,7 +27,8 @@
 // key pair. The authority configured in the browser is a path the app server
 // answers with 404, so the OIDC metadata lookup fails and the renewal is refused.
 // Users are seeded into sessionStorage under the OIDC library's key. The suite
-// needs network access: the import map loads oidc-client-ts from esm.sh.
+// The import map resolves oidc-client-ts to its vendored file, so this
+// suite runs without any network access.
 
 const crypto = require('node:crypto');
 const http = require('node:http');
@@ -142,12 +143,12 @@ async function refusedRenewal(browser, report, binary) {
         // Wait for the renewal's effect on the chrome, not for a fixed pause.
         await page.waitForSelector('#login-container:not(.hidden)', { timeout: 5000 }).catch(() => {});
 
-        // The OIDC module arrives through the import map's esm.sh entry.
-        const moduleLoads = requests.filter((entry) => entry.url.includes('esm.sh'));
+        // The OIDC module arrives through the import map's vendored entry.
+        const moduleLoads = requests.filter((entry) => entry.url.includes('/vendor/oidc-client-ts'));
         report.check(
             'the OIDC client arrived from the import map',
             moduleLoads.length > 0,
-            'no esm.sh request: without network access the session machine is unreachable'
+            'no /vendor/oidc-client-ts request: the import map must resolve the vendored module'
         );
 
         const metadata = requests.filter((entry) => entry.url.includes('.well-known/openid-configuration'));

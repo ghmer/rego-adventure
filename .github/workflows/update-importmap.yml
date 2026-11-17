@@ -40,24 +40,38 @@ jobs:
         with:
           go-version: "1.27.3"
 
-      - name: Generate index.html with updated importmap
+      # npm resolves the lockfile refresh the vendoring is pinned to.
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.13.0'
+
+      - name: Refresh the vendored libraries and the import map
         run: |
-          cd trusted-base
-          go run ./cmd/importmapgen/main.go \
-            -pkgPath ../pr-head/frontend/adventure/package.json \
-            -indexPath ../pr-head/frontend/adventure/index.html
+          npm install --package-lock-only --ignore-scripts
+          go run ${GITHUB_WORKSPACE}/trusted-base/cmd/vendorgen \
+            -pkg frontend/adventure/package.json
+          go run ${GITHUB_WORKSPACE}/trusted-base/cmd/importmapgen/main.go \
+            -pkgPath frontend/adventure/package.json \
+            -indexPath frontend/adventure/index.html \
+            -manifest frontend/adventure/vendor/manifest.json
+        working-directory: pr-head
 
       - name: Commit and push if changed
         working-directory: pr-head
         run: |
-          if git diff --quiet -- frontend/adventure/index.html; then
-            echo "No changes to index.html"
+          # package.json carries the PR version, so only the generated
+          # text files can drift: lockfile refresh, vendoring contract,
+          # import map. The vendored files themselves are gitignored —
+          # this commit stays text-only.
+          if git diff --quiet -- frontend/adventure; then
+            echo "No changes to the imported surface"
             exit 0
           fi
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add frontend/adventure/index.html
-          git commit -m "chore: update index.html"
+          git add frontend/adventure
+          git commit -m "chore: update index.html and the vendoring contract"
           git push
