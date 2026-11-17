@@ -39,6 +39,15 @@ jobs:
         with:
           go-version: '1.27.3'
 
+      # The server refuses to boot while the vendorgen manifest names
+      # libraries whose files are missing (the import map cannot resolve
+      # them). The tests exercise real server construction, and the vendored
+      # files are derived build output that git does not carry, so a fresh
+      # checkout must resolve them first - the same step go-ci.yml, the
+      # Docker builder stage and the npm postinstall hook run.
+      - name: Resolve vendored browser libraries
+        run: go run ./cmd/vendorgen
+
       - name: Run tests
         run: go test -v ./...
 
